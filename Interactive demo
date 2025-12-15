@@ -1,0 +1,22 @@
+import streamlit as st
+
+st.title("Smart Financial Advisor – Demo")
+
+age = st.number_input("Age", min_value=18, max_value=100)
+income = st.number_input("Annual income (€)", min_value=0)
+risk = st.selectbox("Risk profile", ["Low", "Medium", "High"])
+
+if st.button("Generate demo recommendation"):
+    st.subheader("Demo Result")
+    st.write(
+        "Based on your profile, a diversified strategy could be suitable. "
+        "This demo shows a simplified recommendation."
+    )
+
+    st.warning(
+        "🔒 Full financial analysis, detailed strategies, and source code "
+        "are available in the PRO version."
+    )
+
+
+
