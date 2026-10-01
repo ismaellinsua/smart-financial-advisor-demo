@@ -118,3 +118,4 @@ def test_switch_business_button_opens_dialog(tmp_path, monkeypatch):
     assert radio.value == "restaurant"
     assert list(radio.options) == ["Pequeño comercio / Tienda", "Restaurante / Cafetería",
                                    "Autónomo / Servicios profesionales", "Tienda online / E-commerce"]
+    assert at.text_input(key="switch_name_restaurant").value == store.settings()["business_name"]

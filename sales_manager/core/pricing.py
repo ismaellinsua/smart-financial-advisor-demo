@@ -36,3 +36,12 @@ def format_money(amount: float, symbol: str = "€") -> str:
     """Spanish-style formatting: 1.234,56 €"""
     text = f"{amount:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
     return f"{text} {symbol}"
+
+
+def format_money_short(amount: float, symbol: str = "€") -> str:
+    """Compact figure for headline tiles: 1.234,56 € below 10.000; then 12,3 mil € and 1,2 M €."""
+    if abs(amount) >= 1_000_000:
+        return f"{amount / 1_000_000:.1f}".replace(".", ",") + f" M {symbol}"
+    if abs(amount) >= 10_000:
+        return f"{amount / 1_000:.1f}".replace(".", ",") + f" mil {symbol}"
+    return format_money(amount, symbol)

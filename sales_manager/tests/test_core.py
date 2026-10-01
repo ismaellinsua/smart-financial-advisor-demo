@@ -5,7 +5,7 @@ import pytest
 from core import automation
 from core.db import SaleError, Store
 from core.presets import PRESETS
-from core.pricing import compute_totals, format_money
+from core.pricing import compute_totals, format_money, format_money_short
 from core.receipts import receipt_html
 
 
@@ -79,7 +79,7 @@ def test_services_preset_does_not_track_stock(make_store):
 def test_every_preset_generates_demo_activity(make_store, business_type):
     s = make_store()
     s.load_preset(business_type)
-    assert len(s.sales()) > 50
+    assert len(s.sales()) > (15 if business_type == "services" else 50)
     assert (s.products()["stock"] >= 0).all()
 
 
@@ -185,3 +185,17 @@ def test_postgres_reconnects_after_server_drops_connections(make_store):
             "WHERE datname = current_database() AND pid <> pg_backend_pid()"
         )
     assert not store.products().empty
+
+
+def test_format_money_short():
+    assert format_money_short(9876.5) == "9.876,50 €"
+    assert format_money_short(294474.2) == "294,5 mil €"
+    assert format_money_short(1_250_000) == "1,2 M €"
+
+
+def test_freelancer_demo_figures_are_believable(make_store):
+    s = make_store()
+    s.load_preset("services")
+    start, end, prev_start = automation.period_bounds(30)
+    k = automation.kpis(s.sales(), s.sale_lines(), start, end, prev_start)
+    assert 3_000 < k["revenue"] < 25_000
