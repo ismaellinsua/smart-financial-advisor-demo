@@ -44,6 +44,7 @@ h1, h2, h3 {{ letter-spacing: -0.02em; font-weight: 700; }}
 button[kind="primary"], button[data-testid="stBaseButton-primary"] {{
     background: var(--accent) !important; border-color: var(--accent) !important; color: #fff !important; }}
 button[kind="primary"]:hover, button[data-testid="stBaseButton-primary"]:hover {{ filter: brightness(1.12); }}
+button[kind="primary"]:disabled, button[data-testid="stBaseButton-primary"]:disabled {{ opacity: .4; cursor: not-allowed; }}
 
 /* Product tiles in the point of sale */
 .sm-tile-cat {{ font-size: .7rem; text-transform: uppercase; letter-spacing: .08em; opacity: .55; }}

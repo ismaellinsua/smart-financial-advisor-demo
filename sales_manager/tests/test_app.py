@@ -32,6 +32,19 @@ def demo_db(tmp_path_factory):
     return str(path)
 
 
+@pytest.fixture(scope="module")
+def empty_db(tmp_path_factory):
+    path = tmp_path_factory.mktemp("db") / "empty.db"
+    Store(path).load_preset("services", with_demo_sales=False)
+    return str(path)
+
+
+@pytest.mark.parametrize("fn", PAGES)
+def test_page_renders_without_sales(empty_db, fn):
+    at = AppTest.from_string(SCRIPT.format(root=ROOT, db=empty_db, fn=fn), default_timeout=30).run()
+    assert not at.exception, at.exception
+
+
 @pytest.mark.parametrize("fn", PAGES)
 def test_page_renders(demo_db, fn):
     at = AppTest.from_string(SCRIPT.format(root=ROOT, db=demo_db, fn=fn), default_timeout=30).run()
@@ -61,3 +74,23 @@ def test_onboarding_creates_workspace(tmp_path, monkeypatch):
     assert not at.exception, at.exception
     assert store.settings()["business_name"] == "Café Aurora"
     assert not store.is_empty()
+
+
+def test_password_gate(tmp_path, monkeypatch):
+    store = Store(tmp_path / "gate.db")
+    store.load_preset("retail", with_demo_sales=False)
+    import ui.context
+
+    monkeypatch.setattr(ui.context, "get_store", lambda: store)
+    at = AppTest.from_file(APP, default_timeout=30)
+    at.secrets["app_password"] = "secreta"
+    at.run()
+    assert not at.exception
+    assert any("Contraseña" == t.label for t in at.text_input)
+    at.text_input[0].input("mala")
+    at.button[0].click().run()
+    assert at.error and "incorrecta" in at.error[0].value
+    at.text_input[0].input("secreta")
+    at.button[0].click().run()
+    assert not at.exception, at.exception
+    assert at.session_state["authenticated"]

@@ -124,3 +124,32 @@ def test_receipt_escapes_html(store):
     html = receipt_html(sale, store.settings())
     assert "<script>x" not in html
     assert sale["number"] in html
+
+
+def test_backup_and_restore_round_trip(store):
+    pid = product_id(store, "CAM-001")
+    store.create_sale([{"product_id": pid, "quantity": 1}], "Tarjeta")
+    backup = store.backup_bytes()
+
+    other = Store(":memory:")
+    other.load_preset("services", with_demo_sales=False)
+    other.restore(backup)
+    assert len(other.sales()) == 1
+    assert set(other.products()["sku"]) == set(store.products()["sku"])
+
+
+def test_restore_rejects_invalid_files(store):
+    import sqlite3, tempfile
+    from pathlib import Path
+
+    with pytest.raises(ValueError):
+        store.restore(b"esto no es una base de datos")
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "other.db"
+        conn = sqlite3.connect(path)
+        conn.execute("CREATE TABLE foo (x)")
+        conn.commit()
+        conn.close()
+        with pytest.raises(ValueError):
+            store.restore(path.read_bytes())
+    assert not store.products().empty  # untouched

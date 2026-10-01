@@ -7,6 +7,7 @@ import streamlit as st
 
 from core.presets import PRESETS
 from ui import pages
+from ui.auth import logout_button, require_login
 from ui.context import PAGES, ctx
 from ui.styles import inject_css, sidebar_brand
 
@@ -14,6 +15,9 @@ st.set_page_config(page_title="Gestor de Ventas", page_icon=":material/storefron
 
 c = ctx()
 inject_css(c.settings["accent_color"])
+
+if not require_login():
+    st.stop()
 
 if c.store.is_empty():
     pages.onboarding()
@@ -39,4 +43,5 @@ nav = st.navigation({
     "Inteligencia": [PAGES["automations"]],
     "Ajustes": [PAGES["settings"]],
 })
+logout_button()
 nav.run()
