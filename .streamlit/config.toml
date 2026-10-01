@@ -8,6 +8,14 @@ font = "sans serif"
 
 [client]
 toolbarMode = "minimal"
+# Visitors see a short error message, never internal tracebacks.
+showErrorDetails = "type"
 
 [browser]
 gatherUsageStats = false
+
+[server]
+# Backups are small; refuse large uploads.
+maxUploadSize = 20
+enableXsrfProtection = true
+enableCORS = true

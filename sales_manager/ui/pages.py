@@ -11,9 +11,11 @@ import streamlit as st
 from core import automation
 from core.db import SaleError
 from core.presets import CURRENCIES, PAYMENT_METHODS, PRESETS
-from core.pricing import compute_totals
-from core.pdfs import cash_closing_pdf, invoice_pdf
-from core.receipts import receipt_html
+from core.security import ROLES, csv_safe
+from core.pdfs import cash_closing_pdf, credit_note_pdf, invoice_pdf
+from core.receipts import receipt_html, refund_receipt_html
+from ui import pages_intel
+from ui.checkout import checkout_panel
 from ui.context import PAGES, ctx, get_store
 from ui.styles import insight, page_header, style_figure
 
@@ -34,9 +36,17 @@ def _delta(value) -> str | None:
     return None if value is None else _pct(value, signed=True)
 
 
+def _require(c, role: str) -> bool:
+    """Second line of defence: pages also check the role, not only the menu."""
+    if c.can(role):
+        return True
+    st.error("No tienes permiso para ver esta sección.", icon=":material/lock:")
+    return False
+
+
 def _csv(df: pd.DataFrame) -> bytes:
     # UTF-8 with BOM and semicolons so it opens cleanly in Spanish-locale Excel.
-    return df.to_csv(index=False, sep=";", decimal=",").encode("utf-8-sig")
+    return csv_safe(df).to_csv(index=False, sep=";", decimal=",").encode("utf-8-sig")
 
 
 # ---------------------------------------------------------------- onboarding
@@ -86,9 +96,13 @@ def switch_business_dialog() -> None:
     )
     if st.button(f"Cambiar a «{PRESETS[business_type]['label']}»", type="primary", use_container_width=True,
                  icon=":material/swap_horiz:"):
+        if not c.can("admin"):
+            st.error("Solo el administrador puede cambiar de negocio.")
+            return
         c.store.save_settings({"business_name": name.strip() or c.settings["business_name"]})
         with st.spinner("Preparando el nuevo negocio…"):
             c.store.load_preset(business_type, with_demo_sales=demo)
+        c.store.audit(c.username, "negocio_cambiado", f"{PRESETS[business_type]['label']} · {name}")
         st.session_state.pop("cart", None)
         st.rerun()
 
@@ -96,8 +110,11 @@ def switch_business_dialog() -> None:
 # ----------------------------------------------------------------- dashboard
 def dashboard() -> None:
     c = ctx()
+    if not _require(c, "encargado"):
+        return
     page_header("Panel de ventas", f"Así va {c.settings['business_name']}", eyebrow=_today_label())
 
+    pages_intel.report_card(c)
     period = st.segmented_control(
         "Periodo", [7, 30, 90], default=30, format_func=lambda d: f"Últimos {d} días",
         label_visibility="collapsed", key="dash_period",
@@ -105,7 +122,8 @@ def dashboard() -> None:
     start, end, prev_start = automation.period_bounds(period)
     sales = c.store.sales(start=prev_start)
     lines = c.store.sale_lines(start=prev_start)
-    k = automation.kpis(sales, lines, start, end, prev_start)
+    refunds = c.store.refunds(start=prev_start)
+    k = automation.kpis(sales, lines, start, end, prev_start, refunds)
 
     m1, m2, m3, m4 = st.columns(4)
     vs = f"Variación frente a los {period} días anteriores."
@@ -123,6 +141,9 @@ def dashboard() -> None:
         st.markdown("**Facturación diaria**")
         days = pd.date_range(start.date(), date.today(), freq="D")
         daily = cur_sales.groupby(cur_sales["created_at"].dt.normalize())["total"].sum().reindex(days, fill_value=0)
+        if not refunds.empty:  # returns lower the day they were made
+            back = refunds.groupby(refunds["created_at"].dt.normalize())["total"].sum()
+            daily = daily.sub(back.reindex(days, fill_value=0), fill_value=0)
         fig = go.Figure(go.Bar(
             x=daily.index, y=daily.values, marker_color=accent,
             hovertemplate="%{x|%d/%m/%Y}<br><b>%{y:,.2f} " + c.symbol + "</b><extra></extra>",
@@ -162,19 +183,30 @@ def dashboard() -> None:
             ))
             st.plotly_chart(style_figure(fig, 240), use_container_width=True, config={"displayModeBar": False})
     with right, st.container(border=True):
-        st.markdown("**Alertas automáticas**")
-        products = c.store.products()
-        low = automation.low_stock(products)
-        inactive = automation.inactive_customers(
-            c.store.customers(), c.store.sales(), int(c.settings["inactive_days"])
-        )
-        st.metric("Bajo stock mínimo", len(low))
-        st.metric("Clientes a reactivar", len(inactive))
-        if "automations" in PAGES:
-            st.page_link(PAGES["automations"], label="Ver automatizaciones", icon=":material/arrow_forward:")
+        st.markdown("**Alertas inteligentes**")
+        alerts = pages_intel.cached_alerts(c)
+        pages_intel.show_alerts(alerts, limit=3)
+        if len(alerts) > 3:
+            st.caption(f"Y {len(alerts) - 3} más.")
+        if "intelligence" in PAGES:
+            st.page_link(PAGES["intelligence"], label="Ver todas y el análisis", icon=":material/arrow_forward:")
+
+    by_user = cur_sales[cur_sales["user_name"] != ""].groupby("user_name")["total"].agg(["sum", "count"])
+    if not by_user.empty:
+        with st.container(border=True):
+            st.markdown("**Ventas por persona del equipo**")
+            by_user = by_user.sort_values("sum")
+            fig = go.Figure(go.Bar(
+                x=by_user["sum"], y=by_user.index, orientation="h", marker_color=accent,
+                text=[f"{c.money(v)} · {n} ventas" for v, n in zip(by_user["sum"], by_user["count"])],
+                textposition="auto",
+                hovertemplate="%{y}<br><b>%{x:,.2f} " + c.symbol + "</b><extra></extra>",
+            ))
+            st.plotly_chart(style_figure(fig, 60 + 40 * len(by_user)), use_container_width=True,
+                            config={"displayModeBar": False})
 
     st.markdown("#### Recomendaciones")
-    for level, message in automation.insights(products, cur_lines, c.preset["item_label"]):
+    for level, message in automation.insights(c.store.products(), cur_lines, c.preset["item_label"]):
         insight(level, message)
 
 
@@ -279,10 +311,8 @@ def point_of_sale() -> None:
         st.markdown("#### Ticket actual")
         if not cart:
             st.caption("El ticket está vacío. Añade artículos desde el catálogo.")
-        lines = []
         for pid, qty in list(cart.items()):
             p = by_id.loc[pid]
-            lines.append({"product_id": pid, "quantity": qty, "unit_price": p["price"]})
             n, minus, q, plus = st.columns([6, 1, 1, 1], vertical_alignment="center")
             n.markdown(f"**{escape(p['name'])}**  \n<span style='opacity:.65'>{c.money(p['price'])} × {qty} = "
                        f"{c.money(p['price'] * qty)}</span>", unsafe_allow_html=True)
@@ -294,52 +324,29 @@ def point_of_sale() -> None:
                         disabled=bool(p["track_stock"]) and qty >= p["stock"])
 
         st.divider()
-        customers = c.store.customers()
-        names = {int(i): n for i, n in zip(customers["id"], customers["name"])}
-        # 0 stands for the walk-in customer (ids start at 1).
-        if st.session_state.get("pos_customer") not in names:
-            st.session_state["pos_customer"] = 0
-        cust_col, new_col = st.columns([4, 1], vertical_alignment="bottom")
-        customer_id = cust_col.selectbox(
-            "Cliente", [0, *names], key="pos_customer",
-            format_func=lambda i: names.get(i, "Cliente general"),
-        ) or None
-        with new_col.popover("Nuevo", icon=":material/person_add:", help="Nuevo cliente"):
-            with st.form("pos_new_customer", clear_on_submit=True, border=False):
-                st.text_input("Nombre", key="pos_new_name")
-                st.text_input("Email", key="pos_new_email")
-                st.text_input("Teléfono", key="pos_new_phone")
-                st.form_submit_button("Crear cliente", on_click=_create_customer_from_pos, type="primary")
 
-        payment = st.segmented_control("Forma de pago", PAYMENT_METHODS, default=PAYMENT_METHODS[0],
-                                       key="pos_payment") or PAYMENT_METHODS[0]
-        discount = st.number_input("Descuento (%)", 0.0, 100.0, 0.0, step=5.0, key="pos_discount")
+        def customer_picker(names: dict):
+            # 0 stands for the walk-in customer (ids start at 1).
+            if st.session_state.get("pos_customer") not in names:
+                st.session_state["pos_customer"] = 0
+            cust_col, new_col = st.columns([4, 1], vertical_alignment="bottom")
+            chosen = cust_col.selectbox("Cliente", [0, *names], key="pos_customer",
+                                        format_func=lambda i: names.get(i, "Cliente general")) or None
+            with new_col.popover("Nuevo", icon=":material/person_add:", help="Nuevo cliente"):
+                with st.form("pos_new_customer", clear_on_submit=True, border=False):
+                    st.text_input("Nombre", key="pos_new_name")
+                    st.text_input("Email", key="pos_new_email")
+                    st.text_input("Teléfono", key="pos_new_phone")
+                    st.form_submit_button("Crear cliente", on_click=_create_customer_from_pos, type="primary")
+            return chosen
 
-        totals = compute_totals(lines, discount, c.tax_rate)
-        discount_row = (f"<tr><td>Descuento</td><td>−{c.money(totals['discount'])}</td></tr>"
-                        if totals["discount"] else "")
-        st.markdown(
-            f"<table class='sm-totals'><tr><td>Subtotal</td><td>{c.money(totals['subtotal'])}</td></tr>"
-            f"{discount_row}<tr><td>Impuestos ({c.tax_rate:g} %)</td><td>{c.money(totals['tax'])}</td></tr>"
-            f"<tr class='grand'><td>Total</td><td>{c.money(totals['total'])}</td></tr></table>",
-            unsafe_allow_html=True,
-        )
-        st.write("")
-        pay_col, clear_col = st.columns([3, 1])
-        if pay_col.button(f"Cobrar {c.money(totals['total'])}", type="primary", use_container_width=True,
-                          disabled=not cart, icon=":material/payments:"):
-            try:
-                sale = c.store.create_sale(
-                    [{"product_id": pid, "quantity": q} for pid, q in cart.items()],
-                    payment_method=payment, customer_id=customer_id, discount_pct=discount,
-                )
-            except SaleError as exc:
-                st.error(str(exc))
-            else:
-                cart.clear()
-                st.session_state["last_sale"] = sale["id"]
-                st.rerun()
-        if clear_col.button("Vaciar", use_container_width=True, disabled=not cart):
+        sale = checkout_panel(c, [{"product_id": pid, "quantity": q} for pid, q in cart.items()], "pos",
+                              customer_widget=customer_picker)
+        if sale:
+            cart.clear()
+            st.session_state["last_sale"] = sale["id"]
+            st.rerun()
+        if cart and st.button("Vaciar ticket", use_container_width=True, icon=":material/delete:"):
             cart.clear()
             st.rerun()
 
@@ -350,11 +357,16 @@ def _confirm_cancel(sale_id: int, number: str) -> None:
     st.write(f"¿Seguro que quieres anular **{number}**? Las unidades volverán al stock. "
              "La venta se conserva en el historial marcada como anulada.")
     if st.button("Sí, anular", type="primary", use_container_width=True):
+        c = ctx()
+        if not c.can("encargado"):
+            st.error("Solo un encargado o el administrador puede anular ventas.")
+            return
         try:
-            get_store().cancel_sale(sale_id)
+            c.store.cancel_sale(sale_id, by=c.who)
         except SaleError as exc:
             st.error(str(exc))
         else:
+            c.store.audit(c.username, "venta_anulada", number)
             st.rerun()
 
 
@@ -377,7 +389,11 @@ def _invoice_dialog(sale_id: int) -> None:
     if invoice is None and slot.button("Emitir factura", type="primary", use_container_width=True,
                                        icon=":material/request_quote:"):
         try:
-            c.store.create_invoice(sale_id, {"name": name, "tax_id": tax_id, "address": address, "email": email})
+            if not c.can("encargado"):
+                raise ValueError("Solo un encargado o el administrador puede emitir facturas.")
+            issued = c.store.create_invoice(sale_id, {"name": name, "tax_id": tax_id, "address": address,
+                                                      "email": email}, issued_by=c.who)
+            c.store.audit(c.username, "factura_emitida", f"{issued['number']} · {sale['number']}")
         except (ValueError, SaleError) as exc:
             st.error(str(exc))
         invoice = c.store.invoice_for_sale(sale_id)
@@ -393,13 +409,18 @@ def _invoice_dialog(sale_id: int) -> None:
 
 def history() -> None:
     c = ctx()
-    page_header("Historial de ventas", "Consulta ventas, reimprime tickets, emite facturas o anula ventas.",
-                eyebrow="Ventas")
-    sales_tab, invoices_tab = st.tabs(["Ventas", "Facturas"])
+    page_header("Historial de ventas", "Consulta ventas, reimprime tickets, emite facturas, devuelve productos "
+                "o anula ventas.", eyebrow="Ventas")
+    if not c.can("encargado"):
+        _history_sales(c)  # staff: look up and reprint tickets only
+        return
+    sales_tab, invoices_tab, refunds_tab = st.tabs(["Ventas", "Facturas", "Devoluciones"])
     with sales_tab:
         _history_sales(c)
     with invoices_tab:
         _history_invoices(c)
+    with refunds_tab:
+        _history_refunds(c)
 
 
 def _history_sales(c) -> None:
@@ -428,21 +449,23 @@ def _history_sales(c) -> None:
     m2.metric("Total facturado", c.money_short(done["total"].sum()))
     m3.metric("Impuestos repercutidos", c.money_short(done["tax"].sum()))
 
-    view = df[["id", "number", "created_at", "customer_name", "payment_method", "total", "status"]]
+    view = df[["id", "number", "created_at", "customer_name", "payment_method", "total", "status", "user_name"]]
     event = st.dataframe(
         view, hide_index=True, use_container_width=True, on_select="rerun", selection_mode="single-row",
-        column_order=["number", "created_at", "customer_name", "payment_method", "total", "status"],
+        column_order=["number", "created_at", "customer_name", "payment_method", "total", "user_name", "status"],
         column_config={
             "number": "Ticket",
             "created_at": st.column_config.DatetimeColumn("Fecha", format="DD/MM/YYYY HH:mm"),
             "customer_name": "Cliente",
             "payment_method": "Pago",
             "total": st.column_config.NumberColumn("Total", format=f"%.2f {c.symbol}"),
+            "user_name": "Atendió",
             "status": "Estado",
         },
     )
-    st.download_button("Exportar a CSV", _csv(df.drop(columns=["id"])), "ventas.csv", "text/csv",
-                       icon=":material/download:")
+    if c.can("encargado"):
+        st.download_button("Exportar a CSV", _csv(df.drop(columns=["id"])), "ventas.csv", "text/csv",
+                           icon=":material/download:")
 
     rows = event.selection.rows
     if not rows:
@@ -471,15 +494,98 @@ def _history_sales(c) -> None:
             full = c.store.invoice(invoice["id"])
             b.download_button("Descargar factura", invoice_pdf(full, c.settings), f"{full['number']}.pdf",
                               "application/pdf", icon=":material/request_quote:", use_container_width=True)
-        elif b.button("Emitir factura", disabled=sale["status"] != "completada", use_container_width=True,
-                      icon=":material/request_quote:"):
+        elif b.button("Emitir factura", disabled=sale["status"] != "completada" or not c.can("encargado"),
+                      use_container_width=True, icon=":material/request_quote:"):
             _invoice_dialog(sale["id"])
-        if d.button("Anular venta", disabled=sale["status"] == "anulada" or bool(invoice),
-                    use_container_width=True, icon=":material/block:",
-                    help="Las ventas facturadas no se anulan aquí." if invoice else None):
-            _confirm_cancel(sale["id"], sale["number"])
+        past_refunds = c.store.sale_refunds(sale["id"])
+        if past_refunds:
+            st.caption("Devoluciones: " + " · ".join(
+                f"{r['number']} ({c.money(r['total'])})" + (f", rectificativa {r['credit_note']['number']}"
+                                                          if r["credit_note"] else "") for r in past_refunds))
+        if d.button("Devolver productos", disabled=sale["status"] != "completada" or not c.can("encargado"),
+                    use_container_width=True, icon=":material/undo:"):
+            _refund_dialog(sale["id"])
+        if c.can("encargado") and sale["status"] == "completada" and not invoice and not past_refunds:
+            if st.button("Anular la venta completa", icon=":material/block:", type="tertiary"):
+                _confirm_cancel(sale["id"], sale["number"])
 
 
+
+
+@st.dialog("Devolver productos")
+def _refund_dialog(sale_id: int) -> None:
+    c = ctx()
+    if not c.can("encargado"):
+        st.error("Solo un encargado o el administrador puede registrar devoluciones.")
+        return
+    sale = c.store.sale(sale_id)
+    st.caption(f"Venta {sale['number']} · {c.money(sale['total'])}. Elige cuántas unidades devuelves de cada producto.")
+    quantities = {}
+    for item in c.store.returnable(sale_id):
+        if item["remaining"] <= 0:
+            st.caption(f"{item['name']}: ya devuelto por completo.")
+            continue
+        quantities[item["id"]] = st.number_input(
+            f"{item['name']} (quedan {item['remaining']} de {item['quantity']})", 0, int(item["remaining"]), 0,
+            key=f"refund_{sale_id}_{item['id']}")
+    methods = [m for m in PAYMENT_METHODS]
+    default = sale["payments"][0]["method"] if sale.get("payments") else sale["payment_method"]
+    method = st.selectbox("Devolver el dinero por", methods,
+                          index=methods.index(default) if default in methods else 0, key=f"refund_m_{sale_id}")
+    reason = st.text_input("Motivo", max_chars=500, placeholder="Ej.: talla equivocada, producto defectuoso…",
+                           key=f"refund_r_{sale_id}")
+    if c.store.invoice_for_sale(sale_id):
+        st.info("La venta está facturada: se emitirá una factura rectificativa automáticamente.",
+                icon=":material/request_quote:")
+    slot = st.empty()
+    if slot.button("Registrar devolución", type="primary", use_container_width=True, icon=":material/undo:",
+                   disabled=not any(quantities.values())):
+        try:
+            refund = c.store.create_refund(sale_id, quantities, method, reason, user_name=c.who)
+        except (ValueError, SaleError) as exc:
+            st.error(str(exc))
+            return
+        slot.empty()
+        c.store.audit(c.username, "devolucion", f"{refund['number']} · {sale['number']} · {refund['total']:.2f}")
+        st.success(f"Devolución **{refund['number']}** registrada: {c.money(refund['total'])} por {method}.")
+        st.download_button("Justificante de devolución", refund_receipt_html(refund, c.settings),
+                           f"{refund['number']}.html", "text/html", icon=":material/receipt_long:",
+                           use_container_width=True)
+        if refund["credit_note"]:
+            note = c.store.credit_note(refund["id"])
+            st.download_button(f"Factura rectificativa {note['number']} (PDF)", credit_note_pdf(note, c.settings),
+                               f"{note['number']}.pdf", "application/pdf", type="primary",
+                               icon=":material/request_quote:", use_container_width=True)
+
+
+def _history_refunds(c) -> None:
+    df = c.store.refunds()
+    if df.empty:
+        st.info("Sin devoluciones. Se registran desde una venta del Historial con «Devolver productos».")
+        return
+    event = st.dataframe(
+        df, hide_index=True, use_container_width=True, on_select="rerun", selection_mode="single-row",
+        key="refunds_table",
+        column_order=["number", "created_at", "sale_number", "reason", "method", "total", "credit_note", "user_name"],
+        column_config={
+            "number": "Devolución", "created_at": st.column_config.DatetimeColumn("Fecha", format="DD/MM/YYYY HH:mm"),
+            "sale_number": "Ticket", "reason": "Motivo", "method": "Devuelto por",
+            "total": st.column_config.NumberColumn("Importe", format=f"%.2f {c.symbol}"),
+            "credit_note": "Rectificativa", "user_name": "Registró",
+        },
+    )
+    st.download_button("Exportar devoluciones a CSV", _csv(df.drop(columns=["id"])), "devoluciones.csv", "text/csv",
+                       icon=":material/download:")
+    if event.selection.rows:
+        refund = c.store.refund(int(df.iloc[event.selection.rows[0]]["id"]))
+        a, b = st.columns(2)
+        a.download_button("Justificante", refund_receipt_html(refund, c.settings), f"{refund['number']}.html",
+                          "text/html", icon=":material/receipt_long:", use_container_width=True)
+        if refund["credit_note"]:
+            note = c.store.credit_note(refund["id"])
+            b.download_button(f"Rectificativa {note['number']}", credit_note_pdf(note, c.settings),
+                              f"{note['number']}.pdf", "application/pdf", icon=":material/request_quote:",
+                              use_container_width=True)
 
 
 def _history_invoices(c) -> None:
@@ -513,6 +619,8 @@ def _history_invoices(c) -> None:
 # ---------------------------------------------------------------------- cash
 def cash_page() -> None:
     c = ctx()
+    if not _require(c, "encargado"):
+        return
     page_header("Cierre de caja", "Cuadra el efectivo al final del día y guarda el informe firmado.",
                 eyebrow="Caja")
     if "cash_flash" in st.session_state:
@@ -531,12 +639,16 @@ def cash_page() -> None:
         st.markdown("**Por forma de pago**")
         if summary["breakdown"]:
             df = pd.DataFrame(
-                [{"method": m, "count": e["count"], "total": e["total"]} for m, e in summary["breakdown"].items()]
+                [{"method": m, "count": e["count"], "refunded": e.get("refunded", 0.0), "total": e["total"]}
+                 for m, e in summary["breakdown"].items()]
             ).sort_values("total", ascending=False)
-            st.dataframe(df, hide_index=True, use_container_width=True, column_config={
-                "method": "Forma de pago", "count": "Ventas",
-                "total": st.column_config.NumberColumn("Importe", format=f"%.2f {c.symbol}"),
-            })
+            st.dataframe(df, hide_index=True, use_container_width=True,
+                         column_order=["method", "count", *(["refunded"] if summary["refunded"] else []), "total"],
+                         column_config={
+                             "method": "Forma de pago", "count": "Cobros",
+                             "refunded": st.column_config.NumberColumn("Devuelto", format=f"%.2f {c.symbol}"),
+                             "total": st.column_config.NumberColumn("Neto", format=f"%.2f {c.symbol}"),
+                         })
         else:
             st.caption("No hay ventas este día.")
         if summary["cancelled"]:
@@ -590,7 +702,8 @@ def _open_cash_panel(c, day: date, summary: dict) -> None:
     if st.button("Cerrar caja", type="primary", use_container_width=True, disabled=counted is None,
                  icon=":material/lock:"):
         try:
-            c.store.close_cash(day, opening, counted, notes)
+            closing = c.store.close_cash(day, opening, counted, notes, closed_by=c.who)
+            c.store.audit(c.username, "caja_cerrada", f"{day:%d/%m/%Y} · diferencia {closing['difference']:+.2f}")
         except ValueError as exc:
             st.error(str(exc))
         else:
@@ -611,6 +724,7 @@ def _closed_cash_panel(c, day: date, closing: dict, summary: dict) -> None:
                        use_container_width=True, icon=":material/picture_as_pdf:")
     if st.button("Reabrir caja", use_container_width=True, icon=":material/lock_open:"):
         c.store.reopen_cash(day)
+        c.store.audit(c.username, "caja_reabierta", f"{day:%d/%m/%Y}")
         st.rerun()
 
 
@@ -690,9 +804,9 @@ def _appointment_card(c, a) -> None:
     ] if x)
     with st.container(border=True):
         st.markdown(
-            f"<div class='sm-appt {status}'><div class='when'>{a['starts_at']:%H:%M}<span>–{end:%H:%M}</span></div>"
+            f"<div class='sm-appt {escape(status)}'><div class='when'>{a['starts_at']:%H:%M}<span>–{end:%H:%M}</span></div>"
             f"<div class='who'>{escape(str(a['who']))}<div class='what'>{escape(detail)}</div></div>"
-            f"<span class='chip'>{STATUS_LABELS.get(status, status)}</span></div>",
+            f"<span class='chip'>{escape(STATUS_LABELS.get(status, status))}</span></div>",
             unsafe_allow_html=True,
         )
         if status != "pendiente":
@@ -705,7 +819,7 @@ def _appointment_card(c, a) -> None:
                                               key=f"appt_pay_{aid}") or PAYMENT_METHODS[0]
                 if st.button("Cobrar ahora", type="primary", key=f"appt_charge_{aid}", use_container_width=True):
                     try:
-                        sale = c.store.charge_appointment(aid, method)
+                        sale = c.store.charge_appointment(aid, method, user_name=c.who)
                     except SaleError as exc:
                         st.error(str(exc))
                     else:
@@ -743,7 +857,7 @@ def _new_appointment_form(c, cfg: dict, day: date) -> None:
                 c.store.create_appointment(
                     datetime.combine(when_day, when_time), duration,
                     product_id=product_id or None, customer_id=customer_id or None,
-                    customer_name=walk_in, notes=notes, allow_overlap=not cfg["single"],
+                    customer_name=walk_in, notes=notes, allow_overlap=not cfg["single"], created_by=c.who,
                 )
             except ValueError as exc:
                 st.error(str(exc))
@@ -751,6 +865,96 @@ def _new_appointment_form(c, cfg: dict, day: date) -> None:
                 st.session_state["agenda_flash"] = ("success", f"Guardada para el {when_day:%d/%m} a las {when_time:%H:%M}.")
                 st.session_state["agenda_goto"] = when_day  # applied before the date picker is drawn
                 st.rerun()
+
+
+# ---------------------------------------------------------------------- team
+def team_page() -> None:
+    c = ctx()
+    if not _require(c, "admin"):
+        return
+    page_header("Equipo y seguridad", "Da de alta a tu equipo: cada persona entra con su nombre y su PIN, y todo "
+                "lo que hace queda firmado.", eyebrow="Ajustes")
+    if "team_flash" in st.session_state:
+        st.success(st.session_state.pop("team_flash"))
+
+    users = c.store.users()
+    m1, m2, m3 = st.columns(3)
+    m1.metric("Personas activas", int(users["active"].sum()))
+    m2.metric("Administradores", int(((users["role"] == "admin") & (users["active"] == 1)).sum()))
+    m3.metric("Cierre de sesión por inactividad", f"{int(c.settings.get('session_minutes') or 720) // 60} h")
+
+    roles_help = ("**Administrador:** todo, incluida la configuración y el equipo. "
+                  "**Encargado:** panel, caja, catálogo, clientes, facturas y anulaciones. "
+                  "**Empleado:** vender, agenda y consultar tickets.")
+    st.caption(roles_help)
+    st.dataframe(
+        users.assign(role=users["role"].map(ROLES), active=users["active"].astype(bool),
+                     last_login=pd.to_datetime(users["last_login"].replace("", None))),
+        hide_index=True, use_container_width=True,
+        column_order=["name", "username", "role", "active", "last_login"],
+        column_config={"name": "Nombre", "username": "Usuario", "role": "Rol",
+                       "active": st.column_config.CheckboxColumn("Activo"),
+                       "last_login": st.column_config.DatetimeColumn("Último acceso", format="DD/MM/YYYY HH:mm")},
+    )
+
+    add, manage = st.columns(2, gap="large")
+    with add, st.container(border=True):
+        st.markdown("**Añadir persona**")
+        with st.form("new_user", clear_on_submit=True, border=False):
+            name = st.text_input("Nombre", max_chars=120, placeholder="Ej.: Lucía")
+            username = st.text_input("Usuario", max_chars=30, placeholder="Ej.: lucia")
+            role = st.selectbox("Rol", list(ROLES), index=2, format_func=ROLES.get)
+            secret = st.text_input("PIN o contraseña", type="password", max_chars=128,
+                                   help="Empleados y encargados: mínimo 4 caracteres. Administradores: mínimo 8, "
+                                        "con letras y números.")
+            if st.form_submit_button("Añadir", type="primary", icon=":material/person_add:"):
+                try:
+                    c.store.create_user(name, username, role, secret, by=c.username)
+                except ValueError as exc:
+                    st.error(str(exc))
+                else:
+                    st.session_state["team_flash"] = f"{name} ya puede entrar con su usuario «{username.lower()}»."
+                    st.rerun()
+
+    with manage, st.container(border=True):
+        st.markdown("**Modificar persona**")
+        if users.empty:
+            st.caption("Todavía no hay nadie en el equipo.")
+        else:
+            options = dict(zip(users["id"].astype(int), users["name"] + " (" + users["username"] + ")"))
+            uid = st.selectbox("Persona", list(options), format_func=options.get, key="team_user")
+            _manage_user(c, users.set_index("id").loc[uid], uid)
+
+    st.markdown("#### Registro de actividad")
+    st.caption("Accesos, intentos fallidos, anulaciones, facturas, cierres de caja y cambios de configuración.")
+    log = c.store.audit_log()
+    only_failed = st.toggle("Ver solo accesos fallidos", key="audit_failed")
+    if only_failed:
+        log = log[log["action"] == "acceso_fallido"]
+    st.dataframe(log, hide_index=True, use_container_width=True, column_config={
+        "happened_at": st.column_config.DatetimeColumn("Cuándo", format="DD/MM/YYYY HH:mm:ss"),
+        "username": "Usuario", "action": "Acción", "detail": "Detalle",
+    })
+    st.download_button("Exportar registro a CSV", _csv(log), "registro_actividad.csv", "text/csv",
+                       icon=":material/download:")
+
+
+def _manage_user(c, target, uid: int) -> None:
+    new_role = st.selectbox("Rol", list(ROLES), index=list(ROLES).index(target["role"]), format_func=ROLES.get,
+                            key=f"team_role_{uid}")
+    active = st.toggle("Puede entrar", value=bool(target["active"]), key=f"team_active_{uid}")
+    new_secret = st.text_input("Nuevo PIN o contraseña (opcional)", type="password", max_chars=128,
+                               key=f"team_secret_{uid}")
+    if st.button("Guardar cambios", type="primary", key=f"team_save_{uid}", icon=":material/save:"):
+        try:
+            c.store.update_user(uid, role=new_role, active=active, by=c.username)
+            if new_secret:
+                c.store.set_user_secret(uid, new_secret, by=c.username)
+        except ValueError as exc:
+            st.error(str(exc))
+        else:
+            st.session_state["team_flash"] = f"Cambios guardados para {target['name']}."
+            st.rerun()
 
 
 # ------------------------------------------------------------------ products
@@ -764,6 +968,8 @@ def _bump(name: str) -> None:
 
 def products_page() -> None:
     c = ctx()
+    if not _require(c, "encargado"):
+        return
     label, plural = c.preset["item_label"], c.preset["item_label_plural"]
     page_header(plural, "Edita directamente en la tabla y guarda. Desactiva en lugar de borrar para "
                 "conservar el historial.", eyebrow="Gestión")
@@ -809,6 +1015,7 @@ def products_page() -> None:
                         data.update(track_stock=int(after["track_stock"]), active=int(after["active"]),
                                     stock=int(after["stock"]), min_stock=int(after["min_stock"]))
                         c.store.upsert_product(data, int(after["id"]))
+                        c.store.audit(c.username, "producto_modificado", f"{data['sku']} · {data['price']}")
                         changed += 1
             except (ValueError, TypeError) as exc:
                 st.error(str(exc))
@@ -848,11 +1055,16 @@ def products_page() -> None:
 # ----------------------------------------------------------------- customers
 def customers_page() -> None:
     c = ctx()
+    if not _require(c, "encargado"):
+        return
     page_header("Clientes", "Tu cartera, ordenada por valor. Edita en la tabla y guarda.", eyebrow="Gestión")
     if "customers_flash" in st.session_state:
         st.success(st.session_state.pop("customers_flash"))
 
     ranking = automation.customer_ranking(c.store.customers(), c.store.sales())
+    points = c.store.points_by_customer()
+    ranking = ranking.merge(points, left_on="id", right_on="customer_id", how="left").drop(columns=["customer_id"])
+    ranking["points"] = ranking["points"].fillna(0).astype(int)
     buyers = ranking[ranking["purchases"] > 0]
     m1, m2, m3 = st.columns(3)
     m1.metric("Clientes", len(ranking))
@@ -883,9 +1095,9 @@ def customers_page() -> None:
     fields = ["name", "email", "phone", "tax_id", "address", "notes"]
     edited = st.data_editor(
         ranking, key=_editor_key("customers_editor"), hide_index=True, use_container_width=True,
-        disabled=["id", "purchases", "lifetime_value", "last_purchase", "created_at"],
-        column_order=["name", "email", "phone", "tax_id", "address", "purchases", "lifetime_value", "last_purchase",
-                      "notes"],
+        disabled=["id", "purchases", "lifetime_value", "last_purchase", "created_at", "points"],
+        column_order=["name", "email", "phone", "tax_id", "address", "purchases", "lifetime_value", "points",
+                      "last_purchase", "notes"],
         column_config={
             "name": "Nombre", "email": "Email", "phone": "Teléfono", "tax_id": "Identificación fiscal", "address": "Dirección",
             "purchases": st.column_config.NumberColumn("Compras"),
@@ -894,6 +1106,7 @@ def customers_page() -> None:
                 max_value=float(max(ranking["lifetime_value"].max(), 1)) if len(ranking) else 1.0,
             ),
             "last_purchase": st.column_config.DatetimeColumn("Última compra", format="DD/MM/YYYY"),
+            "points": st.column_config.NumberColumn("Puntos"),
             "notes": "Notas",
         },
     )
@@ -915,6 +1128,8 @@ def customers_page() -> None:
 # --------------------------------------------------------------- automations
 def automations_page() -> None:
     c = ctx()
+    if not _require(c, "encargado"):
+        return
     page_header(
         "Automatizaciones",
         "Se recalculan solas con cada venta: reposición, alertas, seguimiento de clientes e informes.",
@@ -945,8 +1160,14 @@ def automations_page() -> None:
                     "estimated_cost": st.column_config.NumberColumn("Coste estimado", format=f"%.2f {c.symbol}"),
                 },
             )
-            st.download_button("Generar orden de compra (CSV)", _csv(sug), "orden_de_compra.csv", "text/csv",
-                               type="primary", icon=":material/shopping_cart_checkout:")
+            a, b = st.columns(2)
+            if a.button("Crear pedidos a proveedores", type="primary", icon=":material/shopping_cart_checkout:",
+                        use_container_width=True):
+                numbers = c.store.draft_purchases(sug, created_by=c.who)
+                c.store.audit(c.username, "pedidos_generados", ", ".join(numbers))
+                st.success(f"Pedidos en borrador: {', '.join(numbers)}. Revísalos y envíalos en Gestión → Compras.")
+            b.download_button("Descargar sugerencias (CSV)", _csv(sug), "orden_de_compra.csv", "text/csv",
+                              icon=":material/download:", use_container_width=True)
 
     with t2:
         low = automation.low_stock(products)
@@ -999,6 +1220,8 @@ def automations_page() -> None:
 # ------------------------------------------------------------------ settings
 def settings_page() -> None:
     c = ctx()
+    if not _require(c, "admin"):
+        return
     s = c.settings
     page_header("Configuración", "Identidad del negocio, impuestos, numeración y tipo de negocio.", eyebrow="Ajustes")
     if "settings_flash" in st.session_state:
@@ -1028,9 +1251,14 @@ def settings_page() -> None:
         values["opening_float"] = b.number_input(f"Fondo de caja habitual ({c.symbol})", 0.0, 100000.0,
                                                  float(s["opening_float"] or 0), step=10.0)
         agenda_options = {"auto": "Automática según el tipo de negocio", "si": "Sí", "no": "No"}
-        values["agenda_enabled"] = st.selectbox(
+        a, b = st.columns(2)
+        values["agenda_enabled"] = a.selectbox(
             "Mostrar agenda de citas y reservas", list(agenda_options), list(agenda_options).index(
                 s["agenda_enabled"] if s["agenda_enabled"] in agenda_options else "auto"),
+            format_func=agenda_options.get)
+        values["tables_enabled"] = b.selectbox(
+            "Mostrar mesas, comandas y cocina", list(agenda_options), list(agenda_options).index(
+                s.get("tables_enabled") if s.get("tables_enabled") in agenda_options else "auto"),
             format_func=agenda_options.get)
         st.markdown("##### Automatizaciones")
         a, b = st.columns(2)
@@ -1038,6 +1266,10 @@ def settings_page() -> None:
                                                  int(s["inactive_days"]))
         values["reorder_lead_days"] = b.number_input("Días de cobertura al reponer", 1, 120,
                                                      int(s["reorder_lead_days"]))
+        st.markdown("##### Seguridad")
+        values["session_minutes"] = st.number_input(
+            "Cerrar la sesión tras estos minutos sin uso", 5, 1440, int(s.get("session_minutes") or 720), step=15,
+            help="En tablets o móviles compartidos conviene un valor bajo, por ejemplo 15.")
         if st.form_submit_button("Guardar configuración", type="primary"):
             values["invoice_prefix"] = values["invoice_prefix"].strip().upper().replace("-", "") or "VTA"
             values["invoice_series"] = values["invoice_series"].strip().upper().replace("-", "") or "FAC"
@@ -1045,6 +1277,7 @@ def settings_page() -> None:
                 st.error("La serie de facturas debe ser distinta del prefijo de tickets.")
             else:
                 c.store.save_settings(values)
+                c.store.audit(c.username, "configuracion_guardada")
                 st.session_state["settings_flash"] = "Configuración guardada."
                 st.rerun()
 
@@ -1062,16 +1295,19 @@ def settings_page() -> None:
         a, b, d = st.columns(3)
         if a.button("Cambiar solo el tipo", use_container_width=True):
             c.store.save_settings({"business_type": business_type})
+            c.store.audit(c.username, "tipo_negocio_cambiado", PRESETS[business_type]["label"])
             st.session_state["settings_flash"] = f"Tipo cambiado a «{PRESETS[business_type]['label']}»."
             st.rerun()
         if b.button("Cargar plantilla", type="primary", disabled=not confirm, use_container_width=True):
             with st.spinner("Cargando plantilla…"):
                 c.store.load_preset(business_type, with_demo_sales=demo)
+            c.store.audit(c.username, "plantilla_cargada", PRESETS[business_type]["label"])
             st.session_state.pop("cart", None)
             st.session_state["settings_flash"] = "Plantilla cargada."
             st.rerun()
         if d.button("Empezar desde cero", disabled=not confirm, use_container_width=True):
             c.store.reset()
+            c.store.audit(c.username, "datos_borrados")
             st.session_state.pop("cart", None)
             st.rerun()
 
@@ -1095,6 +1331,7 @@ def settings_page() -> None:
         if st.button("Restaurar copia", disabled=not (upload and confirm_restore), icon=":material/restore:"):
             try:
                 c.store.restore(upload.getvalue())
+                c.store.audit(c.username, "copia_restaurada", upload.name[:80])
             except ValueError as exc:
                 st.error(str(exc))
             else:

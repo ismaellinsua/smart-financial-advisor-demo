@@ -2,12 +2,23 @@
 
 PRESETS = {
     "retail": {
+        "suppliers": [("Textiles Norte S.L.", "pedidos@textilesnorte.example.com", "B11111111"),
+                      ("Complementos Sur", "ventas@complementossur.example.com", "B22222222")],
+        "fixed_costs": [("Alquiler", "Alquiler del local", 900, 1), ("Nóminas", "Nómina dependienta", 1650, 28),
+                        ("Suministros", "Luz e internet", 140, 10), ("Seguros", "Seguro del local", 45, 5)],
+        "promotions": [
+            {"name": "3x2 en accesorios", "kind": "nxm", "buy": 3, "pay": 2, "scope": "categoria",
+             "target": "Accesorios"},
+            {"name": "Viernes de moda −10 %", "kind": "porcentaje", "value": 10, "scope": "categoria",
+             "target": "Ropa", "days": "4"},
+        ],
         "label": "Pequeño comercio / Tienda",
         "demo_name": "Moda Lúa",
         "description": "Ropa, regalos, alimentación, ferretería… Productos con control de stock.",
         "item_label": "Producto",
         "item_label_plural": "Productos",
         "tax_rate": 21.0,
+        "target_margin": 45,  # usual gross margin on price, for price suggestions
         "categories": ["Ropa", "Calzado", "Accesorios", "Hogar"],
         "track_stock": True,
         "catalog": [
@@ -21,15 +32,30 @@ PRESETS = {
         ],
     },
     "restaurant": {
+        "suppliers": [("Distribuciones Gastro S.L.", "pedidos@gastro.example.com", "B33333333"),
+                      ("Bodegas del Valle", "comercial@bodegasvalle.example.com", "B44444444")],
+        "fixed_costs": [("Alquiler", "Alquiler del local", 950, 1), ("Nóminas", "Nóminas de sala y cocina", 3200, 28),
+                        ("Suministros", "Luz, agua y gas", 380, 10), ("Seguros", "Seguro de responsabilidad", 60, 5)],
+        # A café serves many small tickets a day.
+        "demo_sales_per_day": (10, 20),
+        "promotions": [
+            {"name": "Happy hour bebidas −30 %", "kind": "porcentaje", "value": 30, "scope": "categoria",
+             "target": "Bebidas", "start_time": "18:00", "end_time": "20:00"},
+            {"name": "2x1 en postres los martes", "kind": "nxm", "buy": 2, "pay": 1, "scope": "categoria",
+             "target": "Postres", "days": "1"},
+        ],
         "label": "Restaurante / Cafetería",
         "demo_name": "Café Aurora",
         "description": "Bares, cafeterías y restaurantes. Carta de platos y bebidas.",
         "item_label": "Plato",
+        "tables": {"Sala": [(f"Mesa {n}", 4) for n in range(1, 9)],
+                   "Terraza": [(f"Terraza {n}", 2) for n in range(1, 5)]},
         # Table reservations: several can share the same time.
         "agenda": {"title": "Reservas", "single": False, "duration": 90,
                    "hours": [13, 13.5, 14, 14.5, 20.5, 21, 21.5, 22]},
         "item_label_plural": "Carta",
         "tax_rate": 10.0,
+        "target_margin": 70,  # usual gross margin on price, for price suggestions
         "categories": ["Entrantes", "Principales", "Postres", "Bebidas"],
         "track_stock": True,
         "catalog": [
@@ -43,6 +69,14 @@ PRESETS = {
         ],
     },
     "services": {
+        "suppliers": [("Papelería Central", "pedidos@papeleria.example.com", "B55555555")],
+        "fixed_costs": [("Impuestos y tasas", "Cuota de autónomos", 300, 28),
+                        ("Alquiler", "Puesto en coworking", 220, 1),
+                        ("Software y servicios", "Software de gestión y correo", 45, 3)],
+        "promotions": [
+            {"name": "Formación −10 %", "kind": "porcentaje", "value": 10, "scope": "categoria",
+             "target": "Formación"},
+        ],
         "label": "Autónomo / Servicios profesionales",
         "demo_name": "Ana García · Consultora",
         "description": "Consultoría, formación, reformas, estética… Servicios sin stock.",
@@ -52,6 +86,7 @@ PRESETS = {
                    "hours": [9, 10, 11, 12, 16, 17, 18]},
         "item_label_plural": "Servicios",
         "tax_rate": 21.0,
+        "target_margin": 60,  # usual gross margin on price, for price suggestions
         "categories": ["Consultoría", "Formación", "Soporte", "Proyectos"],
         "track_stock": False,
         # A freelancer closes far fewer, larger sales than a shop: keep the demo figures believable.
@@ -67,12 +102,21 @@ PRESETS = {
         ],
     },
     "ecommerce": {
+        "suppliers": [("TechDistribución S.A.", "b2b@techdistribucion.example.com", "A66666666"),
+                      ("Embalajes Express", "ventas@embalajes.example.com", "B77777777")],
+        "fixed_costs": [("Alquiler", "Almacén", 450, 1), ("Software y servicios", "Plataforma de tienda online", 79, 3),
+                        ("Marketing", "Campañas de anuncios", 300, 15), ("Transporte", "Tarifa plana de envíos", 180, 20)],
+        "promotions": [
+            {"name": "3x2 en fundas y cargadores", "kind": "nxm", "buy": 3, "pay": 2, "scope": "categoria",
+             "target": "Accesorios"},
+        ],
         "label": "Tienda online / E-commerce",
         "demo_name": "TecnoShop Online",
         "description": "Venta por internet con envíos. Catálogo con control de stock.",
         "item_label": "Artículo",
         "item_label_plural": "Catálogo",
         "tax_rate": 21.0,
+        "target_margin": 40,  # usual gross margin on price, for price suggestions
         "categories": ["Electrónica", "Accesorios", "Packs", "Envíos"],
         "track_stock": True,
         "catalog": [
@@ -106,6 +150,13 @@ DEFAULT_SETTINGS = {
     "reorder_lead_days": "14",
     "receipt_footer": "Gracias por su compra.",
     "invoice_series": "FAC",
+    "refund_prefix": "DEV",
     "agenda_enabled": "auto",
+    "tables_enabled": "auto",
     "opening_float": "150",
+    "session_minutes": "720",
+    "loyalty_enabled": "si",
+    "points_per_euro": "1",
+    "point_value": "0.01",
+    "min_redeem_points": "100",
 }

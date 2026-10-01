@@ -34,6 +34,24 @@ class Ctx:
     settings: dict
     preset: dict
     symbol: str
+    user: dict | None = None
+
+    @property
+    def role(self) -> str:
+        # No signed-in user means the least privileged role, never the most.
+        return self.user["role"] if self.user else "empleado"
+
+    @property
+    def who(self) -> str:
+        """Name that signs sales, invoices and closings; also used in the audit log."""
+        return self.user["name"] if self.user else ""
+
+    @property
+    def username(self) -> str:
+        return self.user["username"] if self.user else ""
+
+    def can(self, needed: str) -> bool:
+        return Store.can(self.role, needed)
 
     def money(self, value: float) -> str:
         return format_money(float(value), self.symbol)
@@ -54,4 +72,5 @@ def ctx() -> Ctx:
         settings=settings,
         preset=PRESETS.get(settings["business_type"], PRESETS["retail"]),
         symbol=CURRENCIES.get(settings["currency"], "€"),
+        user=st.session_state.get("user"),
     )

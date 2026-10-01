@@ -1,38 +1,167 @@
-"""Optional password gate, enabled by setting `app_password` in Streamlit secrets."""
+"""Staff accounts: first-run administrator setup, login, idle timeout and logout."""
 
 import hmac
+import secrets
+import threading
+import time as _time
+from collections import deque
 
 import streamlit as st
 
+from core.db import AuthError, Store
+from core.security import ROLES
 from ui.styles import page_header
+
+SESSION_USER = "user"
+SESSION_SEEN = "last_seen"
+
+# Setup-password attempts are throttled across every visitor, not per browser tab.
+_SETUP_FAILURES: deque = deque()
+_SETUP_LOCK = threading.Lock()
+SETUP_MAX_FAILURES, SETUP_WINDOW_SECONDS = 10, 600
+_SETUP_CODE: str | None = None
 
 
 def configured_password() -> str | None:
+    """`app_password` from Streamlit secrets: proves ownership when the first administrator is created."""
     try:
         return st.secrets.get("app_password") or None
-    except Exception:  # no secrets file: running locally without protection
+    except Exception:  # no secrets file: running locally
         return None
 
 
-def require_login() -> bool:
-    """Render the login screen and return False until the visitor enters the right password."""
-    password = configured_password()
-    if not password or st.session_state.get("authenticated"):
-        return True
+def current_user() -> dict | None:
+    return st.session_state.get(SESSION_USER)
+
+
+def _setup_blocked() -> bool:
+    with _SETUP_LOCK:
+        while _SETUP_FAILURES and _SETUP_FAILURES[0] < _time.time() - SETUP_WINDOW_SECONDS:
+            _SETUP_FAILURES.popleft()
+        return len(_SETUP_FAILURES) >= SETUP_MAX_FAILURES
+
+
+def _setup_failed() -> None:
+    with _SETUP_LOCK:
+        _SETUP_FAILURES.append(_time.time())
+
+
+def _sign_in(store: Store, user: dict) -> None:
+    st.session_state[SESSION_USER] = user
+    st.session_state[SESSION_SEEN] = _time.time()
+    st.rerun()
+
+
+def setup_code() -> str:
+    """One-time code for creating the first administrator when no `app_password` is configured.
+
+    It is written to the server log (the terminal locally, «Manage app → Logs» on Streamlit Cloud), which only
+    the owner can read. Unlike a check on the request's Host header, a visitor cannot forge it.
+    """
+    global _SETUP_CODE
+    with _SETUP_LOCK:
+        if _SETUP_CODE is None:
+            _SETUP_CODE = secrets.token_hex(4).upper()
+            print(f"[Gestor de Ventas] Código de instalación para crear el administrador: {_SETUP_CODE}", flush=True)
+        return _SETUP_CODE
+
+
+def _bootstrap(store: Store) -> None:
+    """No accounts yet: create the administrator, proving ownership with `app_password` or the setup code."""
+    expected = configured_password() or setup_code()
     _, center, _ = st.columns([1, 2, 1])
     with center:
-        page_header("Gestor de Ventas", "Introduce la contraseña para acceder a tu negocio.", eyebrow="Acceso privado")
-        with st.form("login"):
-            attempt = st.text_input("Contraseña", type="password")
-            if st.form_submit_button("Entrar", type="primary", use_container_width=True):
-                if hmac.compare_digest(attempt.encode(), str(password).encode()):
-                    st.session_state["authenticated"] = True
+        page_header("Crea tu cuenta de administrador",
+                    "Será la cuenta con todos los permisos. Después podrás dar de alta a tu equipo.",
+                    eyebrow="Primer acceso")
+        if configured_password():
+            code_label = "Contraseña de instalación (app_password)"
+        else:
+            code_label = "Código de instalación"
+            st.info("Escribe el código de instalación que aparece en el registro del servidor: en tu ordenador, "
+                    "en la terminal; en Streamlit, en «Manage app → Logs». Si configuras `app_password` en los "
+                    "*Secrets*, se usará esa contraseña en su lugar.", icon=":material/key:")
+        with st.form("bootstrap"):
+            code = st.text_input(code_label, type="password", max_chars=128)
+            name = st.text_input("Tu nombre", max_chars=120)
+            username = st.text_input("Usuario", max_chars=30, placeholder="p. ej. ismael",
+                                     help="Minúsculas, números, punto o guion. Lo usarás para entrar.")
+            secret = st.text_input("Contraseña", type="password", max_chars=128,
+                                   help="Al menos 8 caracteres, con letras y números o símbolos.")
+            repeat = st.text_input("Repite la contraseña", type="password", max_chars=128)
+            if st.form_submit_button("Crear administrador", type="primary", use_container_width=True):
+                if _setup_blocked():
+                    st.error("Demasiados intentos. Espera unos minutos.")
+                    return
+                if not hmac.compare_digest(code.strip().encode(), expected.encode()):
+                    _setup_failed()
+                    _time.sleep(1)
+                    st.error("La contraseña o el código de instalación no es correcto.")
+                    return
+                if secret != repeat:
+                    st.error("Las contraseñas no coinciden.")
+                    return
+                if store.has_users():  # someone else finished first
                     st.rerun()
-                st.error("Contraseña incorrecta. Inténtalo de nuevo.")
-    return False
+                try:
+                    store.create_user(name, username, "admin", secret)
+                except ValueError as exc:
+                    st.error(str(exc))
+                    return
+                _sign_in(store, store.authenticate(username, secret))
 
 
-def logout_button() -> None:
-    if configured_password() and st.sidebar.button("Cerrar sesión", icon=":material/logout:"):
-        st.session_state.pop("authenticated", None)
+def _login(store: Store, business_name: str) -> None:
+    users = store.users()
+    users = users[users["active"] == 1]
+    _, center, _ = st.columns([1, 2, 1])
+    with center:
+        page_header(business_name, "Elige tu nombre y escribe tu PIN o contraseña.", eyebrow="Acceso del equipo")
+        with st.form("login"):
+            options = dict(zip(users["username"], users["name"] + " · " + users["role"].map(ROLES)))
+            username = st.selectbox("¿Quién eres?", list(options), format_func=options.get)
+            secret = st.text_input("PIN o contraseña", type="password", max_chars=128)
+            if st.form_submit_button("Entrar", type="primary", use_container_width=True):
+                try:
+                    user = store.authenticate(username, secret)
+                except AuthError as exc:
+                    _time.sleep(0.8)  # slows down scripted guessing from a single session
+                    st.error(str(exc))
+                else:
+                    _sign_in(store, user)
+
+
+def require_user(store: Store, settings: dict) -> dict | None:
+    """Return the signed-in user, or draw the setup/login screen and return None."""
+    if not store.has_users():
+        _bootstrap(store)
+        return None
+    user = current_user()
+    if user is not None:
+        fresh = store.user(user["id"])  # role or access changes apply on the next click
+        idle_limit = max(5, int(settings.get("session_minutes") or 720)) * 60
+        expired = _time.time() - st.session_state.get(SESSION_SEEN, 0) > idle_limit
+        if fresh is None or not fresh["active"] or expired:
+            st.session_state.pop(SESSION_USER, None)
+            if expired:
+                st.info("Tu sesión se cerró por inactividad. Vuelve a entrar.")
+        else:
+            st.session_state[SESSION_SEEN] = _time.time()
+            user = {k: fresh[k] for k in ("id", "username", "name", "role")}
+            st.session_state[SESSION_USER] = user
+            return user
+    _login(store, settings.get("business_name") or "Gestor de Ventas")
+    return None
+
+
+def logout_button(store: Store, user: dict) -> None:
+    if st.sidebar.button(f"Cerrar sesión · {user['name']}", icon=":material/logout:", use_container_width=True):
+        store.audit(user["username"], "salida")
+        st.session_state.pop(SESSION_USER, None)
+        st.session_state.pop("cart", None)
         st.rerun()
+
+
+def stamp(user: dict | None) -> str:
+    """How a user signs what they do (sales, invoices, closings)."""
+    return user["name"] if user else ""

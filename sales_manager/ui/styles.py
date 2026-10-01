@@ -1,5 +1,6 @@
 """Visual identity: global CSS and small presentational helpers."""
 
+import re
 from html import escape
 
 import plotly.graph_objects as go
@@ -7,7 +8,8 @@ import streamlit as st
 
 
 def inject_css(accent: str) -> None:
-    accent = escape(accent)
+    # Only a plain hex colour may reach the stylesheet.
+    accent = accent if re.fullmatch(r"#[0-9A-Fa-f]{6}", accent or "") else "#1F4E79"
     st.markdown(
         f"""
 <style>
@@ -60,6 +62,46 @@ button[kind="primary"]:disabled, button[data-testid^="stBaseButton-primary"]:dis
 .sm-totals .grand td {{ font-size: 1.35rem; font-weight: 700; color: var(--accent);
                         border-top: 2px solid var(--accent); padding-top: .5rem; }}
 
+/* Tables, orders and kitchen */
+.sm-table {{ line-height: 1.5; font-size: .88rem; }}
+.sm-table b {{ font-size: 1rem; }}
+.sm-table .amt {{ font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }}
+.sm-table.busy {{ border-left: 3px solid var(--accent); padding-left: .55rem; }}
+.sm-ready {{ margin-left: .4rem; font-size: .68rem; font-weight: 700; padding: .05rem .4rem; border-radius: 6px;
+             background: #D1FADF; color: #05603A; }}
+.sm-oline {{ font-size: .9rem; line-height: 1.35; }}
+.sm-oline .chip {{ font-size: .66rem; font-weight: 700; text-transform: uppercase; padding: .05rem .4rem;
+                   border-radius: 6px; background: #F2F4F7; color: #475467; margin-left: .3rem; }}
+.sm-oline.preparando .chip {{ background: #FEF0C7; color: #93370D; }}
+.sm-oline.listo .chip {{ background: #D1FADF; color: #05603A; }}
+.sm-oline.paid {{ opacity: .45; }}
+.sm-oline .note, .sm-kds .note {{ font-style: italic; color: #B54708; font-size: .85rem; }}
+.sm-oline .by {{ font-size: .72rem; opacity: .55; }}
+.sm-kds {{ font-size: 1rem; line-height: 1.4; }}
+.sm-kds .place {{ font-size: .78rem; opacity: .7; }}
+.sm-kds.late .place {{ color: #B42318; opacity: 1; font-weight: 700; }}
+
+/* Checkout */
+.sm-promo {{ font-size: .85rem; color: #067647; padding: .1rem 0; }}
+.sm-change {{ font-size: 1.05rem; padding: .3rem 0 .6rem; }}
+.sm-change b {{ color: var(--accent); font-size: 1.3rem; }}
+
+/* Smart alerts */
+.sm-alert {{ display: flex; gap: .7rem; align-items: flex-start; padding: .65rem .85rem; border-radius: 10px;
+             margin-bottom: .45rem; border-left: 3px solid #98A2B3;
+             background: var(--secondary-background-color, #F5F7FA); font-size: .9rem; }}
+.sm-alert.alta {{ border-left-color: #D92D20; }}
+.sm-alert.media {{ border-left-color: #F79009; }}
+.sm-alert .lvl {{ font-size: .66rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+                  padding: .12rem .42rem; border-radius: 6px; white-space: nowrap; margin-top: .12rem;
+                  background: #EAECF0; color: #344054; }}
+.sm-alert.alta .lvl {{ background: #FEE4E2; color: #B42318; }}
+.sm-alert.media .lvl {{ background: #FEF0C7; color: #93370D; }}
+.sm-alert b {{ display: block; }}
+.sm-alert span.d {{ opacity: .75; font-size: .84rem; }}
+.sm-abc {{ display: inline-block; min-width: 1.6rem; text-align: center; font-weight: 700; border-radius: 6px;
+           padding: .05rem .4rem; color: #fff; }}
+
 /* Insight list */
 .sm-insight {{ display: flex; gap: .7rem; align-items: flex-start; padding: .7rem .9rem; border-radius: 10px;
                margin-bottom: .5rem; background: var(--secondary-background-color, #F5F7FA); font-size: .93rem; }}
@@ -85,7 +127,12 @@ button[kind="primary"]:disabled, button[data-testid^="stBaseButton-primary"]:dis
 .sm-topbar .stat {{ margin-left: auto; white-space: nowrap; font-variant-numeric: tabular-nums; opacity: .85; }}
 .sm-topbar .stat b {{ color: var(--accent); }}
 .sm-topbar .next {{ white-space: nowrap; opacity: .65; }}
-@media (max-width: 640px) {{ .sm-topbar .next, .sm-topbar .sep.n {{ display: none; }} }}
+.sm-topbar .who {{ white-space: nowrap; font-size: .76rem; padding: .1rem .55rem; border-radius: 999px;
+                  background: color-mix(in srgb, var(--accent) 12%, transparent); }}
+.sm-topbar .alerts {{ white-space: nowrap; font-size: .76rem; font-weight: 600; padding: .1rem .55rem;
+                     border-radius: 999px; background: #FEE4E2; color: #B42318; }}
+.sm-topbar .alerts.calm {{ background: #FEF0C7; color: #93370D; }}
+@media (max-width: 640px) {{ .sm-topbar .next, .sm-topbar .sep.n, .sm-topbar .biz {{ display: none; }} }}
 
 /* Agenda cards */
 .sm-appt {{ display: flex; align-items: center; gap: .9rem; }}
@@ -129,13 +176,21 @@ def sidebar_brand(name: str, business_type_label: str) -> None:
     )
 
 
-def topbar(business: str, today_total: str, today_count: int, next_up: str = "") -> None:
+def topbar(business: str, today_total: str, today_count: int, next_up: str = "", person: str = "",
+           own: bool = False, alerts: tuple[int, int] | None = None) -> None:
+    """`alerts` is (total, urgent); shown only to people who can act on them."""
     sales = f"{today_count} venta" + ("" if today_count == 1 else "s")
     nxt = f"<span class='sep n'>·</span><span class='next'>{escape(next_up)}</span>" if next_up else ""
+    who = f"<span class='who'>{escape(person)}</span>" if person else ""
+    label = "Tus ventas hoy" if own else "Hoy"
+    if alerts and alerts[0]:
+        total, urgent = alerts
+        text = f"{total} aviso" + ("" if total == 1 else "s")
+        who = f"<span class='alerts{'' if urgent else ' calm'}' title='Alertas inteligentes'>{text}</span>" + who
     st.markdown(
         f"<div class='sm-topbar' role='status'><span class='dot'></span>"
         f"<span class='biz'>{escape(business)}</span>{nxt}"
-        f"<span class='stat'>Hoy <b>{escape(today_total)}</b> · {sales}</span></div>",
+        f"<span class='stat'>{label} <b>{escape(today_total)}</b> · {sales}</span>{who}</div>",
         unsafe_allow_html=True,
     )
 
@@ -171,3 +226,14 @@ def style_figure(fig: go.Figure, height: int = 320) -> go.Figure:
     fig.update_yaxes(gridcolor="rgba(128,128,128,.15)", zeroline=False, title=None)
     fig.update_traces(selector=dict(type="bar"), marker_cornerradius=4)
     return fig
+
+
+ALERT_LEVELS = {"alta": "Urgente", "media": "Atención", "baja": "Idea"}
+
+
+def alert_card(alert: dict) -> None:
+    st.markdown(
+        f"<div class='sm-alert {escape(alert['level'])}'><span class='lvl'>{ALERT_LEVELS[alert['level']]}</span>"
+        f"<div><b>{escape(alert['title'])}</b><span class='d'>{escape(alert['detail'])}</span></div></div>",
+        unsafe_allow_html=True,
+    )
