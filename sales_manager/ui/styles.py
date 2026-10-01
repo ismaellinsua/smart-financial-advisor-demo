@@ -18,6 +18,7 @@ html, body, [class*="css"], .stMarkdown, .stButton button, input, textarea {{
 }}
 #MainMenu, footer {{ visibility: hidden; }}
 .block-container {{ padding-top: 2rem; max-width: 1280px; }}
+@media (max-width: 640px) {{ .block-container, [data-testid="stMainBlockContainer"] {{ padding-top: 4.5rem !important; }} }}
 h1, h2, h3 {{ letter-spacing: -0.02em; font-weight: 700; }}
 
 /* Page header */

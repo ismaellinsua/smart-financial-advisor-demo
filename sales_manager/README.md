@@ -3,6 +3,24 @@
 Aplicación de ventas elegante y profesional, construida con **Streamlit**, que se adapta a distintos tipos de negocio:
 tienda física, restaurante/cafetería, servicios profesionales o e-commerce.
 
+## Capturas
+
+| Panel | Punto de venta |
+|---|---|
+| ![Panel](../docs/screenshots/02-panel.png) | ![Punto de venta](../docs/screenshots/03-punto-de-venta.png) |
+| **Venta registrada** | **Historial** |
+| ![Venta registrada](../docs/screenshots/04-venta-registrada.png) | ![Historial](../docs/screenshots/05-historial.png) |
+| **Catálogo / Carta** | **Clientes** |
+| ![Carta](../docs/screenshots/06-carta.png) | ![Clientes](../docs/screenshots/07-clientes.png) |
+| **Reposición inteligente** | **Seguimiento de clientes** |
+| ![Reposición](../docs/screenshots/08-reposicion.png) | ![Seguimiento](../docs/screenshots/09-seguimiento-clientes.png) |
+| **Configuración** | **Bienvenida** |
+| ![Configuración](../docs/screenshots/10-configuracion.png) | ![Bienvenida](../docs/screenshots/01-bienvenida.png) |
+
+En el móvil:
+
+<p><img src="../docs/screenshots/11-movil-panel.png" width="240" alt="Panel en móvil"> <img src="../docs/screenshots/12-movil-vender.png" width="240" alt="Vender en móvil"></p>
+
 ## Funcionalidades
 
 | Módulo | Qué hace |
