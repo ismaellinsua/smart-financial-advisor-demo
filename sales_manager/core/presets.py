@@ -2,7 +2,9 @@
 
 PRESETS = {
     "retail": {
-        "label": "Tienda / Comercio minorista",
+        "label": "Pequeño comercio / Tienda",
+        "demo_name": "Moda Lúa",
+        "description": "Ropa, regalos, alimentación, ferretería… Productos con control de stock.",
         "item_label": "Producto",
         "item_label_plural": "Productos",
         "tax_rate": 21.0,
@@ -20,6 +22,8 @@ PRESETS = {
     },
     "restaurant": {
         "label": "Restaurante / Cafetería",
+        "demo_name": "Café Aurora",
+        "description": "Bares, cafeterías y restaurantes. Carta de platos y bebidas.",
         "item_label": "Plato",
         "item_label_plural": "Carta",
         "tax_rate": 10.0,
@@ -36,12 +40,18 @@ PRESETS = {
         ],
     },
     "services": {
-        "label": "Servicios profesionales",
+        "label": "Autónomo / Servicios profesionales",
+        "demo_name": "Ana García · Consultora",
+        "description": "Consultoría, formación, reformas, estética… Servicios sin stock.",
         "item_label": "Servicio",
         "item_label_plural": "Servicios",
         "tax_rate": 21.0,
         "categories": ["Consultoría", "Formación", "Soporte", "Proyectos"],
         "track_stock": False,
+        # A freelancer closes far fewer, larger sales than a shop: keep the demo figures believable.
+        "demo_sales_per_day": (0, 1),
+        "demo_max_quantity": 1,
+        "demo_max_items": 1,
         "catalog": [
             ("CON-001", "Hora de consultoría", "Consultoría", 75.00, 30.00, 0, 0),
             ("CON-002", "Auditoría inicial", "Consultoría", 450.00, 180.00, 0, 0),
@@ -51,7 +61,9 @@ PRESETS = {
         ],
     },
     "ecommerce": {
-        "label": "E-commerce / Tienda online",
+        "label": "Tienda online / E-commerce",
+        "demo_name": "TecnoShop Online",
+        "description": "Venta por internet con envíos. Catálogo con control de stock.",
         "item_label": "Artículo",
         "item_label_plural": "Catálogo",
         "tax_rate": 21.0,

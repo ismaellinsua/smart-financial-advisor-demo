@@ -7,7 +7,7 @@ import streamlit as st
 
 from core.db import Store
 from core.presets import CURRENCIES, PRESETS
-from core.pricing import format_money
+from core.pricing import format_money, format_money_short
 
 # Filled by app.py so pages can link to each other.
 PAGES: dict = {}
@@ -37,6 +37,9 @@ class Ctx:
 
     def money(self, value: float) -> str:
         return format_money(float(value), self.symbol)
+
+    def money_short(self, value: float) -> str:
+        return format_money_short(float(value), self.symbol)
 
     @property
     def tax_rate(self) -> float:

@@ -100,3 +100,22 @@ def test_password_gate(tmp_path, monkeypatch):
     at.button[0].click().run()
     assert not at.exception, at.exception
     assert at.session_state["authenticated"]
+
+
+
+def test_switch_business_button_opens_dialog(tmp_path, monkeypatch):
+    # AppTest reruns the whole script, which closes dialogs, so the switch itself is checked in a real browser.
+    store = Store(tmp_path / "switch.db")
+    store.load_preset("restaurant", with_demo_sales=False)
+    import ui.context
+
+    monkeypatch.setattr(ui.context, "get_store", lambda: store)
+    monkeypatch.setattr("ui.pages.get_store", lambda: store)
+    at = AppTest.from_file(APP, default_timeout=60).run()
+    next(b for b in at.sidebar.button if b.label == "Cambiar de negocio").click().run()
+    assert not at.exception, at.exception
+    radio = at.radio(key="switch_type")
+    assert radio.value == "restaurant"
+    assert list(radio.options) == ["Pequeño comercio / Tienda", "Restaurante / Cafetería",
+                                   "Autónomo / Servicios profesionales", "Tienda online / E-commerce"]
+    assert at.text_input(key="switch_name_restaurant").value == store.settings()["business_name"]

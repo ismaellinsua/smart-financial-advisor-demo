@@ -63,6 +63,35 @@ def onboarding() -> None:
                 st.rerun()
 
 
+@st.dialog("Cambiar de negocio")
+def switch_business_dialog() -> None:
+    c = ctx()
+    types = list(PRESETS)
+    business_type = st.radio(
+        "¿Qué tipo de negocio quieres?", types, index=types.index(c.settings["business_type"]),
+        format_func=lambda k: PRESETS[k]["label"],
+        captions=[PRESETS[k]["description"] for k in types], key="switch_type",
+    )
+    # Keep the current name for the current type; other types suggest a ready-made demo name.
+    default_name = (c.settings["business_name"] if business_type == c.settings["business_type"]
+                    else PRESETS[business_type]["demo_name"])
+    name = st.text_input("Nombre del negocio", default_name, key=f"switch_name_{business_type}")
+    demo = st.toggle("Cargar datos de ejemplo para probar", value=True, key="switch_demo")
+    st.warning("Se reemplazarán el catálogo, los clientes y las ventas actuales por los del nuevo negocio.",
+               icon=":material/warning:")
+    st.download_button(
+        "Antes, descargar una copia de mis datos", c.store.backup_bytes(), f"ventas-{date.today():%Y-%m-%d}.db",
+        "application/octet-stream", icon=":material/download:", use_container_width=True,
+    )
+    if st.button(f"Cambiar a «{PRESETS[business_type]['label']}»", type="primary", use_container_width=True,
+                 icon=":material/swap_horiz:"):
+        c.store.save_settings({"business_name": name.strip() or c.settings["business_name"]})
+        with st.spinner("Preparando el nuevo negocio…"):
+            c.store.load_preset(business_type, with_demo_sales=demo)
+        st.session_state.pop("cart", None)
+        st.rerun()
+
+
 # ----------------------------------------------------------------- dashboard
 def dashboard() -> None:
     c = ctx()
@@ -79,9 +108,9 @@ def dashboard() -> None:
 
     m1, m2, m3, m4 = st.columns(4)
     vs = f"Variación frente a los {period} días anteriores."
-    m1.metric("Facturación", c.money(k["revenue"]), _delta(k["revenue_delta"]), help=f"Impuestos incluidos. {vs}")
+    m1.metric("Facturación", c.money_short(k["revenue"]), _delta(k["revenue_delta"]), help=f"Impuestos incluidos. {vs}")
     m2.metric("Ventas", f"{k['count']}", _delta(k["count_delta"]), help=vs)
-    m3.metric("Ticket medio", c.money(k["ticket"]), _delta(k["ticket_delta"]), help=vs)
+    m3.metric("Ticket medio", c.money_short(k["ticket"]), _delta(k["ticket_delta"]), help=vs)
     m4.metric("Margen bruto", _pct(k["margin_pct"]), help="Sobre ventas netas, sin impuestos.")
 
     cur_sales = sales[(sales["status"] == "completada") & (sales["created_at"] >= start)]
@@ -353,8 +382,8 @@ def history() -> None:
     done = df[df["status"] == "completada"]
     m1, m2, m3 = st.columns(3)
     m1.metric("Ventas", len(done))
-    m2.metric("Total facturado", c.money(done["total"].sum()))
-    m3.metric("Impuestos repercutidos", c.money(done["tax"].sum()))
+    m2.metric("Total facturado", c.money_short(done["total"].sum()))
+    m3.metric("Impuestos repercutidos", c.money_short(done["tax"].sum()))
 
     view = df[["id", "number", "created_at", "customer_name", "payment_method", "total", "status"]]
     event = st.dataframe(
@@ -501,7 +530,7 @@ def customers_page() -> None:
     m1, m2, m3 = st.columns(3)
     m1.metric("Clientes", len(ranking))
     m2.metric("Con compras", len(buyers))
-    m3.metric("Valor medio por cliente", c.money(buyers["lifetime_value"].mean() if len(buyers) else 0))
+    m3.metric("Valor medio por cliente", c.money_short(buyers["lifetime_value"].mean() if len(buyers) else 0))
 
     with st.expander("Añadir cliente", icon=":material/person_add:"):
         with st.form("new_customer", clear_on_submit=True, border=False):

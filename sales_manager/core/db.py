@@ -612,12 +612,12 @@ class Store:
         if not with_demo_sales:
             return
         try:
-            self._generate_demo_sales(seed)
+            self._generate_demo_sales(seed, preset)
         finally:
             with self.db.tx() as cur:
                 cur.executemany("UPDATE products SET stock = ? WHERE id = ?", [(v, k) for k, v in targets.items()])
 
-    def _generate_demo_sales(self, seed: int) -> None:
+    def _generate_demo_sales(self, seed: int, preset: dict) -> None:
         rng = random.Random(seed)
         names = [
             ("Lucía Fernández", "lucia@example.com"),
@@ -633,12 +633,16 @@ class Store:
         for days_ago in range(60, -1, -1):
             day = now - timedelta(days=days_ago)
             weekend_boost = 1.5 if day.weekday() >= 4 else 1.0
-            for _ in range(int(rng.randint(1, 5) * weekend_boost)):
+            low, high = preset.get("demo_sales_per_day", (1, 5))
+            for _ in range(int(rng.randint(low, high) * weekend_boost)):
                 when = day.replace(hour=rng.randint(9, 20), minute=rng.randint(0, 59))
                 if when > now:
                     continue
-                picks = products.sample(n=rng.randint(1, min(3, len(products))), random_state=rng.randint(0, 10**6))
-                cart = [{"product_id": int(pid), "quantity": rng.randint(1, 3)} for pid in picks["id"]]
+                picks = products.sample(
+                    n=rng.randint(1, min(preset.get("demo_max_items", 3), len(products))),
+                    random_state=rng.randint(0, 10**6),
+                )
+                cart = [{"product_id": int(pid), "quantity": rng.randint(1, preset.get("demo_max_quantity", 3))} for pid in picks["id"]]
                 # Customers who stopped buying a while ago give the follow-up automation something to show.
                 pool = customer_ids if days_ago > 40 else customer_ids[:4]
                 customer = rng.choice(pool + [None, None])

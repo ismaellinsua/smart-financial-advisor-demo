@@ -47,6 +47,8 @@ PAGES.update(
 )
 
 sidebar_brand(c.settings["business_name"], PRESETS[c.settings["business_type"]]["label"])
+if st.sidebar.button("Cambiar de negocio", icon=":material/swap_horiz:", use_container_width=True):
+    pages.switch_business_dialog()
 nav = st.navigation({
     "Operación": [PAGES["dashboard"], PAGES["pos"], PAGES["history"]],
     "Gestión": [PAGES["products"], PAGES["customers"]],
