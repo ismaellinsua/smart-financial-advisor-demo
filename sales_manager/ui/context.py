@@ -1,5 +1,6 @@
 """Shared per-run context for pages."""
 
+import os
 from dataclasses import dataclass
 
 import streamlit as st
@@ -12,9 +13,19 @@ from core.pricing import format_money
 PAGES: dict = {}
 
 
-@st.cache_resource
+def database_url() -> str | None:
+    """PostgreSQL URL from Streamlit secrets (`database_url`) or the DATABASE_URL environment variable."""
+    try:
+        url = st.secrets.get("database_url")
+    except Exception:  # no secrets file
+        url = None
+    return url or os.environ.get("DATABASE_URL") or None
+
+
+@st.cache_resource(show_spinner="Conectando con la base de datos…")
 def get_store() -> Store:
-    return Store()
+    url = database_url()
+    return Store(url) if url else Store()
 
 
 @dataclass

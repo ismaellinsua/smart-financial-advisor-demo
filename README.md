@@ -71,3 +71,10 @@ It does **not** constitute professional financial advice.
 
 © 2025 – Smart Financial Advisor
 
+---
+
+## Licencia
+
+Software propietario. © 2025-2026 Ismael Linsua. Todos los derechos reservados.
+Prohibido copiar, modificar, distribuir, vender o alojar para terceros sin permiso por escrito del titular.
+Consulta el archivo [`LICENSE`](LICENSE) para las condiciones completas.

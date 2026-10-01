@@ -1,6 +1,8 @@
 """Gestor de Ventas — punto de venta, inventario, clientes y automatizaciones para cualquier negocio.
 
 Ejecutar desde la raíz del repositorio:  streamlit run sales_manager/app.py
+
+Copyright (c) 2025-2026 Ismael Linsua. Todos los derechos reservados. Software propietario: ver LICENSE.
 """
 
 import streamlit as st
@@ -9,11 +11,19 @@ from core.presets import PRESETS
 from ui import pages
 from ui.auth import logout_button, require_login
 from ui.context import PAGES, ctx
-from ui.styles import inject_css, sidebar_brand
+from ui.styles import inject_css, sidebar_brand, sidebar_copyright
 
 st.set_page_config(page_title="Gestor de Ventas", page_icon=":material/storefront:", layout="wide")
 
-c = ctx()
+try:
+    c = ctx()
+except Exception as exc:  # the database is unreachable or the URL is wrong; retried on the next visit
+    st.error(
+        "No se pudo conectar con la base de datos. Revisa que `database_url` en los *Secrets* de Streamlit "
+        "sea la cadena de conexión completa de Neon (empieza por `postgresql://`)."
+    )
+    st.caption(f"Detalle técnico: {type(exc).__name__}")
+    st.stop()
 inject_css(c.settings["accent_color"])
 
 if not require_login():
@@ -44,4 +54,5 @@ nav = st.navigation({
     "Ajustes": [PAGES["settings"]],
 })
 logout_button()
+sidebar_copyright()
 nav.run()

@@ -62,9 +62,30 @@ ventas de ejemplo. Los datos se guardan en `sales_manager/data/ventas.db` (SQLit
    Con esto la app pide contraseña al entrar. Sin ella, cualquiera con el enlace podría ver y cambiar tus datos.
 4. Pulsa **Deploy**. Abre la URL en el móvil y usa «Añadir a pantalla de inicio» para tenerla como una app.
 
-**Importante sobre los datos:** en Streamlit Community Cloud el almacenamiento es temporal. Los datos se borran cuando
-la app se reinicia, se actualiza o se duerme por inactividad. Descarga a menudo la copia desde
-**Configuración → Copia de seguridad** y restáurala si hace falta.
+**Importante sobre los datos:** sin base de datos externa, Streamlit Community Cloud guarda los datos en un archivo
+temporal que se borra cuando la app se reinicia, se actualiza o se duerme. Para que no se pierdan nunca, conecta una
+base de datos gratuita (siguiente apartado).
+
+## Base de datos permanente y gratuita (Neon)
+
+La app usa PostgreSQL cuando encuentra `database_url` en los *Secrets*; si no, usa el archivo local SQLite.
+
+1. **Guarda tus datos actuales:** en la app, **Configuración → Copia de seguridad → Descargar copia de seguridad**.
+2. Crea una cuenta gratuita en [neon.tech](https://neon.tech) (puedes entrar con GitHub o Google; no pide tarjeta).
+3. Crea un proyecto, por ejemplo `gestor-ventas`, en una región cercana (para España: *AWS Europe Central 1 (Frankfurt)*).
+4. En el panel del proyecto pulsa **Connect**, muestra la contraseña y copia la cadena de conexión.
+   Empieza por `postgresql://` y termina en algo como `?sslmode=require`.
+5. En Streamlit: tu app → **⋮ → Settings → Secrets**, y deja estas dos líneas:
+   ```toml
+   app_password = "tu-contraseña"
+   database_url = "postgresql://usuario:clave@ep-xxxx.eu-central-1.aws.neon.tech/neondb?sslmode=require"
+   ```
+   Guarda: la app se reinicia sola y crea las tablas.
+6. Entra en la app, ve a **Configuración → Copia de seguridad → Restaurar** y sube el archivo del paso 1.
+   En Configuración verás «Tus datos se guardan en PostgreSQL en la nube».
+
+El plan gratuito de Neon basta para un negocio pequeño. La base se duerme tras unos minutos sin uso y tarda uno o dos
+segundos en despertar la primera vez; la app se reconecta sola.
 
 ## Estructura
 
@@ -72,7 +93,7 @@ la app se reinicia, se actualiza o se duerme por inactividad. Descarga a menudo 
 sales_manager/
 ├── app.py              # Navegación y arranque
 ├── core/               # Lógica sin dependencias de interfaz
-│   ├── db.py           # Almacenamiento SQLite, ventas atómicas, datos de ejemplo
+│   ├── db.py           # Almacenamiento SQLite o PostgreSQL, ventas atómicas, copias, datos de ejemplo
 │   ├── pricing.py      # Cálculo de totales (Decimal, redondeo comercial)
 │   ├── automation.py   # KPIs, reposición, alertas, clientes inactivos, recomendaciones
 │   ├── receipts.py     # Tickets HTML imprimibles
@@ -85,4 +106,12 @@ sales_manager/
 
 ```bash
 cd sales_manager && python -m pytest -q
+# Para probar también contra PostgreSQL:
+TEST_DATABASE_URL=postgresql://usuario:clave@localhost:5432/pruebas python -m pytest -q
 ```
+
+## Licencia
+
+Software propietario. © 2025-2026 Ismael Linsua. Todos los derechos reservados.
+Prohibido copiar, modificar, distribuir, vender o alojar para terceros sin permiso por escrito del titular.
+Consulta el archivo [`LICENSE`](../LICENSE) para las condiciones completas.

@@ -685,6 +685,8 @@ def settings_page() -> None:
                    "catálogo, clientes y ventas por los de ejemplo.")
         demo = st.toggle("Incluir 60 días de ventas de ejemplo", value=True)
         confirm = st.checkbox("Entiendo que se borrarán los datos actuales")
+        if not confirm:
+            st.caption("Marca la casilla de arriba para activar «Cargar plantilla» y «Empezar desde cero».")
         a, b, d = st.columns(3)
         if a.button("Cambiar solo el tipo", use_container_width=True):
             c.store.save_settings({"business_type": business_type})
@@ -703,9 +705,15 @@ def settings_page() -> None:
 
     st.markdown("##### Copia de seguridad")
     with st.container(border=True):
-        st.caption("Descarga una copia de todos tus datos (catálogo, clientes y ventas) y guárdala en tu móvil o en la "
-                   "nube. Si publicas la app en Streamlit Community Cloud, hazlo con frecuencia: allí los datos se "
-                   "pierden cuando la app se reinicia o se actualiza.")
+        if c.store.persistent_in_cloud:
+            st.success(f"Tus datos se guardan en **{c.store.backend_label}** y no se pierden aunque la app se "
+                       "reinicie.", icon=":material/cloud_done:")
+            st.caption("Aun así, descarga una copia de vez en cuando. También sirve para pasar a esta base de datos "
+                       "los datos que tenías antes: descarga la copia en la app antigua y restáurala aquí.")
+        else:
+            st.warning(f"Tus datos se guardan en un **{c.store.backend_label}**. En Streamlit Community "
+                       "Cloud se pierden cuando la app se reinicia o se actualiza: descarga copias a menudo o "
+                       "conecta una base de datos gratuita (ver README).", icon=":material/warning:")
         st.download_button(
             "Descargar copia de seguridad", c.store.backup_bytes(), f"ventas-{date.today():%Y-%m-%d}.db",
             "application/octet-stream", icon=":material/download:", type="primary",
