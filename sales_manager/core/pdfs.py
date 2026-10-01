@@ -14,6 +14,7 @@ from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, Tabl
 
 from .presets import CURRENCIES
 from .pricing import format_money
+from .receipts import payment_lines, sale_adjustments
 
 INK = colors.HexColor("#1B2430")
 MUTED = colors.HexColor("#667085")
@@ -104,6 +105,9 @@ def invoice_pdf(invoice: dict, settings: dict) -> bytes:
         rows.append([_p(item["name"], st["base"]), _p(item["quantity"], st["right"]),
                      _p(money(item["unit_price"]), st["right"]),
                      _p(money(item["quantity"] * item["unit_price"]), st["right"])])
+        if item.get("line_discount"):
+            rows.append([_p(f"   {item.get('promo_name') or 'Promoción'}", st["muted"]), "", "",
+                         _p(f"−{money(item['line_discount'])}", st["right"])])
     lines = Table(rows, colWidths=[95 * mm, 20 * mm, 27 * mm, 28 * mm], repeatRows=1)
     lines.setStyle(TableStyle([
         ("LINEBELOW", (0, 0), (-1, 0), 1, INK),
@@ -116,8 +120,7 @@ def invoice_pdf(invoice: dict, settings: dict) -> bytes:
 
     base = sale["subtotal"] - sale["discount"]
     totals = [["Suma de conceptos", money(sale["subtotal"])]]
-    if sale["discount"]:
-        totals.append([f"Descuento ({sale['discount_pct']:g} %)", f"−{money(sale['discount'])}"])
+    totals += [[label, f"−{money(amount)}"] for label, amount in sale_adjustments(sale)]
     totals += [["Base imponible", money(base)], [f"IVA ({sale['tax_rate']:g} %)", money(sale["tax"])]]
     total_rows = [[_p(a, st["base"]), _p(b, st["right"])] for a, b in totals]
     total_rows.append([_p("TOTAL", st["doc"]), _p(money(sale["total"]), st["doc"])])
@@ -129,7 +132,8 @@ def invoice_pdf(invoice: dict, settings: dict) -> bytes:
     ]))
     story += [table, Spacer(1, 10 * mm)]
 
-    story.append(_p(f"Forma de pago: {sale['payment_method']} · Ticket de venta {sale['number']}", st["muted"]))
+    paid = "; ".join(payment_lines(sale)) or sale["payment_method"]
+    story.append(_p(f"Forma de pago: {paid} · Ticket de venta {sale['number']}", st["muted"]))
     if settings.get("receipt_footer"):
         story.append(_p(settings["receipt_footer"], st["muted"]))
     return _build(story, f"Factura {invoice['number']}")

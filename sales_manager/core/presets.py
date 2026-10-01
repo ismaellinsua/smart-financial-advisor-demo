@@ -2,6 +2,12 @@
 
 PRESETS = {
     "retail": {
+        "promotions": [
+            {"name": "3x2 en accesorios", "kind": "nxm", "buy": 3, "pay": 2, "scope": "categoria",
+             "target": "Accesorios"},
+            {"name": "Viernes de moda −10 %", "kind": "porcentaje", "value": 10, "scope": "categoria",
+             "target": "Ropa", "days": "4"},
+        ],
         "label": "Pequeño comercio / Tienda",
         "demo_name": "Moda Lúa",
         "description": "Ropa, regalos, alimentación, ferretería… Productos con control de stock.",
@@ -21,6 +27,12 @@ PRESETS = {
         ],
     },
     "restaurant": {
+        "promotions": [
+            {"name": "Happy hour bebidas −30 %", "kind": "porcentaje", "value": 30, "scope": "categoria",
+             "target": "Bebidas", "start_time": "18:00", "end_time": "20:00"},
+            {"name": "2x1 en postres los martes", "kind": "nxm", "buy": 2, "pay": 1, "scope": "categoria",
+             "target": "Postres", "days": "1"},
+        ],
         "label": "Restaurante / Cafetería",
         "demo_name": "Café Aurora",
         "description": "Bares, cafeterías y restaurantes. Carta de platos y bebidas.",
@@ -43,6 +55,10 @@ PRESETS = {
         ],
     },
     "services": {
+        "promotions": [
+            {"name": "Formación −10 %", "kind": "porcentaje", "value": 10, "scope": "categoria",
+             "target": "Formación"},
+        ],
         "label": "Autónomo / Servicios profesionales",
         "demo_name": "Ana García · Consultora",
         "description": "Consultoría, formación, reformas, estética… Servicios sin stock.",
@@ -67,6 +83,10 @@ PRESETS = {
         ],
     },
     "ecommerce": {
+        "promotions": [
+            {"name": "3x2 en fundas y cargadores", "kind": "nxm", "buy": 3, "pay": 2, "scope": "categoria",
+             "target": "Accesorios"},
+        ],
         "label": "Tienda online / E-commerce",
         "demo_name": "TecnoShop Online",
         "description": "Venta por internet con envíos. Catálogo con control de stock.",
@@ -109,4 +129,8 @@ DEFAULT_SETTINGS = {
     "agenda_enabled": "auto",
     "opening_float": "150",
     "session_minutes": "720",
+    "loyalty_enabled": "si",
+    "points_per_euro": "1",
+    "point_value": "0.01",
+    "min_redeem_points": "100",
 }

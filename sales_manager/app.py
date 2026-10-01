@@ -11,7 +11,7 @@ import streamlit as st
 
 from core.presets import PRESETS
 from core.security import ROLES
-from ui import pages
+from ui import pages, pages_promos
 from ui.auth import logout_button, require_user
 from ui.context import PAGES, ctx
 from ui.styles import inject_css, sidebar_brand, sidebar_copyright, topbar
@@ -54,6 +54,8 @@ PAGES.update(
     automations=st.Page(pages.automations_page, title="Automatizaciones", icon=":material/bolt:",
                         url_path="automatizaciones"),
     settings=st.Page(pages.settings_page, title="Configuración", icon=":material/settings:", url_path="ajustes"),
+    promos=st.Page(pages_promos.promotions_page, title="Promociones", icon=":material/sell:",
+                   url_path="promociones"),
     team=st.Page(pages.team_page, title="Equipo y seguridad", icon=":material/shield_person:", url_path="equipo"),
     cash=st.Page(pages.cash_page, title="Caja", icon=":material/account_balance_wallet:", url_path="caja"),
     agenda=st.Page(pages.agenda_page, title=pages.agenda_config(c.preset)["title"], icon=":material/event:",
@@ -66,7 +68,7 @@ sections = {"Operación": [*([P["dashboard"]] if c.can("encargado") else []), P[
                           *([P["agenda"]] if show_agenda else []),
                           *([P["cash"]] if c.can("encargado") else []), P["history"]]}
 if c.can("encargado"):
-    sections["Gestión"] = [P["products"], P["customers"]]
+    sections["Gestión"] = [P["products"], P["customers"], P["promos"]]
     sections["Inteligencia"] = [P["automations"]]
 if c.can("admin"):
     sections["Ajustes"] = [P["settings"], P["team"]]

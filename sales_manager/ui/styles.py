@@ -62,6 +62,11 @@ button[kind="primary"]:disabled, button[data-testid^="stBaseButton-primary"]:dis
 .sm-totals .grand td {{ font-size: 1.35rem; font-weight: 700; color: var(--accent);
                         border-top: 2px solid var(--accent); padding-top: .5rem; }}
 
+/* Checkout */
+.sm-promo {{ font-size: .85rem; color: #067647; padding: .1rem 0; }}
+.sm-change {{ font-size: 1.05rem; padding: .3rem 0 .6rem; }}
+.sm-change b {{ color: var(--accent); font-size: 1.3rem; }}
+
 /* Insight list */
 .sm-insight {{ display: flex; gap: .7rem; align-items: flex-start; padding: .7rem .9rem; border-radius: 10px;
                margin-bottom: .5rem; background: var(--secondary-background-color, #F5F7FA); font-size: .93rem; }}

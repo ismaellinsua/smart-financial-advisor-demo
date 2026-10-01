@@ -13,6 +13,8 @@ from core.receipts import receipt_html
 def store(make_store):
     s = make_store()
     s.load_preset("retail", with_demo_sales=False)
+    for pid in s.promotions()["id"]:  # template promotions depend on the weekday; tests add their own
+        s.delete_promotion(int(pid))
     return s
 
 
@@ -23,7 +25,9 @@ def product_id(store, sku):
 
 def test_compute_totals_applies_discount_before_tax():
     totals = compute_totals([{"unit_price": 10, "quantity": 3}, {"unit_price": 5.5, "quantity": 2}], 10, 21)
-    assert totals == {"subtotal": 41.0, "discount": 4.1, "tax": 7.75, "total": 44.65}
+    assert {k: totals[k] for k in ("subtotal", "discount", "tax", "total")} == {
+        "subtotal": 41.0, "discount": 4.1, "tax": 7.75, "total": 44.65}
+    assert sum(totals["net_amounts"]) == pytest.approx(totals["base"])
 
 
 def test_compute_totals_rejects_invalid_discount():
@@ -478,3 +482,96 @@ def test_receipt_rejects_css_injection(store):
     sale = store.create_sale([{"product_id": product_id(store, "CAM-001"), "quantity": 1}], "Tarjeta")
     html = receipt_html(sale, store.settings())
     assert "<script>" not in html and "#1F4E79" in html
+
+
+# ------------------------------------------------- promotions, points, payments
+def test_promotion_rules():
+    from core.pricing import apply_promotions, promotion_active
+
+    monday_19 = datetime(2026, 10, 5, 19, 0)  # a Monday
+    happy = {"name": "HH", "kind": "porcentaje", "value": 30, "scope": "categoria", "target": "Bebidas",
+             "days": "0123456", "start_time": "18:00", "end_time": "20:00", "active": 1}
+    assert promotion_active(happy, monday_19) and not promotion_active(happy, monday_19.replace(hour=20))
+    night = {**happy, "days": "4", "start_time": "22:00", "end_time": "02:00"}  # Friday night
+    assert promotion_active(night, datetime(2026, 10, 9, 23, 0))   # Friday 23:00
+    assert promotion_active(night, datetime(2026, 10, 10, 1, 30))  # Saturday 01:30, still Friday's promo
+    assert not promotion_active(night, datetime(2026, 10, 10, 23, 0))
+
+    two_for_one = {"name": "2x1", "kind": "nxm", "buy": 2, "pay": 1, "scope": "producto", "target": "7",
+                   "days": "0123456", "active": 1}
+    ten = {"name": "-10", "kind": "porcentaje", "value": 10, "scope": "todo", "days": "0123456", "active": 1}
+    lines = [{"product_id": 7, "category": "Postres", "quantity": 5, "unit_price": 6.0},
+             {"product_id": 8, "category": "Bebidas", "quantity": 1, "unit_price": 3.0}]
+    out = apply_promotions(lines, [two_for_one, ten, happy], monday_19)
+    assert (out[0]["line_discount"], out[0]["promo_name"]) == (12.0, "2x1")  # best of 2x1 (12) and -10 % (3)
+    assert (out[1]["line_discount"], out[1]["promo_name"]) == (0.9, "HH")
+
+
+def test_split_evenly():
+    from core.pricing import split_evenly
+
+    assert split_evenly(100, 3) == [33.33, 33.33, 33.34]
+    assert sum(split_evenly(10.01, 4)) == pytest.approx(10.01)
+
+
+def test_sale_with_promotion_points_and_mixed_payment(store):
+    store.save_promotion({"name": "3x2 accesorios", "kind": "nxm", "buy": 3, "pay": 2, "scope": "categoria",
+                          "target": "Accesorios", "days": "0123456"})
+    cid = store.upsert_customer({"name": "Eva"})
+    pid = product_id(store, "CIN-005")  # 24,50 €, Accesorios
+    quote = store.quote([{"product_id": pid, "quantity": 3}], customer_id=cid)
+    assert quote["lines"][0]["promo_name"] == "3x2 accesorios"
+    total = quote["totals"]["total"]
+    assert total == pytest.approx(49.00 * 1.21, abs=0.01)
+    with pytest.raises(SaleError, match="suman"):
+        store.create_sale([{"product_id": pid, "quantity": 3}], customer_id=cid,
+                          payments=[{"method": "Tarjeta", "amount": 10}])
+    sale = store.create_sale(
+        [{"product_id": pid, "quantity": 3}], customer_id=cid,
+        payments=[{"method": "Efectivo", "amount": 20, "tendered": 50}, {"method": "Tarjeta", "amount": total - 20}],
+    )
+    assert sale["payment_method"] == "Mixto" and len(sale["payments"]) == 2
+    assert sale["points_earned"] == int(total) and store.customer_points(cid) == int(total)
+    summary = store.day_summary(datetime.now().date())
+    assert summary["breakdown"]["Efectivo"]["total"] == 20 and summary["cash"] == 20
+    lines = store.sale_lines()
+    assert lines["revenue"].sum() == pytest.approx(total - sale["tax"], abs=0.01)
+
+
+def test_redeem_points(store):
+    cid = store.upsert_customer({"name": "Leo"})
+    pid = product_id(store, "BOL-004")  # 120 €
+    store.create_sale([{"product_id": pid, "quantity": 1}], "Tarjeta", customer_id=cid)
+    balance = store.customer_points(cid)
+    assert balance == int(120 * 1.21)
+    with pytest.raises(SaleError, match="a partir de"):
+        store.quote([{"product_id": pid, "quantity": 1}], customer_id=cid, redeem_points=50)
+    with pytest.raises(SaleError, match="solo tiene"):
+        store.quote([{"product_id": pid, "quantity": 1}], customer_id=cid, redeem_points=balance + 1)
+    with pytest.raises(SaleError, match="cliente"):
+        store.quote([{"product_id": pid, "quantity": 1}], redeem_points=100)
+    sale = store.create_sale([{"product_id": product_id(store, "CAM-001"), "quantity": 1}], "Efectivo",
+                             customer_id=cid, redeem_points=100)
+    assert sale["loyalty_discount"] > 0
+    assert sale["total"] == pytest.approx(39.90 * 1.21 - 1.00, abs=0.02)  # 100 points = 1 €
+    after = store.customer_points(cid)
+    assert after == balance - 100 + sale["points_earned"]
+    store.cancel_sale(sale["id"])
+    assert store.customer_points(cid) == balance  # cancelling gives the points back and removes the earned ones
+
+
+def test_promotion_validation(store):
+    with pytest.raises(ValueError):
+        store.save_promotion({"name": "x", "kind": "nxm", "buy": 2, "pay": 2, "scope": "todo", "days": "0"})
+    with pytest.raises(ValueError):
+        store.save_promotion({"name": "x", "kind": "porcentaje", "value": 150, "scope": "todo", "days": "0"})
+    with pytest.raises(ValueError):
+        store.save_promotion({"name": "x", "kind": "porcentaje", "value": 10, "scope": "categoria", "days": "0"})
+    with pytest.raises(ValueError):
+        store.save_promotion({"name": "x", "kind": "porcentaje", "value": 10, "scope": "todo", "days": "0",
+                              "start_time": "25:00", "end_time": "26:00"})
+    pid = store.save_promotion({"name": "ok", "kind": "porcentaje", "value": 10, "scope": "todo", "days": "06"})
+    store.set_promotion_active(pid, False)
+    assert store.promotions().iloc[0]["active"] == 0
+    store.delete_promotion(pid)
+    assert store.promotions().empty

@@ -10,13 +10,14 @@ from core.db import Store
 APP = str(Path(__file__).resolve().parent.parent / "app.py")
 ROOT = str(Path(APP).parent)
 PAGES = ["dashboard", "point_of_sale", "history", "products_page", "customers_page", "automations_page",
-         "settings_page", "cash_page", "agenda_page", "team_page"]
+         "settings_page", "cash_page", "agenda_page", "team_page", "promotions_page"]
 
 # Renders a single page function against a given database file.
 SCRIPT = """
 import sys
 sys.path.insert(0, {root!r})
-import ui.context, ui.pages
+import ui.context, ui.pages, ui.pages_promos
+ui.pages.promotions_page = ui.pages_promos.promotions_page
 from core.db import Store
 import streamlit as st
 store = Store({db!r})
@@ -66,6 +67,24 @@ def test_point_of_sale_checkout(demo_db):
     charge.click().run()
     assert not at.exception, at.exception
     assert len(check.sales()) == before + 1
+    check.close()
+
+
+def test_point_of_sale_split_bill(demo_db):
+    at = AppTest.from_string(SCRIPT.format(root=ROOT, db=demo_db, fn="point_of_sale", role="empleado"),
+                             default_timeout=30).run()
+    check = Store(demo_db)
+    add = [b.key for b in at.button if b.key and b.key.startswith("add_")]
+    at.button(key=add[0]).click().run()
+    at.button(key=add[1]).click().run()
+    at.session_state["pos_mode"] = "Dividir cuenta"
+    at.run()
+    assert at.number_input(key="pos_people").value == 2
+    at.button(key="pos_charge").click().run()
+    assert not at.exception, at.exception
+    sale = check.sale(int(check.sales().iloc[0]["id"]))
+    assert sale["payment_method"] in ("Mixto", "Tarjeta") and len(sale["payments"]) == 2
+    assert sum(p["amount"] for p in sale["payments"]) == pytest.approx(sale["total"])
     check.close()
 
 

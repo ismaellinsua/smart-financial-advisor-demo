@@ -8,6 +8,32 @@ from .presets import CURRENCIES
 from .pricing import format_money
 
 
+def sale_adjustments(sale: dict) -> list[tuple[str, float]]:
+    """Discount lines of a sale, in the order they were applied: promotions, manual discount, points."""
+    promo = float(sale.get("promo_discount") or 0)
+    loyalty = float(sale.get("loyalty_discount") or 0)
+    manual = round(float(sale.get("discount") or 0) - promo - loyalty, 2)
+    rows = []
+    if promo:
+        rows.append(("Promociones", promo))
+    if manual > 0:
+        rows.append((f"Descuento ({sale['discount_pct']:g} %)", manual))
+    if loyalty:
+        rows.append((f"Canje de {sale.get('points_redeemed', 0)} puntos", loyalty))
+    return rows
+
+
+def payment_lines(sale: dict) -> list[str]:
+    """Plain-text description of how a sale was paid, with the change given in cash."""
+    out = []
+    for pay in sale.get("payments") or []:
+        text = f"{pay['method']}: {pay['amount']:.2f}"
+        if pay.get("tendered") and pay["tendered"] > pay["amount"]:
+            text += f" (entregado {pay['tendered']:.2f}, cambio {pay['tendered'] - pay['amount']:.2f})"
+        out.append(text.replace(".", ","))
+    return out
+
+
 def receipt_html(sale: dict, settings: dict) -> str:
     symbol = CURRENCIES.get(settings.get("currency", "EUR"), "€")
     money = lambda v: format_money(v, symbol)  # noqa: E731
@@ -18,6 +44,8 @@ def receipt_html(sale: dict, settings: dict) -> str:
     rows = "".join(
         f"<tr><td>{escape(i['name'])}</td><td class='n'>{i['quantity']}</td>"
         f"<td class='n'>{money(i['unit_price'])}</td><td class='n'>{money(i['quantity'] * i['unit_price'])}</td></tr>"
+        + (f"<tr class='promo'><td colspan='3'>↳ {escape(i.get('promo_name') or 'Promoción')}</td>"
+           f"<td class='n'>−{money(i['line_discount'])}</td></tr>" if i.get("line_discount") else "")
         for i in sale["items"]
     )
     business_lines = " · ".join(
@@ -26,11 +54,12 @@ def receipt_html(sale: dict, settings: dict) -> str:
     customer = escape(sale.get("customer_name") or "Cliente general")
     if sale.get("customer_tax_id"):
         customer += f"<br><span class='muted'>{escape(sale['customer_tax_id'])}</span>"
-    discount_row = (
-        f"<tr><td>Descuento ({sale['discount_pct']:g} %)</td><td class='n'>−{money(sale['discount'])}</td></tr>"
-        if sale["discount"]
-        else ""
+    discount_row = "".join(
+        f"<tr><td>{escape(label)}</td><td class='n'>−{money(amount)}</td></tr>" for label, amount in sale_adjustments(sale)
     )
+    paid = "".join(f"<div>{escape(line)} {escape(symbol)}</div>" for line in payment_lines(sale))
+    points = (f"<div>Puntos ganados con esta compra: <b>{sale['points_earned']}</b></div>"
+              if sale.get("points_earned") else "")
     void = "<div class='void'>ANULADA</div>" if sale.get("status") == "anulada" else ""
 
     return f"""<!doctype html>
@@ -53,6 +82,8 @@ def receipt_html(sale: dict, settings: dict) -> str:
   .totals {{ width: 280px; margin-left: auto; margin-top: 16px; }}
   .totals td {{ border: 0; padding: 4px 0; }}
   .grand td {{ font-size: 18px; font-weight: 700; color: {accent}; border-top: 2px solid {accent}; padding-top: 10px; }}
+  .promo td {{ color: #067647; font-size: 13px; border-bottom: 0; padding-top: 0; }}
+  .pay {{ margin-top: 20px; font-size: 13px; line-height: 1.6; }}
   footer {{ margin-top: 40px; text-align: center; }}
   .void {{ position: absolute; top: 40%; left: 0; right: 0; text-align: center; font-size: 72px; font-weight: 800;
            color: rgba(217,45,32,.18); transform: rotate(-18deg); pointer-events: none; }}
@@ -74,5 +105,6 @@ def receipt_html(sale: dict, settings: dict) -> str:
   <tr><td>Impuestos ({sale['tax_rate']:g} %)</td><td class="n">{money(sale['tax'])}</td></tr>
   <tr class="grand"><td>Total</td><td class="n">{money(sale['total'])}</td></tr>
 </table>
+<div class="pay muted">{paid}{points}</div>
 <footer class="muted">{escape(settings.get('receipt_footer', ''))}</footer>
 </div></body></html>"""

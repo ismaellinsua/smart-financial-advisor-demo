@@ -11,10 +11,10 @@ import streamlit as st
 from core import automation
 from core.db import SaleError
 from core.presets import CURRENCIES, PAYMENT_METHODS, PRESETS
-from core.pricing import compute_totals
 from core.security import ROLES, csv_safe
 from core.pdfs import cash_closing_pdf, invoice_pdf
 from core.receipts import receipt_html
+from ui.checkout import checkout_panel
 from ui.context import PAGES, ctx, get_store
 from ui.styles import insight, page_header, style_figure
 
@@ -308,10 +308,8 @@ def point_of_sale() -> None:
         st.markdown("#### Ticket actual")
         if not cart:
             st.caption("El ticket está vacío. Añade artículos desde el catálogo.")
-        lines = []
         for pid, qty in list(cart.items()):
             p = by_id.loc[pid]
-            lines.append({"product_id": pid, "quantity": qty, "unit_price": p["price"]})
             n, minus, q, plus = st.columns([6, 1, 1, 1], vertical_alignment="center")
             n.markdown(f"**{escape(p['name'])}**  \n<span style='opacity:.65'>{c.money(p['price'])} × {qty} = "
                        f"{c.money(p['price'] * qty)}</span>", unsafe_allow_html=True)
@@ -323,52 +321,29 @@ def point_of_sale() -> None:
                         disabled=bool(p["track_stock"]) and qty >= p["stock"])
 
         st.divider()
-        customers = c.store.customers()
-        names = {int(i): n for i, n in zip(customers["id"], customers["name"])}
-        # 0 stands for the walk-in customer (ids start at 1).
-        if st.session_state.get("pos_customer") not in names:
-            st.session_state["pos_customer"] = 0
-        cust_col, new_col = st.columns([4, 1], vertical_alignment="bottom")
-        customer_id = cust_col.selectbox(
-            "Cliente", [0, *names], key="pos_customer",
-            format_func=lambda i: names.get(i, "Cliente general"),
-        ) or None
-        with new_col.popover("Nuevo", icon=":material/person_add:", help="Nuevo cliente"):
-            with st.form("pos_new_customer", clear_on_submit=True, border=False):
-                st.text_input("Nombre", key="pos_new_name")
-                st.text_input("Email", key="pos_new_email")
-                st.text_input("Teléfono", key="pos_new_phone")
-                st.form_submit_button("Crear cliente", on_click=_create_customer_from_pos, type="primary")
 
-        payment = st.segmented_control("Forma de pago", PAYMENT_METHODS, default=PAYMENT_METHODS[0],
-                                       key="pos_payment") or PAYMENT_METHODS[0]
-        discount = st.number_input("Descuento (%)", 0.0, 100.0, 0.0, step=5.0, key="pos_discount")
+        def customer_picker(names: dict):
+            # 0 stands for the walk-in customer (ids start at 1).
+            if st.session_state.get("pos_customer") not in names:
+                st.session_state["pos_customer"] = 0
+            cust_col, new_col = st.columns([4, 1], vertical_alignment="bottom")
+            chosen = cust_col.selectbox("Cliente", [0, *names], key="pos_customer",
+                                        format_func=lambda i: names.get(i, "Cliente general")) or None
+            with new_col.popover("Nuevo", icon=":material/person_add:", help="Nuevo cliente"):
+                with st.form("pos_new_customer", clear_on_submit=True, border=False):
+                    st.text_input("Nombre", key="pos_new_name")
+                    st.text_input("Email", key="pos_new_email")
+                    st.text_input("Teléfono", key="pos_new_phone")
+                    st.form_submit_button("Crear cliente", on_click=_create_customer_from_pos, type="primary")
+            return chosen
 
-        totals = compute_totals(lines, discount, c.tax_rate)
-        discount_row = (f"<tr><td>Descuento</td><td>−{c.money(totals['discount'])}</td></tr>"
-                        if totals["discount"] else "")
-        st.markdown(
-            f"<table class='sm-totals'><tr><td>Subtotal</td><td>{c.money(totals['subtotal'])}</td></tr>"
-            f"{discount_row}<tr><td>Impuestos ({c.tax_rate:g} %)</td><td>{c.money(totals['tax'])}</td></tr>"
-            f"<tr class='grand'><td>Total</td><td>{c.money(totals['total'])}</td></tr></table>",
-            unsafe_allow_html=True,
-        )
-        st.write("")
-        pay_col, clear_col = st.columns([3, 1])
-        if pay_col.button(f"Cobrar {c.money(totals['total'])}", type="primary", use_container_width=True,
-                          disabled=not cart, icon=":material/payments:"):
-            try:
-                sale = c.store.create_sale(
-                    [{"product_id": pid, "quantity": q} for pid, q in cart.items()],
-                    payment_method=payment, customer_id=customer_id, discount_pct=discount, user_name=c.who,
-                )
-            except SaleError as exc:
-                st.error(str(exc))
-            else:
-                cart.clear()
-                st.session_state["last_sale"] = sale["id"]
-                st.rerun()
-        if clear_col.button("Vaciar", use_container_width=True, disabled=not cart):
+        sale = checkout_panel(c, [{"product_id": pid, "quantity": q} for pid, q in cart.items()], "pos",
+                              customer_widget=customer_picker)
+        if sale:
+            cart.clear()
+            st.session_state["last_sale"] = sale["id"]
+            st.rerun()
+        if cart and st.button("Vaciar ticket", use_container_width=True, icon=":material/delete:"):
             cart.clear()
             st.rerun()
 
@@ -995,6 +970,9 @@ def customers_page() -> None:
         st.success(st.session_state.pop("customers_flash"))
 
     ranking = automation.customer_ranking(c.store.customers(), c.store.sales())
+    points = c.store.points_by_customer()
+    ranking = ranking.merge(points, left_on="id", right_on="customer_id", how="left").drop(columns=["customer_id"])
+    ranking["points"] = ranking["points"].fillna(0).astype(int)
     buyers = ranking[ranking["purchases"] > 0]
     m1, m2, m3 = st.columns(3)
     m1.metric("Clientes", len(ranking))
@@ -1025,9 +1003,9 @@ def customers_page() -> None:
     fields = ["name", "email", "phone", "tax_id", "address", "notes"]
     edited = st.data_editor(
         ranking, key=_editor_key("customers_editor"), hide_index=True, use_container_width=True,
-        disabled=["id", "purchases", "lifetime_value", "last_purchase", "created_at"],
-        column_order=["name", "email", "phone", "tax_id", "address", "purchases", "lifetime_value", "last_purchase",
-                      "notes"],
+        disabled=["id", "purchases", "lifetime_value", "last_purchase", "created_at", "points"],
+        column_order=["name", "email", "phone", "tax_id", "address", "purchases", "lifetime_value", "points",
+                      "last_purchase", "notes"],
         column_config={
             "name": "Nombre", "email": "Email", "phone": "Teléfono", "tax_id": "Identificación fiscal", "address": "Dirección",
             "purchases": st.column_config.NumberColumn("Compras"),
@@ -1036,6 +1014,7 @@ def customers_page() -> None:
                 max_value=float(max(ranking["lifetime_value"].max(), 1)) if len(ranking) else 1.0,
             ),
             "last_purchase": st.column_config.DatetimeColumn("Última compra", format="DD/MM/YYYY"),
+            "points": st.column_config.NumberColumn("Puntos"),
             "notes": "Notas",
         },
     )
