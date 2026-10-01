@@ -2,7 +2,8 @@
 
 PRESETS = {
     "retail": {
-        "label": "Tienda / Comercio minorista",
+        "label": "Pequeño comercio / Tienda",
+        "description": "Ropa, regalos, alimentación, ferretería… Productos con control de stock.",
         "item_label": "Producto",
         "item_label_plural": "Productos",
         "tax_rate": 21.0,
@@ -20,6 +21,7 @@ PRESETS = {
     },
     "restaurant": {
         "label": "Restaurante / Cafetería",
+        "description": "Bares, cafeterías y restaurantes. Carta de platos y bebidas.",
         "item_label": "Plato",
         "item_label_plural": "Carta",
         "tax_rate": 10.0,
@@ -36,7 +38,8 @@ PRESETS = {
         ],
     },
     "services": {
-        "label": "Servicios profesionales",
+        "label": "Autónomo / Servicios profesionales",
+        "description": "Consultoría, formación, reformas, estética… Servicios sin stock.",
         "item_label": "Servicio",
         "item_label_plural": "Servicios",
         "tax_rate": 21.0,
@@ -51,7 +54,8 @@ PRESETS = {
         ],
     },
     "ecommerce": {
-        "label": "E-commerce / Tienda online",
+        "label": "Tienda online / E-commerce",
+        "description": "Venta por internet con envíos. Catálogo con control de stock.",
         "item_label": "Artículo",
         "item_label_plural": "Catálogo",
         "tax_rate": 21.0,

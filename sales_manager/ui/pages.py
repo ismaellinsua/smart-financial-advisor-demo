@@ -63,6 +63,32 @@ def onboarding() -> None:
                 st.rerun()
 
 
+@st.dialog("Cambiar de negocio")
+def switch_business_dialog() -> None:
+    c = ctx()
+    types = list(PRESETS)
+    business_type = st.radio(
+        "¿Qué tipo de negocio quieres?", types, index=types.index(c.settings["business_type"]),
+        format_func=lambda k: PRESETS[k]["label"],
+        captions=[PRESETS[k]["description"] for k in types], key="switch_type",
+    )
+    name = st.text_input("Nombre del negocio", c.settings["business_name"], key="switch_name")
+    demo = st.toggle("Cargar datos de ejemplo para probar", value=True, key="switch_demo")
+    st.warning("Se reemplazarán el catálogo, los clientes y las ventas actuales por los del nuevo negocio.",
+               icon=":material/warning:")
+    st.download_button(
+        "Antes, descargar una copia de mis datos", c.store.backup_bytes(), f"ventas-{date.today():%Y-%m-%d}.db",
+        "application/octet-stream", icon=":material/download:", use_container_width=True,
+    )
+    if st.button(f"Cambiar a «{PRESETS[business_type]['label']}»", type="primary", use_container_width=True,
+                 icon=":material/swap_horiz:"):
+        c.store.save_settings({"business_name": name.strip() or c.settings["business_name"]})
+        with st.spinner("Preparando el nuevo negocio…"):
+            c.store.load_preset(business_type, with_demo_sales=demo)
+        st.session_state.pop("cart", None)
+        st.rerun()
+
+
 # ----------------------------------------------------------------- dashboard
 def dashboard() -> None:
     c = ctx()
