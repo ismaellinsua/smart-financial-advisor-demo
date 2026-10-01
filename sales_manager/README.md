@@ -109,3 +109,9 @@ cd sales_manager && python -m pytest -q
 # Para probar también contra PostgreSQL:
 TEST_DATABASE_URL=postgresql://usuario:clave@localhost:5432/pruebas python -m pytest -q
 ```
+
+## Licencia
+
+Software propietario. © 2025-2026 Ismael Linsua. Todos los derechos reservados.
+Prohibido copiar, modificar, distribuir, vender o alojar para terceros sin permiso por escrito del titular.
+Consulta el archivo [`LICENSE`](../LICENSE) para las condiciones completas.

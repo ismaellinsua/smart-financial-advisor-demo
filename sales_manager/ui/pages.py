@@ -685,6 +685,8 @@ def settings_page() -> None:
                    "catálogo, clientes y ventas por los de ejemplo.")
         demo = st.toggle("Incluir 60 días de ventas de ejemplo", value=True)
         confirm = st.checkbox("Entiendo que se borrarán los datos actuales")
+        if not confirm:
+            st.caption("Marca la casilla de arriba para activar «Cargar plantilla» y «Empezar desde cero».")
         a, b, d = st.columns(3)
         if a.button("Cambiar solo el tipo", use_container_width=True):
             c.store.save_settings({"business_type": business_type})
@@ -709,7 +711,7 @@ def settings_page() -> None:
             st.caption("Aun así, descarga una copia de vez en cuando. También sirve para pasar a esta base de datos "
                        "los datos que tenías antes: descarga la copia en la app antigua y restáurala aquí.")
         else:
-            st.warning(f"Tus datos se guardan en un **{c.store.backend_label.lower()}**. En Streamlit Community "
+            st.warning(f"Tus datos se guardan en un **{c.store.backend_label}**. En Streamlit Community "
                        "Cloud se pierden cuando la app se reinicia o se actualiza: descarga copias a menudo o "
                        "conecta una base de datos gratuita (ver README).", icon=":material/warning:")
         st.download_button(

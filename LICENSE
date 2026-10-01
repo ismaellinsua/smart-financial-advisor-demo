@@ -1,0 +1,55 @@
+LICENCIA COMERCIAL — TODOS LOS DERECHOS RESERVADOS
+
+Copyright (c) 2025-2026 Ismael Linsua. Todos los derechos reservados.
+
+Este software, incluido su código fuente, diseño, documentación, capturas de
+pantalla y demás materiales de este repositorio (el «Software»), es propiedad
+exclusiva de Ismael Linsua (el «Titular»).
+
+1. Ninguna licencia por defecto. El acceso a este repositorio o a una copia del
+   Software no concede ningún derecho de uso. Solo pueden usar el Software las
+   personas o empresas que hayan obtenido del Titular una licencia por escrito
+   o mediante compra, y únicamente en los términos de esa licencia.
+
+2. Prohibiciones. Salvo autorización previa y por escrito del Titular, queda
+   prohibido:
+   a) copiar, reproducir o descargar el Software, total o parcialmente;
+   b) modificarlo, traducirlo o crear obras derivadas a partir de él;
+   c) distribuirlo, venderlo, sublicenciarlo, alquilarlo o cederlo a terceros;
+   d) publicarlo u ofrecerlo como servicio (por ejemplo, alojarlo en internet
+      para uso de terceros);
+   e) eliminar o alterar este aviso de licencia o los avisos de autoría.
+
+3. Licencias de clientes. Cada cliente que adquiera el Software recibirá del
+   Titular las condiciones concretas de su licencia (número de negocios o
+   instalaciones, duración, soporte y actualizaciones). Esas condiciones
+   prevalecen sobre este texto en lo que expresamente autoricen.
+
+4. Componentes de terceros. El Software utiliza bibliotecas de código abierto
+   (Streamlit, pandas, Plotly, psycopg y otras) que se rigen por sus propias
+   licencias. Esta licencia no limita los derechos que esas licencias otorgan
+   sobre dichas bibliotecas.
+
+5. Sin garantía. El Software se proporciona «tal cual», sin garantías de ningún
+   tipo, expresas o implícitas. El Software no constituye asesoramiento
+   financiero, fiscal ni contable. En la máxima medida permitida por la ley, el
+   Titular no será responsable de daños derivados de su uso.
+
+6. Incumplimiento. Cualquier uso no autorizado supone una infracción de los
+   derechos de propiedad intelectual del Titular, que podrá ejercer las acciones
+   legales que correspondan.
+
+Para adquirir una licencia o solicitar permisos, contacte con el Titular a
+través de su perfil de GitHub: https://github.com/ismaellinsua
+
+-------------------------------------------------------------------------------
+
+COMMERCIAL LICENSE — ALL RIGHTS RESERVED (English summary)
+
+Copyright (c) 2025-2026 Ismael Linsua. All rights reserved. This software is
+proprietary. No license is granted by access to this repository or to a copy of
+the software. Copying, modifying, distributing, selling, sublicensing or hosting
+it for third parties is prohibited without prior written permission from the
+copyright holder. Third-party open-source components remain under their own
+licenses. Provided "as is", without warranty of any kind. The Spanish text above
+prevails. Contact: https://github.com/ismaellinsua

@@ -122,7 +122,7 @@ class _Cursor:
 
 
 class _SQLite:
-    label = "Archivo local (SQLite)"
+    label = "archivo local (SQLite)"
     persistent_in_cloud = False
 
     def __init__(self, path: str):

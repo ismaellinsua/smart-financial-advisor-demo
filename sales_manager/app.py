@@ -1,6 +1,8 @@
 """Gestor de Ventas — punto de venta, inventario, clientes y automatizaciones para cualquier negocio.
 
 Ejecutar desde la raíz del repositorio:  streamlit run sales_manager/app.py
+
+Copyright (c) 2025-2026 Ismael Linsua. Todos los derechos reservados. Software propietario: ver LICENSE.
 """
 
 import streamlit as st
@@ -9,7 +11,7 @@ from core.presets import PRESETS
 from ui import pages
 from ui.auth import logout_button, require_login
 from ui.context import PAGES, ctx
-from ui.styles import inject_css, sidebar_brand
+from ui.styles import inject_css, sidebar_brand, sidebar_copyright
 
 st.set_page_config(page_title="Gestor de Ventas", page_icon=":material/storefront:", layout="wide")
 
@@ -52,4 +54,5 @@ nav = st.navigation({
     "Ajustes": [PAGES["settings"]],
 })
 logout_button()
+sidebar_copyright()
 nav.run()

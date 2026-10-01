@@ -41,10 +41,10 @@ h1, h2, h3 {{ letter-spacing: -0.02em; font-weight: 700; }}
 /* Buttons */
 .stButton button, .stDownloadButton button, .stFormSubmitButton button {{ border-radius: 10px; font-weight: 600; }}
 
-button[kind="primary"], button[data-testid="stBaseButton-primary"] {{
+button[kind="primary"], button[kind="primaryFormSubmit"], button[data-testid^="stBaseButton-primary"] {{
     background: var(--accent) !important; border-color: var(--accent) !important; color: #fff !important; }}
-button[kind="primary"]:hover, button[data-testid="stBaseButton-primary"]:hover {{ filter: brightness(1.12); }}
-button[kind="primary"]:disabled, button[data-testid="stBaseButton-primary"]:disabled {{ opacity: .4; cursor: not-allowed; }}
+button[kind="primary"]:hover, button[data-testid^="stBaseButton-primary"]:hover {{ filter: brightness(1.12); }}
+button[kind="primary"]:disabled, button[data-testid^="stBaseButton-primary"]:disabled {{ opacity: .4; cursor: not-allowed; }}
 
 /* Product tiles in the point of sale */
 .sm-tile-cat {{ font-size: .7rem; text-transform: uppercase; letter-spacing: .08em; opacity: .55; }}
@@ -97,6 +97,10 @@ def sidebar_brand(name: str, business_type_label: str) -> None:
         f"<div><div class='name'>{escape(name)}</div><div class='type'>{escape(business_type_label)}</div></div></div>",
         unsafe_allow_html=True,
     )
+
+
+def sidebar_copyright() -> None:
+    st.sidebar.caption("© 2026 Ismael Linsua · Todos los derechos reservados")
 
 
 INSIGHT_TAGS = {"good": "Fortaleza", "warning": "Atención", "info": "Idea"}
