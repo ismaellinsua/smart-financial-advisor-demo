@@ -69,6 +69,36 @@ button[kind="primary"]:disabled, button[data-testid^="stBaseButton-primary"]:dis
 .sm-insight.warning .tag {{ background: #FEF0C7; color: #93370D; }}
 .sm-insight.info .tag {{ background: #D1E9FF; color: #194185; }}
 
+/* Top bar: one quiet line with today's pulse */
+.sm-topbar {{ display: flex; align-items: center; gap: .75rem; padding: .45rem .9rem; margin: -1rem 0 1.2rem;
+             border: 1px solid rgba(128,128,128,.16); border-radius: 999px; font-size: .84rem;
+             background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 7%, transparent), transparent 70%); }}
+.sm-topbar .dot {{ width: .5rem; height: .5rem; border-radius: 50%; background: var(--accent); flex: none;
+                  box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 45%, transparent); }}
+@media (prefers-reduced-motion: no-preference) {{
+  .sm-topbar .dot {{ animation: sm-pulse 2.4s ease-out infinite; }}
+}}
+@keyframes sm-pulse {{ 0% {{ box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 45%, transparent); }}
+                      70%, 100% {{ box-shadow: 0 0 0 .45rem transparent; }} }}
+.sm-topbar .biz {{ font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }}
+.sm-topbar .sep {{ opacity: .3; }}
+.sm-topbar .stat {{ margin-left: auto; white-space: nowrap; font-variant-numeric: tabular-nums; opacity: .85; }}
+.sm-topbar .stat b {{ color: var(--accent); }}
+.sm-topbar .next {{ white-space: nowrap; opacity: .65; }}
+@media (max-width: 640px) {{ .sm-topbar .next, .sm-topbar .sep.n {{ display: none; }} }}
+
+/* Agenda cards */
+.sm-appt {{ display: flex; align-items: center; gap: .9rem; }}
+.sm-appt .when {{ font-weight: 700; font-size: 1.05rem; font-variant-numeric: tabular-nums; min-width: 3.4rem; }}
+.sm-appt .when span {{ display: block; font-weight: 400; font-size: .78rem; opacity: .55; }}
+.sm-appt .who {{ flex: 1; font-weight: 600; min-width: 0; }}
+.sm-appt .what {{ font-weight: 400; font-size: .85rem; opacity: .7; }}
+.sm-appt .chip {{ font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+                 padding: .15rem .5rem; border-radius: 6px; background: #D1E9FF; color: #194185; }}
+.sm-appt.completada .chip {{ background: #D1FADF; color: #05603A; }}
+.sm-appt.cancelada .chip, .sm-appt.no_presentado .chip {{ background: #F2F4F7; color: #475467; }}
+.sm-appt.cancelada .who, .sm-appt.no_presentado .who {{ text-decoration: line-through; opacity: .6; }}
+
 /* Sidebar brand */
 .sm-brand {{ display: flex; align-items: center; gap: .7rem; padding: .2rem 0 1rem; }}
 .sm-brand .logo {{ width: 40px; height: 40px; border-radius: 11px; background: var(--accent); color: #fff;
@@ -95,6 +125,17 @@ def sidebar_brand(name: str, business_type_label: str) -> None:
     st.sidebar.markdown(
         f"<div class='sm-brand'><div class='logo'>{escape(initials)}</div>"
         f"<div><div class='name'>{escape(name)}</div><div class='type'>{escape(business_type_label)}</div></div></div>",
+        unsafe_allow_html=True,
+    )
+
+
+def topbar(business: str, today_total: str, today_count: int, next_up: str = "") -> None:
+    sales = f"{today_count} venta" + ("" if today_count == 1 else "s")
+    nxt = f"<span class='sep n'>·</span><span class='next'>{escape(next_up)}</span>" if next_up else ""
+    st.markdown(
+        f"<div class='sm-topbar' role='status'><span class='dot'></span>"
+        f"<span class='biz'>{escape(business)}</span>{nxt}"
+        f"<span class='stat'>Hoy <b>{escape(today_total)}</b> · {sales}</span></div>",
         unsafe_allow_html=True,
     )
 

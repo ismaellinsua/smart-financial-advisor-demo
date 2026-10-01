@@ -199,3 +199,147 @@ def test_freelancer_demo_figures_are_believable(make_store):
     start, end, prev_start = automation.period_bounds(30)
     k = automation.kpis(s.sales(), s.sale_lines(), start, end, prev_start)
     assert 3_000 < k["revenue"] < 25_000
+
+
+# ------------------------------------------------------------------ invoices
+def _completed_sale(store, sku="CAM-001", **kwargs):
+    return store.create_sale([{"product_id": product_id(store, sku), "quantity": 1}], "Tarjeta", **kwargs)
+
+
+def test_invoice_numbering_and_rules(store):
+    year = datetime.now().year
+    cid = store.upsert_customer({"name": "Norte S.L."})
+    first = _completed_sale(store, customer_id=cid)
+    second = _completed_sale(store)
+    with pytest.raises(ValueError):
+        store.create_invoice(first["id"], {"name": "Norte S.L.", "tax_id": ""})
+    inv1 = store.create_invoice(first["id"], {"name": "Norte S.L.", "tax_id": "B12345678", "address": "Calle 1"})
+    inv2 = store.create_invoice(second["id"], {"name": "Ana", "tax_id": "12345678Z"})
+    assert (inv1["number"], inv2["number"]) == (f"FAC-{year}-0001", f"FAC-{year}-0002")
+    assert inv1["sale"]["total"] == first["total"]
+    with pytest.raises(SaleError):
+        store.create_invoice(first["id"], {"name": "Norte S.L.", "tax_id": "B12345678"})
+    with pytest.raises(SaleError):
+        store.cancel_sale(first["id"])  # invoiced sales need a corrective invoice
+    customer = store.customers().set_index("id").loc[cid]
+    assert (customer["tax_id"], customer["address"]) == ("B12345678", "Calle 1")
+    third = _completed_sale(store)
+    store.cancel_sale(third["id"])
+    with pytest.raises(SaleError):
+        store.create_invoice(third["id"], {"name": "Ana", "tax_id": "12345678Z"})
+    assert list(store.invoices()["number"]) == [inv2["number"], inv1["number"]]
+
+
+def test_pdfs_are_generated(store):
+    from core.pdfs import cash_closing_pdf, invoice_pdf
+
+    store.save_settings({"business_name": "Café <Aurora> & Co", "accent_color": "no-es-un-color"})
+    sale = _completed_sale(store)
+    invoice = store.create_invoice(sale["id"], {"name": "Cliente <b>", "tax_id": "X"})
+    assert invoice_pdf(invoice, store.settings()).startswith(b"%PDF")
+    closing = store.close_cash(datetime.now().date(), 100, 100)
+    assert cash_closing_pdf(closing, store.settings()).startswith(b"%PDF")
+
+
+# -------------------------------------------------------------- appointments
+def test_appointments_overlap_charge_and_status(make_store):
+    s = make_store()
+    s.load_preset("services", with_demo_sales=False)
+    pid = int(s.products()["id"].iloc[0])
+    day = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
+    a1 = s.create_appointment(day.replace(hour=10), 60, product_id=pid, customer_name="Laura")
+    with pytest.raises(ValueError, match="solapa"):
+        s.create_appointment(day.replace(hour=10, minute=30), 60, product_id=pid, customer_name="Pablo")
+    s.create_appointment(day.replace(hour=11), 30, product_id=pid, customer_name="Pablo")  # back to back is fine
+    s.create_appointment(day.replace(hour=10, minute=30), 60, customer_name="Mesa", allow_overlap=True)
+    with pytest.raises(ValueError):
+        s.create_appointment(day.replace(hour=12), 30, product_id=pid)  # no customer
+
+    sale = s.charge_appointment(a1, "Efectivo")
+    assert sale["items"][0]["product_id"] == pid
+    appts = s.appointments(day, day + timedelta(days=1)).set_index("id")
+    assert appts.loc[a1, "status"] == "completada" and appts.loc[a1, "sale_id"] == sale["id"]
+    with pytest.raises(SaleError):
+        s.charge_appointment(a1, "Efectivo")
+    with pytest.raises(ValueError):
+        s.set_appointment_status(a1, "cancelada")  # already charged
+    no_product = int(appts[appts["product_id"].isna()].index[0])
+    with pytest.raises(SaleError):
+        s.charge_appointment(no_product, "Tarjeta")
+    s.set_appointment_status(no_product, "no_presentado")
+    with pytest.raises(ValueError):
+        s.set_appointment_status(no_product, "inventado")
+
+
+def test_demo_agenda_only_for_agenda_businesses(make_store):
+    now = datetime.now()
+    for business_type, expected in [("services", True), ("retail", False)]:
+        s = make_store()
+        s.load_preset(business_type)
+        assert (not s.appointments(now, now + timedelta(days=8)).empty) is expected
+        assert len(s.cash_closings()) == 5
+
+
+# --------------------------------------------------------------- cash closing
+def test_cash_closing(store):
+    today = datetime.now().date()
+    pid = product_id(store, "CAM-001")
+    store.create_sale([{"product_id": pid, "quantity": 1}], "Efectivo")
+    store.create_sale([{"product_id": pid, "quantity": 2}], "Tarjeta")
+    cancelled = store.create_sale([{"product_id": pid, "quantity": 1}], "Efectivo")
+    store.cancel_sale(cancelled["id"])
+    summary = store.day_summary(today)
+    assert summary["count"] == 2 and summary["cancelled"] == 1
+    assert summary["cash"] == pytest.approx(39.90 * 1.21, abs=0.01)
+
+    closing = store.close_cash(today, 100, 100 + summary["cash"] - 5, "Falta cambio")
+    assert closing["expected_cash"] == pytest.approx(100 + summary["cash"], abs=0.01)
+    assert closing["difference"] == pytest.approx(-5, abs=0.01)
+    assert closing["breakdown"]["Tarjeta"]["count"] == 1
+    with pytest.raises(ValueError):
+        store.close_cash(today, 100, 100)
+    with pytest.raises(ValueError):
+        store.close_cash(today - timedelta(days=1), -1, 0)
+    store.reopen_cash(today)
+    assert store.cash_closing(today) is None
+    store.close_cash(today, 0, 0)
+    assert len(store.cash_closings()) == 1
+
+
+# ------------------------------------------------------- upgrades & backups
+def test_old_database_is_upgraded(tmp_path):
+    import sqlite3
+
+    path = tmp_path / "old.db"
+    conn = sqlite3.connect(path)
+    conn.executescript(
+        "CREATE TABLE customers (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, "
+        "email TEXT NOT NULL DEFAULT '', phone TEXT NOT NULL DEFAULT '', tax_id TEXT NOT NULL DEFAULT '', "
+        "notes TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL);"
+        "INSERT INTO customers(name, created_at) VALUES ('Antiguo', '2026-01-01T10:00:00');"
+    )
+    conn.commit()
+    conn.close()
+    s = Store(path)
+    assert s.customers().iloc[0]["address"] == ""
+    s.upsert_customer({"name": "Antiguo", "address": "Calle Nueva 3"}, 1)
+    assert s.customers().iloc[0]["address"] == "Calle Nueva 3"
+    s.upsert_customer({"name": "Antiguo renombrado"}, 1)  # fields not given are kept
+    assert s.customers().iloc[0]["address"] == "Calle Nueva 3"
+    s.close()
+
+
+def test_backup_carries_new_tables(store, make_store):
+    sale = _completed_sale(store)
+    store.create_invoice(sale["id"], {"name": "Ana", "tax_id": "1Z"})
+    store.close_cash(datetime.now().date(), 50, 50)
+    pid = product_id(store, "CAM-001")
+    store.create_appointment(datetime.now() + timedelta(days=1), 30, product_id=pid, customer_name="Eva")
+    other = make_store()
+    other.restore(store.backup_bytes())
+    assert len(other.invoices()) == 1 and len(other.cash_closings()) == 1
+    nxt = datetime.now() + timedelta(days=2)
+    assert len(other.appointments(datetime.now(), nxt)) == 1
+    # Numbering keeps going after a restore.
+    again = other.create_invoice(_completed_sale(other)["id"], {"name": "Ana", "tax_id": "1Z"})
+    assert again["number"].endswith("0002")

@@ -4,12 +4,13 @@
 Every public method runs in its own transaction, so the app behaves the same on both engines.
 """
 
+import json
 import random
 import sqlite3
 import tempfile
 import threading
 from contextlib import contextmanager
-from datetime import datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from pathlib import Path
 
 import pandas as pd
@@ -41,7 +42,8 @@ CREATE TABLE IF NOT EXISTS customers (
     phone TEXT NOT NULL DEFAULT '',
     tax_id TEXT NOT NULL DEFAULT '',
     notes TEXT NOT NULL DEFAULT '',
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL,
+    address TEXT NOT NULL DEFAULT ''
 );
 CREATE TABLE IF NOT EXISTS sales (
     id {pk},
@@ -66,13 +68,57 @@ CREATE TABLE IF NOT EXISTS sale_items (
     unit_price {real} NOT NULL,
     unit_cost {real} NOT NULL
 );
+CREATE TABLE IF NOT EXISTS invoices (
+    id {pk},
+    number TEXT UNIQUE NOT NULL,
+    sale_id INTEGER UNIQUE NOT NULL REFERENCES sales(id),
+    issued_at TEXT NOT NULL,
+    customer_name TEXT NOT NULL,
+    customer_tax_id TEXT NOT NULL DEFAULT '',
+    customer_address TEXT NOT NULL DEFAULT '',
+    customer_email TEXT NOT NULL DEFAULT ''
+);
+CREATE TABLE IF NOT EXISTS appointments (
+    id {pk},
+    starts_at TEXT NOT NULL,
+    duration_min INTEGER NOT NULL CHECK (duration_min > 0),
+    customer_id INTEGER REFERENCES customers(id),
+    customer_name TEXT NOT NULL DEFAULT '',
+    product_id INTEGER REFERENCES products(id),
+    notes TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'pendiente',
+    sale_id INTEGER REFERENCES sales(id),
+    created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS cash_closings (
+    id {pk},
+    day TEXT UNIQUE NOT NULL,
+    opening_float {real} NOT NULL DEFAULT 0,
+    cash_sales {real} NOT NULL DEFAULT 0,
+    expected_cash {real} NOT NULL,
+    counted_cash {real} NOT NULL,
+    difference {real} NOT NULL,
+    total_sales {real} NOT NULL,
+    sales_count INTEGER NOT NULL,
+    breakdown TEXT NOT NULL DEFAULT '{{}}',
+    notes TEXT NOT NULL DEFAULT '',
+    closed_at TEXT NOT NULL
+);
 CREATE INDEX IF NOT EXISTS idx_sales_created ON sales(created_at);
-CREATE INDEX IF NOT EXISTS idx_items_sale ON sale_items(sale_id)
+CREATE INDEX IF NOT EXISTS idx_items_sale ON sale_items(sale_id);
+CREATE INDEX IF NOT EXISTS idx_appointments_start ON appointments(starts_at)
 """
 
+# Columns added after the first release, applied to existing databases on start-up.
+MIGRATIONS = [
+    ("customers", "address", "TEXT NOT NULL DEFAULT ''"),
+]
+
 # Insertion order respects foreign keys; deletion goes in reverse.
-DATA_TABLES = ["products", "customers", "sales", "sale_items"]
+DATA_TABLES = ["products", "customers", "sales", "sale_items", "invoices", "appointments", "cash_closings"]
 ALL_TABLES = ["settings", *DATA_TABLES]
+# Tables any backup must have; newer ones are created when an older backup is opened.
+CORE_TABLES = {"settings", "products", "customers", "sales", "sale_items"}
 
 DEFAULT_DB_PATH = Path(__file__).resolve().parent.parent / "data" / "ventas.db"
 
@@ -149,6 +195,9 @@ class _SQLite:
             finally:
                 cur.close()
 
+    def columns(self, cur: _Cursor, table: str) -> set[str]:
+        return {r["name"] for r in cur.execute(f"PRAGMA table_info({table})").fetchall()}
+
     def before_reload(self, cur: _Cursor, tables: list[str]) -> None:
         # Restart id counters; explicit ids inserted afterwards move them forward again.
         cur.execute(
@@ -198,6 +247,14 @@ class _Postgres:
         with self._pool.connection() as conn, conn.cursor() as cur:
             yield _Cursor(cur, pyformat=True)
 
+    def columns(self, cur: _Cursor, table: str) -> set[str]:
+        rows = cur.execute(
+            "SELECT column_name AS name FROM information_schema.columns "
+            "WHERE table_schema = current_schema() AND table_name = ?",
+            (table,),
+        ).fetchall()
+        return {r["name"] for r in rows}
+
     def before_reload(self, cur: _Cursor, tables: list[str]) -> None:
         pass
 
@@ -225,6 +282,9 @@ class Store:
         with self.db.tx() as cur:
             for statement in filter(str.strip, self.db.schema().split(";")):
                 cur.execute(statement)
+            for table, column, ddl in MIGRATIONS:
+                if column not in self.db.columns(cur, table):
+                    cur.execute(f"ALTER TABLE {table} ADD COLUMN {column} {ddl}")
             self._insert_default_settings(cur)
 
     @property
@@ -317,13 +377,15 @@ class Store:
     def upsert_customer(self, data: dict, customer_id: int | None = None) -> int:
         if not str(data.get("name") or "").strip():
             raise ValueError("El nombre del cliente es obligatorio.")
-        fields = ["name", "email", "phone", "tax_id", "notes"]
+        fields = ["name", "email", "phone", "tax_id", "notes", "address"]
+        if customer_id is not None:
+            fields = [f for f in fields if f in data]  # an update only touches the fields it was given
         values = [str(data.get(f) or "").strip() for f in fields]
         with self.db.tx() as cur:
             if customer_id is None:
                 row = cur.execute(
-                    "INSERT INTO customers(name, email, phone, tax_id, notes, created_at) "
-                    "VALUES (?, ?, ?, ?, ?, ?) RETURNING id",
+                    f"INSERT INTO customers({', '.join(fields)}, created_at) "
+                    f"VALUES ({', '.join('?' * len(fields))}, ?) RETURNING id",
                     [*values, datetime.now().isoformat(timespec="seconds")],
                 ).fetchone()
                 return row["id"]
@@ -432,6 +494,12 @@ class Store:
             sale = cur.execute("SELECT status FROM sales WHERE id = ?", (sale_id,)).fetchone()
             if sale is None or sale["status"] == "anulada":
                 raise SaleError("La venta no existe o ya está anulada.")
+            invoice = cur.execute("SELECT number FROM invoices WHERE sale_id = ?", (sale_id,)).fetchone()
+            if invoice:
+                raise SaleError(
+                    f"Esta venta tiene la factura {invoice['number']}. Una venta facturada no se puede anular "
+                    "aquí: hay que emitir una factura rectificativa."
+                )
             items = cur.execute("SELECT product_id, quantity FROM sale_items WHERE sale_id = ?", (sale_id,)).fetchall()
             for item in items:
                 cur.execute(
@@ -497,6 +565,238 @@ class Store:
         df["margin"] = df["revenue"] - df["cost"]
         return df
 
+    # ------------------------------------------------------------------ invoices
+    def _next_invoice_number(self, cur: _Cursor, when: datetime) -> str:
+        series = (self._settings(cur).get("invoice_series") or "FAC").strip() or "FAC"
+        stem = f"{series}-{when.year}-"
+        row = cur.execute(
+            "SELECT number FROM invoices WHERE number LIKE ? ORDER BY number DESC LIMIT 1", (stem + "%",)
+        ).fetchone()
+        seq = int(row["number"].rsplit("-", 1)[1]) + 1 if row else 1
+        return f"{stem}{seq:04d}"
+
+    def invoice_for_sale(self, sale_id: int) -> dict | None:
+        with self.db.tx() as cur:
+            return cur.execute("SELECT * FROM invoices WHERE sale_id = ?", (int(sale_id),)).fetchone()
+
+    def create_invoice(self, sale_id: int, customer: dict, when: datetime | None = None) -> dict:
+        """Issue a full invoice for a completed sale. Invoices have their own correlative series per year."""
+        name = str(customer.get("name") or "").strip()
+        tax_id = str(customer.get("tax_id") or "").strip()
+        if not name or not tax_id:
+            raise ValueError("Para emitir una factura hacen falta el nombre y el NIF/CIF del cliente.")
+        address = str(customer.get("address") or "").strip()
+        email = str(customer.get("email") or "").strip()
+        when = when or datetime.now()
+        sale_id = int(sale_id)
+        for attempt in range(3):
+            try:
+                with self.db.tx() as cur:
+                    sale = cur.execute("SELECT status, customer_id FROM sales WHERE id = ?", (sale_id,)).fetchone()
+                    if sale is None or sale["status"] != "completada":
+                        raise SaleError("Solo se pueden facturar ventas completadas.")
+                    if cur.execute("SELECT id FROM invoices WHERE sale_id = ?", (sale_id,)).fetchone():
+                        raise SaleError("Esta venta ya tiene factura.")
+                    row = cur.execute(
+                        "INSERT INTO invoices(number, sale_id, issued_at, customer_name, customer_tax_id, "
+                        "customer_address, customer_email) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id",
+                        (self._next_invoice_number(cur, when), sale_id, when.isoformat(timespec="seconds"),
+                         name, tax_id, address, email),
+                    ).fetchone()
+                    if sale["customer_id"] is not None:
+                        # Remember the fiscal data on the customer, without overwriting what is already there.
+                        cur.execute(
+                            "UPDATE customers SET tax_id = CASE WHEN tax_id = '' THEN ? ELSE tax_id END, "
+                            "address = CASE WHEN address = '' THEN ? ELSE address END WHERE id = ?",
+                            (tax_id, address, sale["customer_id"]),
+                        )
+                return self.invoice(row["id"])
+            except self.db.integrity_errors:
+                if attempt == 2:
+                    raise SaleError("No se pudo emitir la factura. Inténtalo de nuevo.") from None
+        raise AssertionError("unreachable")
+
+    def invoice(self, invoice_id: int) -> dict:
+        with self.db.tx() as cur:
+            row = cur.execute("SELECT * FROM invoices WHERE id = ?", (int(invoice_id),)).fetchone()
+        if row is None:
+            raise SaleError("Factura no encontrada.")
+        return {**row, "sale": self.sale(row["sale_id"])}
+
+    def invoices(self) -> pd.DataFrame:
+        df = self._frame(
+            "SELECT i.id, i.number, i.issued_at, i.customer_name, i.customer_tax_id, s.number AS sale_number, "
+            "s.total FROM invoices i JOIN sales s ON s.id = i.sale_id ORDER BY i.number DESC"
+        )
+        df["issued_at"] = pd.to_datetime(df["issued_at"])
+        df["total"] = df["total"].astype(float)
+        return df
+
+    # -------------------------------------------------------------- appointments
+    def appointments(self, start: datetime, end: datetime) -> pd.DataFrame:
+        df = self._frame(
+            "SELECT a.*, COALESCE(c.name, a.customer_name) AS who, c.phone AS customer_phone, "
+            "p.name AS service, p.price AS price "
+            "FROM appointments a LEFT JOIN customers c ON c.id = a.customer_id "
+            "LEFT JOIN products p ON p.id = a.product_id "
+            "WHERE a.starts_at >= ? AND a.starts_at < ? ORDER BY a.starts_at",
+            (start.isoformat(timespec="seconds"), end.isoformat(timespec="seconds")),
+        )
+        df["starts_at"] = pd.to_datetime(df["starts_at"])
+        return df
+
+    def create_appointment(
+        self,
+        starts_at: datetime,
+        duration_min: int,
+        product_id: int | None = None,
+        customer_id: int | None = None,
+        customer_name: str = "",
+        notes: str = "",
+        allow_overlap: bool = False,
+    ) -> int:
+        duration_min = int(duration_min)
+        if duration_min <= 0:
+            raise ValueError("La duración debe ser mayor que cero.")
+        customer_name = customer_name.strip()
+        if customer_id is None and not customer_name:
+            raise ValueError("Indica el cliente de la cita.")
+        starts_at = starts_at.replace(second=0, microsecond=0)
+        ends_at = starts_at + timedelta(minutes=duration_min)
+        with self.db.tx() as cur:
+            # Look at the same day only; a single agenda cannot hold two appointments at once.
+            day_start = starts_at.replace(hour=0, minute=0)
+            others = cur.execute(
+                "SELECT a.starts_at, a.duration_min, COALESCE(c.name, a.customer_name) AS who "
+                "FROM appointments a LEFT JOIN customers c ON c.id = a.customer_id "
+                "WHERE a.starts_at >= ? AND a.starts_at < ? AND a.status IN ('pendiente', 'completada')",
+                (day_start.isoformat(timespec="seconds"), (day_start + timedelta(days=1)).isoformat(timespec="seconds")),
+            ).fetchall()
+            for o in [] if allow_overlap else others:
+                o_start = datetime.fromisoformat(o["starts_at"])
+                o_end = o_start + timedelta(minutes=o["duration_min"])
+                if starts_at < o_end and o_start < ends_at:
+                    raise ValueError(
+                        f"Ese hueco se solapa con la cita de {o['who']} "
+                        f"({o_start:%H:%M}–{o_end:%H:%M}). Elige otra hora."
+                    )
+            row = cur.execute(
+                "INSERT INTO appointments(starts_at, duration_min, customer_id, customer_name, product_id, notes, "
+                "created_at) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id",
+                (starts_at.isoformat(timespec="seconds"), duration_min,
+                 None if customer_id is None else int(customer_id), customer_name,
+                 None if product_id is None else int(product_id), notes.strip(),
+                 datetime.now().isoformat(timespec="seconds")),
+            ).fetchone()
+            return row["id"]
+
+    APPOINTMENT_STATUSES = ("pendiente", "completada", "cancelada", "no_presentado")
+
+    def set_appointment_status(self, appointment_id: int, status: str) -> None:
+        if status not in self.APPOINTMENT_STATUSES:
+            raise ValueError("Estado de cita no válido.")
+        with self.db.tx() as cur:
+            appt = cur.execute("SELECT sale_id FROM appointments WHERE id = ?", (int(appointment_id),)).fetchone()
+            if appt is None:
+                raise ValueError("Cita no encontrada.")
+            if appt["sale_id"] is not None:
+                raise ValueError("Esta cita ya está cobrada.")
+            cur.execute("UPDATE appointments SET status = ? WHERE id = ?", (status, int(appointment_id)))
+
+    def charge_appointment(self, appointment_id: int, payment_method: str, discount_pct: float = 0.0) -> dict:
+        """Charge an appointment's service: registers the sale and marks the appointment as done, atomically."""
+        appointment_id = int(appointment_id)
+        for attempt in range(3):
+            try:
+                with self.db.tx() as cur:
+                    appt = cur.execute("SELECT * FROM appointments WHERE id = ?", (appointment_id,)).fetchone()
+                    if appt is None or appt["status"] != "pendiente":
+                        raise SaleError("Solo se pueden cobrar citas pendientes.")
+                    if appt["product_id"] is None:
+                        raise SaleError("La cita no tiene servicio asociado: cóbrala desde Vender.")
+                    sale_id = self._insert_sale(
+                        cur, [{"product_id": appt["product_id"], "quantity": 1}], payment_method,
+                        appt["customer_id"], float(discount_pct), None, datetime.now(),
+                    )
+                    cur.execute(
+                        "UPDATE appointments SET status = 'completada', sale_id = ? WHERE id = ?",
+                        (sale_id, appointment_id),
+                    )
+                return self.sale(sale_id)
+            except self.db.integrity_errors:
+                if attempt == 2:
+                    raise SaleError("No se pudo cobrar la cita. Inténtalo de nuevo.") from None
+        raise AssertionError("unreachable")
+
+    # -------------------------------------------------------------- cash closing
+    def day_summary(self, day: date) -> dict:
+        """Completed sales of one day, broken down by payment method."""
+        start = datetime.combine(day, time.min)
+        with self.db.tx() as cur:
+            rows = cur.execute(
+                "SELECT payment_method, status, total FROM sales WHERE created_at >= ? AND created_at < ?",
+                (start.isoformat(timespec="seconds"), (start + timedelta(days=1)).isoformat(timespec="seconds")),
+            ).fetchall()
+        breakdown: dict[str, dict] = {}
+        cancelled = 0
+        for r in rows:
+            if r["status"] != "completada":
+                cancelled += 1
+                continue
+            entry = breakdown.setdefault(r["payment_method"], {"count": 0, "total": 0.0})
+            entry["count"] += 1
+            entry["total"] = round(entry["total"] + float(r["total"]), 2)
+        return {
+            "breakdown": breakdown,
+            "count": sum(e["count"] for e in breakdown.values()),
+            "total": round(sum(e["total"] for e in breakdown.values()), 2),
+            "cash": breakdown.get("Efectivo", {}).get("total", 0.0),
+            "cancelled": cancelled,
+        }
+
+    def close_cash(
+        self, day: date, opening_float: float, counted_cash: float, notes: str = "", when: datetime | None = None
+    ) -> dict:
+        """Record the end-of-day cash count. Expected cash = opening float + cash sales of the day."""
+        if opening_float < 0 or counted_cash < 0:
+            raise ValueError("Los importes no pueden ser negativos.")
+        summary = self.day_summary(day)
+        expected = round(float(opening_float) + summary["cash"], 2)
+        try:
+            with self.db.tx() as cur:
+                cur.execute(
+                    "INSERT INTO cash_closings(day, opening_float, cash_sales, expected_cash, counted_cash, "
+                    "difference, total_sales, sales_count, breakdown, notes, closed_at) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    (day.isoformat(), float(opening_float), summary["cash"], expected, float(counted_cash),
+                     round(float(counted_cash) - expected, 2), summary["total"], summary["count"],
+                     json.dumps(summary["breakdown"], ensure_ascii=False), notes.strip(),
+                     (when or datetime.now()).isoformat(timespec="seconds")),
+                )
+        except self.db.integrity_errors as exc:
+            raise ValueError("La caja de ese día ya está cerrada. Reábrela si necesitas repetir el cierre.") from exc
+        return self.cash_closing(day)
+
+    def cash_closing(self, day: date) -> dict | None:
+        with self.db.tx() as cur:
+            row = cur.execute("SELECT * FROM cash_closings WHERE day = ?", (day.isoformat(),)).fetchone()
+        if row:
+            row = {**row, "breakdown": json.loads(row["breakdown"] or "{}")}
+        return row
+
+    def reopen_cash(self, day: date) -> None:
+        with self.db.tx() as cur:
+            cur.execute("DELETE FROM cash_closings WHERE day = ?", (day.isoformat(),))
+
+    def cash_closings(self) -> pd.DataFrame:
+        df = self._frame(
+            "SELECT day, total_sales, sales_count, expected_cash, counted_cash, difference, closed_at "
+            "FROM cash_closings ORDER BY day DESC"
+        )
+        for col in ("total_sales", "expected_cash", "counted_cash", "difference"):
+            df[col] = df[col].astype(float)
+        return df
+
     # ------------------------------------------------------- bulk copy & backups
     def _export(self, tables: list[str]) -> dict[str, list[dict]]:
         with self.db.tx() as cur:
@@ -521,7 +821,7 @@ class Store:
                 )
         self.db.after_reload(cur, tables)
 
-    REQUIRED_TABLES = set(ALL_TABLES)
+    REQUIRED_TABLES = CORE_TABLES
 
     def backup_bytes(self) -> bytes:
         """The whole database as a SQLite file, whichever engine holds it."""
@@ -652,4 +952,35 @@ class Store:
                     customer_id=customer,
                     discount_pct=rng.choice([0, 0, 0, 5, 10]),
                     when=when,
+                )
+
+        # Closed tills for the last few days, with the small differences real counts have.
+        for days_ago in range(5, 0, -1):
+            day = (now - timedelta(days=days_ago)).date()
+            expected = 150 + self.day_summary(day)["cash"]
+            self.close_cash(day, 150, round(expected + rng.choice([0, 0, 0, -2.5, 1.2, 5]), 2),
+                            when=datetime.combine(day, time(21, 30)))
+
+        agenda = preset.get("agenda")
+        if agenda:
+            self._generate_demo_appointments(rng, agenda, customer_ids, products, now)
+
+    def _generate_demo_appointments(self, rng, agenda, customer_ids, products, now) -> None:
+        walk_ins = ["Laura Pérez", "Javier Romero", "Elena Castro", "Pablo Navarro", "Marta Gil"]
+        for days_ahead in range(7):
+            day = (now + timedelta(days=days_ahead)).replace(hour=0, minute=0)
+            for hour in sorted(rng.sample(agenda["hours"], k=min(len(agenda["hours"]), rng.randint(2, 4)))):
+                starts = day + timedelta(hours=hour)
+                if starts <= now:
+                    continue
+                known = rng.random() < 0.6
+                if agenda["single"]:
+                    product, notes = int(rng.choice(list(products["id"]))), ""
+                else:
+                    product, notes = None, f"Mesa para {rng.randint(2, 6)} personas"
+                self.create_appointment(
+                    starts, agenda["duration"], product_id=product,
+                    customer_id=rng.choice(customer_ids) if known else None,
+                    customer_name="" if known else rng.choice(walk_ins),
+                    notes=notes, allow_overlap=not agenda["single"],
                 )

@@ -10,7 +10,7 @@ from core.db import Store
 APP = str(Path(__file__).resolve().parent.parent / "app.py")
 ROOT = str(Path(APP).parent)
 PAGES = ["dashboard", "point_of_sale", "history", "products_page", "customers_page", "automations_page",
-         "settings_page"]
+         "settings_page", "cash_page", "agenda_page"]
 
 # Renders a single page function against a given database file.
 SCRIPT = """
