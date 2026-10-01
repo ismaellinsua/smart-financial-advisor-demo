@@ -8,7 +8,9 @@ tienda física, restaurante/cafetería, servicios profesionales o e-commerce.
 | Panel | Punto de venta |
 |---|---|
 | ![Panel](../docs/screenshots/02-panel.png) | ![Punto de venta](../docs/screenshots/03-punto-de-venta.png) |
-| **Venta registrada** | **Historial** |
+| **Venta registrada** | **Historial** | Búsqueda por fechas, estado, ticket o cliente; reimpresión de tickets; **facturas en PDF** con serie propia (`FAC-2026-0001`), datos fiscales del cliente e IVA desglosado; anulación con devolución de stock (las ventas facturadas no se anulan); exportación CSV. |
+| **Caja** | Cierre diario: ventas por forma de pago, fondo inicial, efectivo esperado frente a contado, descuadre, notas e informe en PDF para firmar. |
+| **Agenda** | Citas (autónomos) o reservas (restaurantes): vista por día, sin solapes en agendas personales, cobro de la cita con un toque y estados «No vino» o «Cancelada». Se activa sola según el tipo de negocio o desde Configuración. |
 | ![Venta registrada](../docs/screenshots/04-venta-registrada.png) | ![Historial](../docs/screenshots/05-historial.png) |
 | **Catálogo / Carta** | **Clientes** |
 | ![Carta](../docs/screenshots/06-carta.png) | ![Clientes](../docs/screenshots/07-clientes.png) |
@@ -33,6 +35,8 @@ En el móvil:
 | **Automatizaciones** | Reposición inteligente según la demanda real (orden de compra en CSV), alertas de stock bajo, seguimiento de clientes inactivos con mensaje de reactivación listo para enviar por email, e informes por periodo. |
 | **Configuración** | Datos fiscales, moneda, impuesto, prefijo de tickets, color de marca, pie del ticket, plantillas por tipo de negocio y copias de seguridad (descargar y restaurar). |
 | **Acceso privado** | Contraseña opcional (`app_password` en los secrets de Streamlit) para proteger la app cuando se publica en internet. |
+
+Arriba de cada pantalla hay una cabecera discreta con el negocio, lo vendido hoy y la próxima cita.
 
 Cada tipo de negocio adapta el vocabulario (Productos / Carta / Servicios / Catálogo), las categorías, el impuesto por
 defecto y si se controla stock (los servicios no lo necesitan).
@@ -97,6 +101,7 @@ sales_manager/
 │   ├── pricing.py      # Cálculo de totales (Decimal, redondeo comercial)
 │   ├── automation.py   # KPIs, reposición, alertas, clientes inactivos, recomendaciones
 │   ├── receipts.py     # Tickets HTML imprimibles
+│   ├── pdfs.py         # Facturas e informes de cierre de caja en PDF
 │   └── presets.py      # Plantillas por tipo de negocio
 ├── ui/                 # Páginas y estilo visual
 └── tests/              # Pruebas de la lógica y de todas las páginas

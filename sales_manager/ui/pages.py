@@ -12,6 +12,7 @@ from core import automation
 from core.db import SaleError
 from core.presets import CURRENCIES, PAYMENT_METHODS, PRESETS
 from core.pricing import compute_totals
+from core.pdfs import cash_closing_pdf, invoice_pdf
 from core.receipts import receipt_html
 from ui.context import PAGES, ctx, get_store
 from ui.styles import insight, page_header, style_figure
@@ -357,9 +358,51 @@ def _confirm_cancel(sale_id: int, number: str) -> None:
             st.rerun()
 
 
+@st.dialog("Emitir factura")
+def _invoice_dialog(sale_id: int) -> None:
+    c = ctx()
+    sale = c.store.sale(sale_id)
+    customer = {}
+    if sale.get("customer_id") is not None:
+        found = c.store.customers().query("id == @sale['customer_id']")
+        if not found.empty:
+            customer = found.iloc[0].to_dict()
+    st.caption(f"Venta {sale['number']} · {c.money(sale['total'])}. Revisa los datos fiscales del cliente.")
+    name = st.text_input("Nombre o razón social *", customer.get("name", ""), key=f"inv_name_{sale_id}")
+    tax_id = st.text_input("NIF / CIF *", customer.get("tax_id", ""), key=f"inv_tax_{sale_id}")
+    address = st.text_input("Dirección fiscal", customer.get("address", ""), key=f"inv_addr_{sale_id}")
+    email = st.text_input("Email", customer.get("email", ""), key=f"inv_mail_{sale_id}")
+    invoice = c.store.invoice_for_sale(sale_id)
+    slot = st.empty()  # the issue button disappears as soon as the invoice exists
+    if invoice is None and slot.button("Emitir factura", type="primary", use_container_width=True,
+                                       icon=":material/request_quote:"):
+        try:
+            c.store.create_invoice(sale_id, {"name": name, "tax_id": tax_id, "address": address, "email": email})
+        except (ValueError, SaleError) as exc:
+            st.error(str(exc))
+        invoice = c.store.invoice_for_sale(sale_id)
+        if invoice is not None:
+            slot.empty()
+    if invoice is not None:
+        full = c.store.invoice(invoice["id"])
+        st.success(f"Factura **{full['number']}** emitida.")
+        st.download_button("Descargar factura (PDF)", invoice_pdf(full, c.settings), f"{full['number']}.pdf",
+                           "application/pdf", type="primary", use_container_width=True,
+                           icon=":material/download:")
+
+
 def history() -> None:
     c = ctx()
-    page_header("Historial de ventas", "Consulta, reimprime tickets o anula ventas.", eyebrow="Ventas")
+    page_header("Historial de ventas", "Consulta ventas, reimprime tickets, emite facturas o anula ventas.",
+                eyebrow="Ventas")
+    sales_tab, invoices_tab = st.tabs(["Ventas", "Facturas"])
+    with sales_tab:
+        _history_sales(c)
+    with invoices_tab:
+        _history_invoices(c)
+
+
+def _history_sales(c) -> None:
     f1, f2, f3 = st.columns([2, 1, 2])
     rng = f1.date_input("Fechas", (date.today() - timedelta(days=30), date.today()), format="DD/MM/YYYY")
     status = f2.selectbox("Estado", ["Todas", "Completadas", "Anuladas"])
@@ -418,12 +461,296 @@ def history() -> None:
                 "importe": st.column_config.NumberColumn("Importe", format=f"%.2f {c.symbol}"),
             },
         )
-        a, b = st.columns(2)
+        invoice = c.store.invoice_for_sale(sale["id"])
+        if invoice:
+            st.caption(f"Facturada con el número **{invoice['number']}**.")
+        a, b, d = st.columns(3)
         a.download_button("Descargar ticket", receipt_html(sale, c.settings), f"{sale['number']}.html",
                           "text/html", icon=":material/receipt_long:", use_container_width=True)
-        if b.button("Anular venta", disabled=sale["status"] == "anulada", use_container_width=True,
-                    icon=":material/block:"):
+        if invoice:
+            full = c.store.invoice(invoice["id"])
+            b.download_button("Descargar factura", invoice_pdf(full, c.settings), f"{full['number']}.pdf",
+                              "application/pdf", icon=":material/request_quote:", use_container_width=True)
+        elif b.button("Emitir factura", disabled=sale["status"] != "completada", use_container_width=True,
+                      icon=":material/request_quote:"):
+            _invoice_dialog(sale["id"])
+        if d.button("Anular venta", disabled=sale["status"] == "anulada" or bool(invoice),
+                    use_container_width=True, icon=":material/block:",
+                    help="Las ventas facturadas no se anulan aquí." if invoice else None):
             _confirm_cancel(sale["id"], sale["number"])
+
+
+
+
+def _history_invoices(c) -> None:
+    df = c.store.invoices()
+    if df.empty:
+        st.info("Aún no has emitido facturas. Selecciona una venta en la pestaña «Ventas» y pulsa «Emitir factura».")
+        return
+    event = st.dataframe(
+        df, hide_index=True, use_container_width=True, on_select="rerun", selection_mode="single-row",
+        key="invoices_table",
+        column_order=["number", "issued_at", "customer_name", "customer_tax_id", "sale_number", "total"],
+        column_config={
+            "number": "Factura",
+            "issued_at": st.column_config.DatetimeColumn("Fecha", format="DD/MM/YYYY"),
+            "customer_name": "Cliente", "customer_tax_id": "NIF/CIF", "sale_number": "Ticket",
+            "total": st.column_config.NumberColumn("Total", format=f"%.2f {c.symbol}"),
+        },
+    )
+    st.download_button("Exportar facturas a CSV", _csv(df.drop(columns=["id"])), "facturas.csv", "text/csv",
+                       icon=":material/download:")
+    rows = event.selection.rows
+    if rows:
+        full = c.store.invoice(int(df.iloc[rows[0]]["id"]))
+        st.download_button(f"Descargar {full['number']} (PDF)", invoice_pdf(full, c.settings),
+                           f"{full['number']}.pdf", "application/pdf", type="primary",
+                           icon=":material/request_quote:")
+    else:
+        st.caption("Selecciona una factura para descargarla.")
+
+
+# ---------------------------------------------------------------------- cash
+def cash_page() -> None:
+    c = ctx()
+    page_header("Cierre de caja", "Cuadra el efectivo al final del día y guarda el informe firmado.",
+                eyebrow="Caja")
+    if "cash_flash" in st.session_state:
+        st.success(st.session_state.pop("cash_flash"))
+    day = st.date_input("Día", date.today(), max_value=date.today(), format="DD/MM/YYYY", key="cash_day")
+    summary = c.store.day_summary(day)
+    closing = c.store.cash_closing(day)
+
+    m1, m2, m3 = st.columns(3)
+    m1.metric("Vendido", c.money_short(summary["total"]))
+    m2.metric("Ventas", summary["count"])
+    m3.metric("Cobrado en efectivo", c.money_short(summary["cash"]))
+
+    left, right = st.columns([3, 2], gap="large")
+    with left, st.container(border=True):
+        st.markdown("**Por forma de pago**")
+        if summary["breakdown"]:
+            df = pd.DataFrame(
+                [{"method": m, "count": e["count"], "total": e["total"]} for m, e in summary["breakdown"].items()]
+            ).sort_values("total", ascending=False)
+            st.dataframe(df, hide_index=True, use_container_width=True, column_config={
+                "method": "Forma de pago", "count": "Ventas",
+                "total": st.column_config.NumberColumn("Importe", format=f"%.2f {c.symbol}"),
+            })
+        else:
+            st.caption("No hay ventas este día.")
+        if summary["cancelled"]:
+            st.caption(f"{summary['cancelled']} venta(s) anulada(s) no se cuentan.")
+
+    with right, st.container(border=True):
+        if closing:
+            _closed_cash_panel(c, day, closing, summary)
+        else:
+            _open_cash_panel(c, day, summary)
+
+    st.markdown("#### Cierres anteriores")
+    history = c.store.cash_closings()
+    if history.empty:
+        st.caption("Todavía no has cerrado ninguna caja.")
+    else:
+        st.dataframe(history.drop(columns=["closed_at"]), hide_index=True, use_container_width=True,
+                     column_config={
+                         "day": st.column_config.DateColumn("Día", format="DD/MM/YYYY"),
+                         "total_sales": st.column_config.NumberColumn("Vendido", format=f"%.2f {c.symbol}"),
+                         "sales_count": "Ventas",
+                         "expected_cash": st.column_config.NumberColumn("Esperado", format=f"%.2f {c.symbol}"),
+                         "counted_cash": st.column_config.NumberColumn("Contado", format=f"%.2f {c.symbol}"),
+                         "difference": st.column_config.NumberColumn("Diferencia", format=f"%+.2f {c.symbol}"),
+                     })
+        st.download_button("Exportar cierres a CSV", _csv(history), "cierres_de_caja.csv", "text/csv",
+                           icon=":material/download:")
+
+
+def _difference_message(c, difference: float):
+    if abs(difference) < 0.005:
+        st.success("La caja cuadra.", icon=":material/check_circle:")
+    elif difference > 0:
+        st.warning(f"Sobran {c.money(difference)}.", icon=":material/info:")
+    else:
+        st.error(f"Faltan {c.money(-difference)}.", icon=":material/error:")
+
+
+def _open_cash_panel(c, day: date, summary: dict) -> None:
+    st.markdown("**Arqueo de efectivo**")
+    opening = st.number_input(f"Fondo inicial ({c.symbol})", min_value=0.0, step=10.0,
+                              value=float(c.settings.get("opening_float") or 0), key=f"cash_open_{day}")
+    expected = round(opening + summary["cash"], 2)
+    st.markdown(f"Efectivo esperado en el cajón: **{c.money(expected)}**")
+    counted = st.number_input(f"Efectivo contado ({c.symbol})", min_value=0.0, step=1.0, value=None,
+                              placeholder="Cuenta el cajón y escribe el total", key=f"cash_count_{day}")
+    if counted is not None:
+        _difference_message(c, round(counted - expected, 2))
+    notes = st.text_area("Notas", placeholder="Ej.: retirada de 200 € para el banco", key=f"cash_notes_{day}",
+                         height=70)
+    if st.button("Cerrar caja", type="primary", use_container_width=True, disabled=counted is None,
+                 icon=":material/lock:"):
+        try:
+            c.store.close_cash(day, opening, counted, notes)
+        except ValueError as exc:
+            st.error(str(exc))
+        else:
+            st.session_state["cash_flash"] = f"Caja del {day:%d/%m/%Y} cerrada."
+            st.rerun()
+
+
+def _closed_cash_panel(c, day: date, closing: dict, summary: dict) -> None:
+    closed_at = datetime.fromisoformat(closing["closed_at"])
+    st.markdown(f"**Caja cerrada** · {closed_at:%d/%m/%Y %H:%M}")
+    st.markdown(f"Esperado **{c.money(closing['expected_cash'])}** · Contado **{c.money(closing['counted_cash'])}**")
+    _difference_message(c, closing["difference"])
+    if summary["count"] != closing["sales_count"] or abs(summary["total"] - closing["total_sales"]) >= 0.005:
+        st.warning("Ha habido ventas o anulaciones después del cierre. Reabre la caja y ciérrala de nuevo "
+                   "para incluirlas.", icon=":material/warning:")
+    st.download_button("Descargar informe (PDF)", cash_closing_pdf(closing, c.settings),
+                       f"cierre-{day:%Y-%m-%d}.pdf", "application/pdf", type="primary",
+                       use_container_width=True, icon=":material/picture_as_pdf:")
+    if st.button("Reabrir caja", use_container_width=True, icon=":material/lock_open:"):
+        c.store.reopen_cash(day)
+        st.rerun()
+
+
+# -------------------------------------------------------------------- agenda
+STATUS_LABELS = {"pendiente": "Pendiente", "completada": "Hecha", "cancelada": "Cancelada",
+                 "no_presentado": "No vino"}
+
+
+def agenda_enabled(settings: dict, preset: dict) -> bool:
+    choice = settings.get("agenda_enabled", "auto")
+    return bool(preset.get("agenda")) if choice == "auto" else choice == "si"
+
+
+def agenda_config(preset: dict) -> dict:
+    return preset.get("agenda") or {"title": "Agenda", "single": True, "duration": 60}
+
+
+def _shift_agenda_day(days: int | None) -> None:
+    current = st.session_state.get("agenda_day", date.today())
+    st.session_state["agenda_day"] = date.today() if days is None else current + timedelta(days=days)
+
+
+def _set_appointment_status(appointment_id: int, status: str) -> None:
+    try:
+        get_store().set_appointment_status(appointment_id, status)
+    except ValueError as exc:
+        st.session_state["agenda_flash"] = ("error", str(exc))
+
+
+def agenda_page() -> None:
+    c = ctx()
+    cfg = agenda_config(c.preset)
+    page_header(cfg["title"], "Organiza el día, evita solapes y cobra cada cita con un toque.", eyebrow="Agenda")
+    if "last_sale" in st.session_state:
+        _sale_dialog(st.session_state.pop("last_sale"))
+    if "agenda_flash" in st.session_state:
+        kind, msg = st.session_state.pop("agenda_flash")
+        getattr(st, kind)(msg)
+
+    if "agenda_goto" in st.session_state:
+        st.session_state["agenda_day"] = st.session_state.pop("agenda_goto")
+    st.session_state.setdefault("agenda_day", date.today())
+    b1, b2, b3, b4 = st.columns([1, 4, 1, 1.4], vertical_alignment="bottom")
+    b1.button("", icon=":material/chevron_left:", on_click=_shift_agenda_day, args=(-1,), help="Día anterior",
+              use_container_width=True)
+    day = b2.date_input("Día", key="agenda_day", format="DD/MM/YYYY", label_visibility="collapsed")
+    b3.button("", icon=":material/chevron_right:", on_click=_shift_agenda_day, args=(1,), help="Día siguiente",
+              use_container_width=True)
+    b4.button("Hoy", on_click=_shift_agenda_day, args=(None,), use_container_width=True)
+
+    start = datetime.combine(day, time.min)
+    df = c.store.appointments(start, start + timedelta(days=1))
+    pending = df[df["status"] == "pendiente"]
+    m1, m2, m3 = st.columns(3)
+    m1.metric("Citas del día" if cfg["single"] else "Reservas del día", len(df[df["status"] != "cancelada"]))
+    m2.metric("Pendientes", len(pending))
+    expected = pending["price"].fillna(0).astype(float).sum() * (1 + c.tax_rate / 100)
+    m3.metric("Ingresos previstos", c.money_short(expected), help="Servicios pendientes, impuestos incluidos.")
+
+    left, right = st.columns([3, 2], gap="large")
+    with left:
+        if df.empty:
+            st.info(f"No hay {'citas' if cfg['single'] else 'reservas'} este día. Crea una con el formulario.")
+        for _, a in df.iterrows():
+            _appointment_card(c, a)
+    with right, st.container(border=True):
+        _new_appointment_form(c, cfg, day)
+
+
+def _appointment_card(c, a) -> None:
+    end = a["starts_at"] + timedelta(minutes=int(a["duration_min"]))
+    status = a["status"]
+    detail = " · ".join(x for x in [
+        a["service"] if isinstance(a["service"], str) else "",
+        c.money(float(a["price"]) * (1 + c.tax_rate / 100)) if pd.notna(a["price"]) else "",
+        a["notes"],
+    ] if x)
+    with st.container(border=True):
+        st.markdown(
+            f"<div class='sm-appt {status}'><div class='when'>{a['starts_at']:%H:%M}<span>–{end:%H:%M}</span></div>"
+            f"<div class='who'>{escape(str(a['who']))}<div class='what'>{escape(detail)}</div></div>"
+            f"<span class='chip'>{STATUS_LABELS.get(status, status)}</span></div>",
+            unsafe_allow_html=True,
+        )
+        if status != "pendiente":
+            return
+        aid = int(a["id"])
+        x, y, z = st.columns(3)
+        if pd.notna(a["product_id"]):
+            with x.popover("Cobrar", icon=":material/payments:", use_container_width=True):
+                method = st.segmented_control("Forma de pago", PAYMENT_METHODS, default=PAYMENT_METHODS[0],
+                                              key=f"appt_pay_{aid}") or PAYMENT_METHODS[0]
+                if st.button("Cobrar ahora", type="primary", key=f"appt_charge_{aid}", use_container_width=True):
+                    try:
+                        sale = c.store.charge_appointment(aid, method)
+                    except SaleError as exc:
+                        st.error(str(exc))
+                    else:
+                        st.session_state["last_sale"] = sale["id"]
+                        st.rerun()
+        else:
+            x.button("Hecha", key=f"appt_done_{aid}", on_click=_set_appointment_status, args=(aid, "completada"),
+                     icon=":material/check:", use_container_width=True)
+        y.button("No vino", key=f"appt_noshow_{aid}", on_click=_set_appointment_status,
+                 args=(aid, "no_presentado"), use_container_width=True)
+        z.button("Cancelar", key=f"appt_cancel_{aid}", on_click=_set_appointment_status, args=(aid, "cancelada"),
+                 use_container_width=True)
+
+
+def _new_appointment_form(c, cfg: dict, day: date) -> None:
+    st.markdown("**Nueva cita**" if cfg["single"] else "**Nueva reserva**")
+    customers = c.store.customers()
+    names = {int(i): n for i, n in zip(customers["id"], customers["name"])}
+    products = c.store.products()
+    services = {int(i): n for i, n in zip(products["id"], products["name"])}
+    with st.form("new_appointment", clear_on_submit=True, border=False):
+        a, b = st.columns(2)
+        when_day = a.date_input("Fecha", day, format="DD/MM/YYYY")
+        when_time = b.time_input("Hora", time(10, 0), step=timedelta(minutes=15))
+        duration = st.number_input("Duración (minutos)", min_value=15, max_value=600, step=15,
+                                   value=int(cfg.get("duration", 60)))
+        customer_id = st.selectbox("Cliente", [0, *names], format_func=lambda i: names.get(i, "Sin ficha (escribir nombre)"))
+        walk_in = st.text_input("Nombre (si no tiene ficha)")
+        product_id = st.selectbox(c.preset["item_label"], [0, *services],
+                                  format_func=lambda i: services.get(i, "Sin servicio"),
+                                  index=1 if cfg["single"] and services else 0)
+        notes = st.text_input("Notas", placeholder="Ej.: mesa para 4, alergia a frutos secos…")
+        if st.form_submit_button("Guardar", type="primary", use_container_width=True, icon=":material/event:"):
+            try:
+                c.store.create_appointment(
+                    datetime.combine(when_day, when_time), duration,
+                    product_id=product_id or None, customer_id=customer_id or None,
+                    customer_name=walk_in, notes=notes, allow_overlap=not cfg["single"],
+                )
+            except ValueError as exc:
+                st.error(str(exc))
+            else:
+                st.session_state["agenda_flash"] = ("success", f"Guardada para el {when_day:%d/%m} a las {when_time:%H:%M}.")
+                st.session_state["agenda_goto"] = when_day  # applied before the date picker is drawn
+                st.rerun()
 
 
 # ------------------------------------------------------------------ products
@@ -540,6 +867,7 @@ def customers_page() -> None:
                 "tax_id": b.text_input("NIF / RFC / CUIT"),
                 "email": a.text_input("Email"),
                 "phone": b.text_input("Teléfono"),
+                "address": st.text_input("Dirección fiscal", placeholder="Calle, número, código postal y ciudad"),
                 "notes": st.text_area("Notas", height=80),
             }
             if st.form_submit_button("Guardar cliente", type="primary"):
@@ -552,13 +880,14 @@ def customers_page() -> None:
                     _bump("customers_editor")
                     st.rerun()
 
-    fields = ["name", "email", "phone", "tax_id", "notes"]
+    fields = ["name", "email", "phone", "tax_id", "address", "notes"]
     edited = st.data_editor(
         ranking, key=_editor_key("customers_editor"), hide_index=True, use_container_width=True,
         disabled=["id", "purchases", "lifetime_value", "last_purchase", "created_at"],
-        column_order=["name", "email", "phone", "tax_id", "purchases", "lifetime_value", "last_purchase", "notes"],
+        column_order=["name", "email", "phone", "tax_id", "address", "purchases", "lifetime_value", "last_purchase",
+                      "notes"],
         column_config={
-            "name": "Nombre", "email": "Email", "phone": "Teléfono", "tax_id": "Identificación fiscal",
+            "name": "Nombre", "email": "Email", "phone": "Teléfono", "tax_id": "Identificación fiscal", "address": "Dirección",
             "purchases": st.column_config.NumberColumn("Compras"),
             "lifetime_value": st.column_config.ProgressColumn(
                 "Valor acumulado", format=f"%.2f {c.symbol}", min_value=0,
@@ -693,6 +1022,16 @@ def settings_page() -> None:
         values["tax_rate"] = b.number_input("Impuesto por defecto (%)", 0.0, 100.0, float(s["tax_rate"]), step=0.5)
         values["invoice_prefix"] = d.text_input("Prefijo de tickets", s["invoice_prefix"], max_chars=8)
         values["receipt_footer"] = st.text_input("Pie del ticket", s["receipt_footer"])
+        a, b = st.columns(2)
+        values["invoice_series"] = a.text_input("Serie de facturas", s["invoice_series"], max_chars=8,
+                                                help="Las facturas se numeran aparte: SERIE-AÑO-0001.")
+        values["opening_float"] = b.number_input(f"Fondo de caja habitual ({c.symbol})", 0.0, 100000.0,
+                                                 float(s["opening_float"] or 0), step=10.0)
+        agenda_options = {"auto": "Automática según el tipo de negocio", "si": "Sí", "no": "No"}
+        values["agenda_enabled"] = st.selectbox(
+            "Mostrar agenda de citas y reservas", list(agenda_options), list(agenda_options).index(
+                s["agenda_enabled"] if s["agenda_enabled"] in agenda_options else "auto"),
+            format_func=agenda_options.get)
         st.markdown("##### Automatizaciones")
         a, b = st.columns(2)
         values["inactive_days"] = a.number_input("Días para considerar un cliente inactivo", 7, 365,
@@ -701,9 +1040,13 @@ def settings_page() -> None:
                                                      int(s["reorder_lead_days"]))
         if st.form_submit_button("Guardar configuración", type="primary"):
             values["invoice_prefix"] = values["invoice_prefix"].strip().upper().replace("-", "") or "VTA"
-            c.store.save_settings(values)
-            st.session_state["settings_flash"] = "Configuración guardada."
-            st.rerun()
+            values["invoice_series"] = values["invoice_series"].strip().upper().replace("-", "") or "FAC"
+            if values["invoice_series"] == values["invoice_prefix"]:
+                st.error("La serie de facturas debe ser distinta del prefijo de tickets.")
+            else:
+                c.store.save_settings(values)
+                st.session_state["settings_flash"] = "Configuración guardada."
+                st.rerun()
 
     st.markdown("##### Tipo de negocio y plantillas")
     with st.container(border=True):

@@ -25,6 +25,9 @@ PRESETS = {
         "demo_name": "Café Aurora",
         "description": "Bares, cafeterías y restaurantes. Carta de platos y bebidas.",
         "item_label": "Plato",
+        # Table reservations: several can share the same time.
+        "agenda": {"title": "Reservas", "single": False, "duration": 90,
+                   "hours": [13, 13.5, 14, 14.5, 20.5, 21, 21.5, 22]},
         "item_label_plural": "Carta",
         "tax_rate": 10.0,
         "categories": ["Entrantes", "Principales", "Postres", "Bebidas"],
@@ -44,6 +47,9 @@ PRESETS = {
         "demo_name": "Ana García · Consultora",
         "description": "Consultoría, formación, reformas, estética… Servicios sin stock.",
         "item_label": "Servicio",
+        # One person's diary: appointments cannot overlap.
+        "agenda": {"title": "Agenda", "single": True, "duration": 60,
+                   "hours": [9, 10, 11, 12, 16, 17, 18]},
         "item_label_plural": "Servicios",
         "tax_rate": 21.0,
         "categories": ["Consultoría", "Formación", "Soporte", "Proyectos"],
@@ -99,4 +105,7 @@ DEFAULT_SETTINGS = {
     "inactive_days": "30",
     "reorder_lead_days": "14",
     "receipt_footer": "Gracias por su compra.",
+    "invoice_series": "FAC",
+    "agenda_enabled": "auto",
+    "opening_float": "150",
 }
