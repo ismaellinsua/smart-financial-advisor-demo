@@ -63,3 +63,11 @@ def module_targets(request, tmp_path_factory):
     targets = Targets(request.param, tmp_path_factory.mktemp("db"))
     yield targets
     targets.cleanup()
+
+
+@pytest.fixture(autouse=True)
+def fast_password_hashing(monkeypatch):
+    """Production hashing is deliberately slow; tests use fewer rounds of the same algorithm."""
+    import core.security
+
+    monkeypatch.setattr(core.security, "PBKDF2_ITERATIONS", 1_000)

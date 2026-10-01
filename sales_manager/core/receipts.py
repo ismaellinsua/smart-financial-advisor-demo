@@ -1,5 +1,6 @@
 """Printable HTML receipts."""
 
+import re
 from datetime import datetime
 from html import escape
 
@@ -10,7 +11,8 @@ from .pricing import format_money
 def receipt_html(sale: dict, settings: dict) -> str:
     symbol = CURRENCIES.get(settings.get("currency", "EUR"), "€")
     money = lambda v: format_money(v, symbol)  # noqa: E731
-    accent = escape(settings.get("accent_color", "#1F4E79"))
+    accent = settings.get("accent_color", "")
+    accent = accent if re.fullmatch(r"#[0-9A-Fa-f]{6}", accent or "") else "#1F4E79"
     when = datetime.fromisoformat(sale["created_at"]).strftime("%d/%m/%Y %H:%M")
 
     rows = "".join(

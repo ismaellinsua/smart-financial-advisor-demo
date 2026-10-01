@@ -12,11 +12,16 @@ import threading
 from contextlib import contextmanager
 from datetime import date, datetime, time, timedelta
 from pathlib import Path
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 import pandas as pd
 
 from .presets import DEFAULT_SETTINGS, PAYMENT_METHODS, PRESETS
 from .pricing import compute_totals
+from .security import (
+    DUMMY_HASH, ROLE_RANK, ROLES, USERNAME_RE, check_secret_strength, clean_text, hash_secret, is_safe_identifier,
+    verify_secret,
+)
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS settings (
@@ -104,6 +109,26 @@ CREATE TABLE IF NOT EXISTS cash_closings (
     notes TEXT NOT NULL DEFAULT '',
     closed_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS users (
+    id {pk},
+    username TEXT UNIQUE NOT NULL,
+    name TEXT NOT NULL,
+    role TEXT NOT NULL,
+    secret_hash TEXT NOT NULL,
+    active INTEGER NOT NULL DEFAULT 1,
+    failed_attempts INTEGER NOT NULL DEFAULT 0,
+    locked_until TEXT NOT NULL DEFAULT '',
+    last_login TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS audit_log (
+    id {pk},
+    happened_at TEXT NOT NULL,
+    username TEXT NOT NULL DEFAULT '',
+    action TEXT NOT NULL,
+    detail TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS idx_audit_happened ON audit_log(happened_at);
 CREATE INDEX IF NOT EXISTS idx_sales_created ON sales(created_at);
 CREATE INDEX IF NOT EXISTS idx_items_sale ON sale_items(sale_id);
 CREATE INDEX IF NOT EXISTS idx_appointments_start ON appointments(starts_at)
@@ -112,7 +137,16 @@ CREATE INDEX IF NOT EXISTS idx_appointments_start ON appointments(starts_at)
 # Columns added after the first release, applied to existing databases on start-up.
 MIGRATIONS = [
     ("customers", "address", "TEXT NOT NULL DEFAULT ''"),
+    # Who did it: names are stored as text so backups restore cleanly into any team.
+    ("sales", "user_name", "TEXT NOT NULL DEFAULT ''"),
+    ("invoices", "issued_by", "TEXT NOT NULL DEFAULT ''"),
+    ("appointments", "created_by", "TEXT NOT NULL DEFAULT ''"),
+    ("cash_closings", "closed_by", "TEXT NOT NULL DEFAULT ''"),
 ]
+
+# Failed logins before an account is locked, and for how long.
+MAX_FAILED_LOGINS = 5
+LOCKOUT_MINUTES = 5
 
 # Insertion order respects foreign keys; deletion goes in reverse.
 DATA_TABLES = ["products", "customers", "sales", "sale_items", "invoices", "appointments", "cash_closings"]
@@ -125,6 +159,10 @@ DEFAULT_DB_PATH = Path(__file__).resolve().parent.parent / "data" / "ventas.db"
 
 class SaleError(Exception):
     """Raised when a sale cannot be completed (e.g. insufficient stock)."""
+
+
+class AuthError(Exception):
+    """Raised when a login fails. The message is safe to show: it never reveals whether a user exists."""
 
 
 # --------------------------------------------------------------------------- engines
@@ -224,7 +262,7 @@ class _Postgres:
         # connections when they suspend, and the app must reconnect transparently.
         # prepare_threshold=None keeps it compatible with connection poolers (PgBouncer).
         self._pool = ConnectionPool(
-            url,
+            _secure_url(url),
             min_size=1,
             max_size=5,
             open=True,
@@ -269,6 +307,18 @@ class _Postgres:
 
     def close(self) -> None:
         self._pool.close()
+
+
+LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1", ""}
+
+
+def _secure_url(url: str) -> str:
+    """Require TLS for any remote PostgreSQL server unless the URL already sets an sslmode."""
+    parts = urlsplit(url)
+    query = dict(parse_qsl(parts.query))
+    if parts.hostname not in LOCAL_HOSTS and "sslmode" not in query:
+        query["sslmode"] = "require"
+    return urlunsplit(parts._replace(query=urlencode(query)))
 
 
 def _is_postgres(target) -> bool:
@@ -343,6 +393,8 @@ class Store:
         fields = ["sku", "name", "category", "price", "cost", "stock", "min_stock", "track_stock", "active"]
         if not data.get("sku") or not data.get("name"):
             raise ValueError("Código y nombre son obligatorios.")
+        data = {**data, "sku": clean_text(data["sku"], "Código", "short"), "name": clean_text(data["name"], "Nombre"),
+                "category": clean_text(data.get("category") or "General", "Categoría", "short")}
         # Plain Python types: pandas/numpy scalars from the editor are not understood by every driver.
         values = [
             data.get(f) if isinstance(data.get(f), str) or data.get(f) is None
@@ -377,10 +429,13 @@ class Store:
     def upsert_customer(self, data: dict, customer_id: int | None = None) -> int:
         if not str(data.get("name") or "").strip():
             raise ValueError("El nombre del cliente es obligatorio.")
-        fields = ["name", "email", "phone", "tax_id", "notes", "address"]
+        limits = {"name": ("Nombre", "name"), "email": ("Email", "email"), "phone": ("Teléfono", "short"),
+                  "tax_id": ("Identificación fiscal", "short"), "notes": ("Notas", "notes"),
+                  "address": ("Dirección", "address")}
+        fields = list(limits)
         if customer_id is not None:
             fields = [f for f in fields if f in data]  # an update only touches the fields it was given
-        values = [str(data.get(f) or "").strip() for f in fields]
+        values = [clean_text(data.get(f), *limits[f]) for f in fields]
         with self.db.tx() as cur:
             if customer_id is None:
                 row = cur.execute(
@@ -413,6 +468,7 @@ class Store:
         discount_pct: float = 0.0,
         tax_rate: float | None = None,
         when: datetime | None = None,
+        user_name: str = "",
     ) -> dict:
         """Register a sale atomically: validates stock, decrements it and numbers the receipt.
 
@@ -427,7 +483,9 @@ class Store:
         for attempt in range(3):
             try:
                 with self.db.tx() as cur:
-                    sale_id = self._insert_sale(cur, cart, payment_method, customer_id, discount_pct, tax_rate, when)
+                    sale_id = self._insert_sale(
+                        cur, cart, payment_method, customer_id, discount_pct, tax_rate, when, user_name
+                    )
                 return self.sale(sale_id)
             except self.db.integrity_errors:
                 # Two devices took the same receipt number at the same moment: number it again.
@@ -435,7 +493,7 @@ class Store:
                     raise SaleError("No se pudo registrar la venta. Inténtalo de nuevo.") from None
         raise AssertionError("unreachable")
 
-    def _insert_sale(self, cur, cart, payment_method, customer_id, discount_pct, tax_rate, when) -> int:
+    def _insert_sale(self, cur, cart, payment_method, customer_id, discount_pct, tax_rate, when, user_name="") -> int:
         if tax_rate is None:
             tax_rate = float(self._settings(cur).get("tax_rate", 0))
         lines = []
@@ -455,7 +513,7 @@ class Store:
         totals = compute_totals(lines, discount_pct, tax_rate)
         row = cur.execute(
             "INSERT INTO sales(number, created_at, customer_id, payment_method, discount_pct, tax_rate, "
-            "subtotal, discount, tax, total) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id",
+            "subtotal, discount, tax, total, user_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id",
             (
                 self._next_number(cur, when),
                 when.isoformat(timespec="seconds"),
@@ -467,6 +525,7 @@ class Store:
                 totals["discount"],
                 totals["tax"],
                 totals["total"],
+                user_name,
             ),
         ).fetchone()
         sale_id = row["id"]
@@ -579,14 +638,14 @@ class Store:
         with self.db.tx() as cur:
             return cur.execute("SELECT * FROM invoices WHERE sale_id = ?", (int(sale_id),)).fetchone()
 
-    def create_invoice(self, sale_id: int, customer: dict, when: datetime | None = None) -> dict:
+    def create_invoice(self, sale_id: int, customer: dict, when: datetime | None = None, issued_by: str = "") -> dict:
         """Issue a full invoice for a completed sale. Invoices have their own correlative series per year."""
-        name = str(customer.get("name") or "").strip()
-        tax_id = str(customer.get("tax_id") or "").strip()
+        name = clean_text(customer.get("name"), "Nombre", "name")
+        tax_id = clean_text(customer.get("tax_id"), "NIF/CIF", "short")
         if not name or not tax_id:
             raise ValueError("Para emitir una factura hacen falta el nombre y el NIF/CIF del cliente.")
-        address = str(customer.get("address") or "").strip()
-        email = str(customer.get("email") or "").strip()
+        address = clean_text(customer.get("address"), "Dirección", "address")
+        email = clean_text(customer.get("email"), "Email", "email")
         when = when or datetime.now()
         sale_id = int(sale_id)
         for attempt in range(3):
@@ -599,9 +658,9 @@ class Store:
                         raise SaleError("Esta venta ya tiene factura.")
                     row = cur.execute(
                         "INSERT INTO invoices(number, sale_id, issued_at, customer_name, customer_tax_id, "
-                        "customer_address, customer_email) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id",
+                        "customer_address, customer_email, issued_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id",
                         (self._next_invoice_number(cur, when), sale_id, when.isoformat(timespec="seconds"),
-                         name, tax_id, address, email),
+                         name, tax_id, address, email, issued_by),
                     ).fetchone()
                     if sale["customer_id"] is not None:
                         # Remember the fiscal data on the customer, without overwriting what is already there.
@@ -654,11 +713,13 @@ class Store:
         customer_name: str = "",
         notes: str = "",
         allow_overlap: bool = False,
+        created_by: str = "",
     ) -> int:
         duration_min = int(duration_min)
-        if duration_min <= 0:
-            raise ValueError("La duración debe ser mayor que cero.")
-        customer_name = customer_name.strip()
+        if not 0 < duration_min <= 24 * 60:
+            raise ValueError("La duración debe estar entre 1 minuto y 24 horas.")
+        customer_name = clean_text(customer_name, "Cliente", "name")
+        notes = clean_text(notes, "Notas", "notes")
         if customer_id is None and not customer_name:
             raise ValueError("Indica el cliente de la cita.")
         starts_at = starts_at.replace(second=0, microsecond=0)
@@ -682,11 +743,11 @@ class Store:
                     )
             row = cur.execute(
                 "INSERT INTO appointments(starts_at, duration_min, customer_id, customer_name, product_id, notes, "
-                "created_at) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id",
+                "created_at, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id",
                 (starts_at.isoformat(timespec="seconds"), duration_min,
                  None if customer_id is None else int(customer_id), customer_name,
-                 None if product_id is None else int(product_id), notes.strip(),
-                 datetime.now().isoformat(timespec="seconds")),
+                 None if product_id is None else int(product_id), notes,
+                 datetime.now().isoformat(timespec="seconds"), created_by),
             ).fetchone()
             return row["id"]
 
@@ -703,7 +764,9 @@ class Store:
                 raise ValueError("Esta cita ya está cobrada.")
             cur.execute("UPDATE appointments SET status = ? WHERE id = ?", (status, int(appointment_id)))
 
-    def charge_appointment(self, appointment_id: int, payment_method: str, discount_pct: float = 0.0) -> dict:
+    def charge_appointment(
+        self, appointment_id: int, payment_method: str, discount_pct: float = 0.0, user_name: str = ""
+    ) -> dict:
         """Charge an appointment's service: registers the sale and marks the appointment as done, atomically."""
         appointment_id = int(appointment_id)
         for attempt in range(3):
@@ -716,7 +779,7 @@ class Store:
                         raise SaleError("La cita no tiene servicio asociado: cóbrala desde Vender.")
                     sale_id = self._insert_sale(
                         cur, [{"product_id": appt["product_id"], "quantity": 1}], payment_method,
-                        appt["customer_id"], float(discount_pct), None, datetime.now(),
+                        appt["customer_id"], float(discount_pct), None, datetime.now(), user_name,
                     )
                     cur.execute(
                         "UPDATE appointments SET status = 'completada', sale_id = ? WHERE id = ?",
@@ -755,23 +818,25 @@ class Store:
         }
 
     def close_cash(
-        self, day: date, opening_float: float, counted_cash: float, notes: str = "", when: datetime | None = None
+        self, day: date, opening_float: float, counted_cash: float, notes: str = "", when: datetime | None = None,
+        closed_by: str = "",
     ) -> dict:
         """Record the end-of-day cash count. Expected cash = opening float + cash sales of the day."""
         if opening_float < 0 or counted_cash < 0:
             raise ValueError("Los importes no pueden ser negativos.")
+        notes = clean_text(notes, "Notas", "notes")
         summary = self.day_summary(day)
         expected = round(float(opening_float) + summary["cash"], 2)
         try:
             with self.db.tx() as cur:
                 cur.execute(
                     "INSERT INTO cash_closings(day, opening_float, cash_sales, expected_cash, counted_cash, "
-                    "difference, total_sales, sales_count, breakdown, notes, closed_at) "
-                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    "difference, total_sales, sales_count, breakdown, notes, closed_at, closed_by) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     (day.isoformat(), float(opening_float), summary["cash"], expected, float(counted_cash),
                      round(float(counted_cash) - expected, 2), summary["total"], summary["count"],
-                     json.dumps(summary["breakdown"], ensure_ascii=False), notes.strip(),
-                     (when or datetime.now()).isoformat(timespec="seconds")),
+                     json.dumps(summary["breakdown"], ensure_ascii=False), notes,
+                     (when or datetime.now()).isoformat(timespec="seconds"), closed_by),
                 )
         except self.db.integrity_errors as exc:
             raise ValueError("La caja de ese día ya está cerrada. Reábrela si necesitas repetir el cierre.") from exc
@@ -797,6 +862,127 @@ class Store:
             df[col] = df[col].astype(float)
         return df
 
+    # --------------------------------------------------------------------- users
+    # Users and the audit log are never part of backups or templates: credentials stay on the server.
+    _USER_FIELDS = "id, username, name, role, active, last_login, created_at"
+
+    def has_users(self) -> bool:
+        with self.db.tx() as cur:
+            return cur.execute("SELECT COUNT(*) AS n FROM users").fetchone()["n"] > 0
+
+    def users(self) -> pd.DataFrame:
+        return self._frame(f"SELECT {self._USER_FIELDS} FROM users ORDER BY active DESC, name")
+
+    def user(self, user_id: int) -> dict | None:
+        with self.db.tx() as cur:
+            return cur.execute(f"SELECT {self._USER_FIELDS} FROM users WHERE id = ?", (int(user_id),)).fetchone()
+
+    def create_user(self, name: str, username: str, role: str, secret: str, by: str = "") -> int:
+        name = clean_text(name, "Nombre", required=True)
+        username = str(username or "").strip().lower()
+        if not USERNAME_RE.fullmatch(username):
+            raise ValueError("El usuario debe tener de 3 a 30 caracteres: letras minúsculas, números, punto, guion "
+                             "o guion bajo.")
+        if role not in ROLES:
+            raise ValueError("Rol no válido.")
+        check_secret_strength(secret, role)
+        try:
+            with self.db.tx() as cur:
+                row = cur.execute(
+                    "INSERT INTO users(username, name, role, secret_hash, created_at) VALUES (?, ?, ?, ?, ?) "
+                    "RETURNING id",
+                    (username, name, role, hash_secret(secret), datetime.now().isoformat(timespec="seconds")),
+                ).fetchone()
+                self._audit(cur, by or username, "usuario_creado", f"{username} ({ROLES[role]})")
+                return row["id"]
+        except self.db.integrity_errors as exc:
+            raise ValueError(f"Ya existe un usuario «{username}».") from exc
+
+    def _active_admins(self, cur) -> int:
+        return cur.execute("SELECT COUNT(*) AS n FROM users WHERE role = 'admin' AND active = 1").fetchone()["n"]
+
+    def update_user(self, user_id: int, *, name: str | None = None, role: str | None = None,
+                    active: bool | None = None, by: str = "") -> None:
+        user_id = int(user_id)
+        with self.db.tx() as cur:
+            user = cur.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+            if user is None:
+                raise ValueError("Usuario no encontrado.")
+            new_role = role if role is not None else user["role"]
+            new_active = int(active) if active is not None else user["active"]
+            if new_role not in ROLES:
+                raise ValueError("Rol no válido.")
+            losing_admin = user["role"] == "admin" and user["active"] and (new_role != "admin" or not new_active)
+            if losing_admin and self._active_admins(cur) <= 1:
+                raise ValueError("Debe quedar al menos un administrador activo.")
+            new_name = clean_text(name, "Nombre", required=True) if name is not None else user["name"]
+            cur.execute("UPDATE users SET name = ?, role = ?, active = ? WHERE id = ?",
+                        (new_name, new_role, new_active, user_id))
+            self._audit(cur, by, "usuario_modificado",
+                        f"{user['username']}: rol {ROLES[new_role]}, {'activo' if new_active else 'desactivado'}")
+
+    def set_user_secret(self, user_id: int, secret: str, by: str = "") -> None:
+        with self.db.tx() as cur:
+            user = cur.execute("SELECT username, role FROM users WHERE id = ?", (int(user_id),)).fetchone()
+            if user is None:
+                raise ValueError("Usuario no encontrado.")
+            check_secret_strength(secret, user["role"])
+            cur.execute("UPDATE users SET secret_hash = ?, failed_attempts = 0, locked_until = '' WHERE id = ?",
+                        (hash_secret(secret), int(user_id)))
+            self._audit(cur, by, "contraseña_cambiada", user["username"])
+
+    def authenticate(self, username: str, secret: str, now: datetime | None = None) -> dict:
+        """Check a login. Locks the account for a few minutes after repeated failures."""
+        now = now or datetime.now()
+        username = str(username or "").strip().lower()
+        generic = AuthError("Usuario o contraseña incorrectos.")
+        locked = ""
+        with self.db.tx() as cur:
+            user = cur.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
+            if user is None or not user["active"]:
+                verify_secret(secret, DUMMY_HASH)  # same work as a real check: no hints from timing
+                self._audit(cur, username, "acceso_fallido", "usuario inexistente o desactivado")
+                user = None
+            if user is None:
+                pass  # the failed attempt is recorded; raise once the transaction has committed
+            elif user["locked_until"] and datetime.fromisoformat(user["locked_until"]) > now:
+                minutes = max(1, round((datetime.fromisoformat(user["locked_until"]) - now).seconds / 60))
+                raise AuthError(f"Demasiados intentos fallidos. Vuelve a intentarlo en {minutes} min.")
+            elif verify_secret(secret, user["secret_hash"]):
+                cur.execute("UPDATE users SET failed_attempts = 0, locked_until = '', last_login = ? WHERE id = ?",
+                            (now.isoformat(timespec="seconds"), user["id"]))
+                self._audit(cur, username, "acceso", "")
+                return {k: user[k] for k in ("id", "username", "name", "role")}
+            else:
+                failed = user["failed_attempts"] + 1
+                locked = (now + timedelta(minutes=LOCKOUT_MINUTES)).isoformat(timespec="seconds") \
+                    if failed >= MAX_FAILED_LOGINS else ""
+                cur.execute("UPDATE users SET failed_attempts = ?, locked_until = ? WHERE id = ?",
+                            (0 if locked else failed, locked, user["id"]))
+                self._audit(cur, username, "acceso_fallido", "cuenta bloqueada" if locked else f"intento {failed}")
+        if locked:
+            raise AuthError(f"Demasiados intentos fallidos. Cuenta bloqueada {LOCKOUT_MINUTES} minutos.")
+        raise generic
+
+    @staticmethod
+    def _audit(cur, username: str, action: str, detail: str = "") -> None:
+        cur.execute("INSERT INTO audit_log(happened_at, username, action, detail) VALUES (?, ?, ?, ?)",
+                    (datetime.now().isoformat(timespec="seconds"), str(username)[:60], action, str(detail)[:500]))
+
+    def audit(self, username: str, action: str, detail: str = "") -> None:
+        with self.db.tx() as cur:
+            self._audit(cur, username, action, detail)
+
+    def audit_log(self, limit: int = 300) -> pd.DataFrame:
+        df = self._frame("SELECT happened_at, username, action, detail FROM audit_log ORDER BY id DESC LIMIT ?",
+                         (int(limit),))
+        df["happened_at"] = pd.to_datetime(df["happened_at"])
+        return df
+
+    @staticmethod
+    def can(role: str, needed: str) -> bool:
+        return ROLE_RANK.get(role, -1) >= ROLE_RANK[needed]
+
     # ------------------------------------------------------- bulk copy & backups
     def _export(self, tables: list[str]) -> dict[str, list[dict]]:
         with self.db.tx() as cur:
@@ -814,7 +1000,9 @@ class Store:
         for table in tables:
             rows = data[table]
             if rows:
-                columns = list(rows[0])
+                # Column names come from a file the user uploaded: keep only real, well-formed columns.
+                known = self.db.columns(cur, table)
+                columns = [col for col in rows[0] if col in known and is_safe_identifier(col)]
                 cur.executemany(
                     f"INSERT INTO {table}({', '.join(columns)}) VALUES ({', '.join('?' * len(columns))})",
                     ([r[c] for c in columns] for r in rows),
@@ -952,6 +1140,7 @@ class Store:
                     customer_id=customer,
                     discount_pct=rng.choice([0, 0, 0, 5, 10]),
                     when=when,
+                    user_name=rng.choice(["Marta", "Diego", "Sara"]),  # demo team, shown in the Panel
                 )
 
         # Closed tills for the last few days, with the small differences real counts have.

@@ -343,3 +343,131 @@ def test_backup_carries_new_tables(store, make_store):
     # Numbering keeps going after a restore.
     again = other.create_invoice(_completed_sale(other)["id"], {"name": "Ana", "tax_id": "1Z"})
     assert again["number"].endswith("0002")
+
+
+# ---------------------------------------------------------- users & security
+def test_users_and_login_lockout(make_store):
+    from core.db import AuthError, LOCKOUT_MINUTES, MAX_FAILED_LOGINS
+
+    s = make_store()
+    with pytest.raises(ValueError):
+        s.create_user("Ana", "ana", "admin", "corta")  # admin needs 8+ chars
+    with pytest.raises(ValueError):
+        s.create_user("Ana", "Ana López", "empleado", "4826")  # bad username
+    with pytest.raises(ValueError):
+        s.create_user("Ana", "ana", "empleado", "1234")  # too easy
+    admin = s.create_user("Ismael", "ismael", "admin", "Segura2026")
+    s.create_user("Ana", "ANA", "empleado", "4826")
+    with pytest.raises(ValueError, match="Ya existe"):
+        s.create_user("Otra", "ana", "empleado", "4826")
+    assert "secret_hash" not in s.users().columns
+
+    assert s.authenticate("Ana ", "4826")["role"] == "empleado"
+    with pytest.raises(AuthError, match="incorrectos"):
+        s.authenticate("nadie", "4826")
+    now = datetime.now()
+    for _ in range(MAX_FAILED_LOGINS - 1):
+        with pytest.raises(AuthError, match="incorrectos"):
+            s.authenticate("ana", "0000", now=now)
+    with pytest.raises(AuthError, match="bloqueada"):
+        s.authenticate("ana", "0000", now=now)
+    with pytest.raises(AuthError, match="Demasiados"):
+        s.authenticate("ana", "4826", now=now)  # even the right PIN waits
+    assert s.authenticate("ana", "4826", now=now + timedelta(minutes=LOCKOUT_MINUTES + 1))["name"] == "Ana"
+
+    actions = list(s.audit_log()["action"])
+    assert actions.count("acceso_fallido") == MAX_FAILED_LOGINS + 1 and "acceso" in actions
+
+    with pytest.raises(ValueError, match="administrador"):
+        s.update_user(admin, role="empleado")  # last admin
+    with pytest.raises(ValueError, match="administrador"):
+        s.update_user(admin, active=False)
+    ana = int(s.users().query("username == 'ana'").iloc[0]["id"])
+    s.update_user(ana, active=False)
+    with pytest.raises(AuthError, match="incorrectos"):
+        s.authenticate("ana", "4826")
+
+
+def test_secret_hashing():
+    from core.security import hash_secret, verify_secret
+
+    stored = hash_secret("Segura2026")
+    assert stored.startswith("pbkdf2_sha256$") and "Segura2026" not in stored
+    assert verify_secret("Segura2026", stored) and not verify_secret("segura2026", stored)
+    assert hash_secret("Segura2026") != stored  # salted
+    assert not verify_secret("x", "basura")
+
+
+def test_backups_never_contain_accounts(store, make_store):
+    import sqlite3
+    import tempfile
+    from pathlib import Path
+
+    store.create_user("Ismael", "ismael", "admin", "Segura2026")
+    data = store.backup_bytes()
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "b.db"
+        path.write_bytes(data)
+        conn = sqlite3.connect(path)
+        assert conn.execute("SELECT COUNT(*) FROM users").fetchone()[0] == 0
+        assert conn.execute("SELECT COUNT(*) FROM audit_log").fetchone()[0] == 0
+        conn.close()
+    other = make_store()
+    other.create_user("Otra", "otra", "admin", "Segura2026")
+    other.restore(data)
+    assert list(other.users()["username"]) == ["otra"]  # restoring keeps this server's team
+
+
+def test_restore_ignores_unknown_columns(store):
+    """A crafted backup cannot smuggle SQL through column names."""
+    import sqlite3
+    import tempfile
+    from pathlib import Path
+
+    data = store.backup_bytes()
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "evil.db"
+        path.write_bytes(data)
+        conn = sqlite3.connect(path)
+        conn.execute('ALTER TABLE customers ADD COLUMN "x) VALUES (1); DROP TABLE sales; --" TEXT')
+        conn.execute("INSERT INTO customers(name, created_at) VALUES ('Eva', '2026-01-01T00:00:00')")
+        conn.commit()
+        conn.close()
+        store.restore(path.read_bytes())
+    assert "Eva" in set(store.customers()["name"])
+    assert store.sales() is not None  # sales table still there
+
+
+def test_sales_record_who_sold(store):
+    sale = store.create_sale([{"product_id": product_id(store, "CAM-001"), "quantity": 1}], "Tarjeta",
+                             user_name="Lucía")
+    assert store.sale(sale["id"])["user_name"] == "Lucía"
+    assert store.sales().iloc[0]["user_name"] == "Lucía"
+
+
+def test_text_limits(store):
+    with pytest.raises(ValueError, match="demasiado largo"):
+        store.upsert_customer({"name": "x" * 500})
+    with pytest.raises(ValueError, match="demasiado largo"):
+        store.create_appointment(datetime.now() + timedelta(days=1), 30, customer_name="Eva", notes="n" * 600)
+
+
+def test_csv_safe_and_secure_url():
+    import pandas as pd
+
+    from core.db import _secure_url
+    from core.security import csv_safe
+
+    df = csv_safe(pd.DataFrame({"name": ["=HYPERLINK(\"x\")", "Ana", "+34 600", "@SUM(1)"], "n": [1, -2, 3, 4]}))
+    assert list(df["name"]) == ["'=HYPERLINK(\"x\")", "Ana", "'+34 600", "'@SUM(1)"]
+    assert list(df["n"]) == [1, -2, 3, 4]
+    assert "sslmode=require" in _secure_url("postgresql://u:p@ep-x.neon.tech/db")
+    assert "sslmode=verify-full" in _secure_url("postgresql://u:p@ep-x.neon.tech/db?sslmode=verify-full")
+    assert "sslmode" not in _secure_url("postgresql://u:p@localhost:5432/db")
+
+
+def test_receipt_rejects_css_injection(store):
+    store.save_settings({"accent_color": "red;}</style><script>alert(1)</script>"})
+    sale = store.create_sale([{"product_id": product_id(store, "CAM-001"), "quantity": 1}], "Tarjeta")
+    html = receipt_html(sale, store.settings())
+    assert "<script>" not in html and "#1F4E79" in html

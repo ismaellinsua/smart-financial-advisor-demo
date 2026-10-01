@@ -108,4 +108,5 @@ DEFAULT_SETTINGS = {
     "invoice_series": "FAC",
     "agenda_enabled": "auto",
     "opening_float": "150",
+    "session_minutes": "720",
 }

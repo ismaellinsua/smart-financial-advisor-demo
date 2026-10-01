@@ -34,7 +34,7 @@ En el móvil:
 | **Clientes** | Cartera ordenada por valor acumulado, nº de compras y última compra. |
 | **Automatizaciones** | Reposición inteligente según la demanda real (orden de compra en CSV), alertas de stock bajo, seguimiento de clientes inactivos con mensaje de reactivación listo para enviar por email, e informes por periodo. |
 | **Configuración** | Datos fiscales, moneda, impuesto, prefijo de tickets, color de marca, pie del ticket, plantillas por tipo de negocio y copias de seguridad (descargar y restaurar). |
-| **Acceso privado** | Contraseña opcional (`app_password` en los secrets de Streamlit) para proteger la app cuando se publica en internet. |
+| **Equipo y seguridad** | Cuentas por persona (nombre + PIN o contraseña) con tres roles: administrador, encargado y empleado. Varias personas a la vez desde sus móviles; cada venta, factura, cita y cierre queda firmado. Registro de actividad con accesos fallidos. |
 
 Arriba de cada pantalla hay una cabecera discreta con el negocio, lo vendido hoy y la próxima cita.
 
@@ -63,7 +63,9 @@ ventas de ejemplo. Los datos se guardan en `sales_manager/data/ventas.db` (SQLit
    ```toml
    app_password = "elige-una-contraseña-segura"
    ```
-   Con esto la app pide contraseña al entrar. Sin ella, cualquiera con el enlace podría ver y cambiar tus datos.
+   Es la contraseña de instalación: la app la pide una sola vez, para crear la cuenta del administrador. Sin ella,
+   una app publicada no deja crear el administrador. Después cada persona del equipo entra con su usuario y su PIN
+   (**Equipo y seguridad**).
 4. Pulsa **Deploy**. Abre la URL en el móvil y usa «Añadir a pantalla de inicio» para tenerla como una app.
 
 **Importante sobre los datos:** sin base de datos externa, Streamlit Community Cloud guarda los datos en un archivo
@@ -90,6 +92,23 @@ La app usa PostgreSQL cuando encuentra `database_url` en los *Secrets*; si no, u
 
 El plan gratuito de Neon basta para un negocio pequeño. La base se duerme tras unos minutos sin uso y tarda uno o dos
 segundos en despertar la primera vez; la app se reconecta sola.
+
+## Seguridad
+
+| Medida | Detalle |
+|---|---|
+| Cuentas individuales | Cada persona entra con su usuario y su PIN o contraseña. Las contraseñas se guardan cifradas con PBKDF2-SHA256 (600.000 iteraciones y sal aleatoria), nunca en claro. |
+| Roles | **Administrador:** todo. **Encargado:** panel, caja, catálogo, clientes, facturas y anulaciones. **Empleado:** vender, agenda y consultar tickets. Cada página comprueba el rol en el servidor, no solo el menú. |
+| Fuerza bruta | 5 intentos fallidos bloquean la cuenta 5 minutos; los fallos se retrasan y quedan registrados. Un usuario inexistente tarda lo mismo que uno real. |
+| Primer acceso | En una app publicada, crear el administrador exige `app_password` de los *Secrets*. Sin ella, la app se niega, para que nadie se apropie de ella tras un reinicio. |
+| Sesiones | Se cierran tras un tiempo sin uso (configurable, 12 h por defecto) y al desactivar a una persona. Recargar la página pide de nuevo el PIN. |
+| Registro de actividad | Accesos, intentos fallidos, anulaciones, facturas, cierres y reaperturas de caja, cambios de configuración, restauraciones y cambios en el equipo. |
+| Copias de seguridad | No incluyen usuarios ni registro: las credenciales no salen del servidor. Al restaurar solo se aceptan tablas y columnas conocidas (sin inyección SQL por nombres de columna) y se valida el archivo. |
+| Exportaciones | Los CSV neutralizan fórmulas de hoja de cálculo (`=`, `+`, `-`, `@`). Los textos de usuario se escapan en pantallas, tickets y PDF. |
+| Base de datos | Consultas siempre parametrizadas. Conexión a PostgreSQL remoto con TLS obligatorio (`sslmode=require`). Límites de longitud en todos los textos. |
+| Servidor | Subidas limitadas a 20 MB, protección XSRF activa y errores sin detalles internos para el usuario. |
+
+**Lo que no depende de la app:** la seguridad de la cuenta de Streamlit y de GitHub (activa la verificación en dos pasos en ambas), la de Neon y la custodia de los *Secrets*. En la versión gratuita de Streamlit sin base de datos externa, un reinicio borra datos **y cuentas**: para un equipo real usa Neon.
 
 ## Estructura
 

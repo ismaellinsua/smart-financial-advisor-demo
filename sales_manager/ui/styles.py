@@ -1,5 +1,6 @@
 """Visual identity: global CSS and small presentational helpers."""
 
+import re
 from html import escape
 
 import plotly.graph_objects as go
@@ -7,7 +8,8 @@ import streamlit as st
 
 
 def inject_css(accent: str) -> None:
-    accent = escape(accent)
+    # Only a plain hex colour may reach the stylesheet.
+    accent = accent if re.fullmatch(r"#[0-9A-Fa-f]{6}", accent or "") else "#1F4E79"
     st.markdown(
         f"""
 <style>
@@ -85,7 +87,9 @@ button[kind="primary"]:disabled, button[data-testid^="stBaseButton-primary"]:dis
 .sm-topbar .stat {{ margin-left: auto; white-space: nowrap; font-variant-numeric: tabular-nums; opacity: .85; }}
 .sm-topbar .stat b {{ color: var(--accent); }}
 .sm-topbar .next {{ white-space: nowrap; opacity: .65; }}
-@media (max-width: 640px) {{ .sm-topbar .next, .sm-topbar .sep.n {{ display: none; }} }}
+.sm-topbar .who {{ white-space: nowrap; font-size: .76rem; padding: .1rem .55rem; border-radius: 999px;
+                  background: color-mix(in srgb, var(--accent) 12%, transparent); }}
+@media (max-width: 640px) {{ .sm-topbar .next, .sm-topbar .sep.n, .sm-topbar .biz {{ display: none; }} }}
 
 /* Agenda cards */
 .sm-appt {{ display: flex; align-items: center; gap: .9rem; }}
@@ -129,13 +133,16 @@ def sidebar_brand(name: str, business_type_label: str) -> None:
     )
 
 
-def topbar(business: str, today_total: str, today_count: int, next_up: str = "") -> None:
+def topbar(business: str, today_total: str, today_count: int, next_up: str = "", person: str = "",
+           own: bool = False) -> None:
     sales = f"{today_count} venta" + ("" if today_count == 1 else "s")
     nxt = f"<span class='sep n'>·</span><span class='next'>{escape(next_up)}</span>" if next_up else ""
+    who = f"<span class='who'>{escape(person)}</span>" if person else ""
+    label = "Tus ventas hoy" if own else "Hoy"
     st.markdown(
         f"<div class='sm-topbar' role='status'><span class='dot'></span>"
         f"<span class='biz'>{escape(business)}</span>{nxt}"
-        f"<span class='stat'>Hoy <b>{escape(today_total)}</b> · {sales}</span></div>",
+        f"<span class='stat'>{label} <b>{escape(today_total)}</b> · {sales}</span>{who}</div>",
         unsafe_allow_html=True,
     )
 
