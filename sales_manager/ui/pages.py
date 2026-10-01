@@ -14,6 +14,7 @@ from core.presets import CURRENCIES, PAYMENT_METHODS, PRESETS
 from core.security import ROLES, csv_safe
 from core.pdfs import cash_closing_pdf, credit_note_pdf, invoice_pdf
 from core.receipts import receipt_html, refund_receipt_html
+from ui import pages_intel
 from ui.checkout import checkout_panel
 from ui.context import PAGES, ctx, get_store
 from ui.styles import insight, page_header, style_figure
@@ -113,6 +114,7 @@ def dashboard() -> None:
         return
     page_header("Panel de ventas", f"Así va {c.settings['business_name']}", eyebrow=_today_label())
 
+    pages_intel.report_card(c)
     period = st.segmented_control(
         "Periodo", [7, 30, 90], default=30, format_func=lambda d: f"Últimos {d} días",
         label_visibility="collapsed", key="dash_period",
@@ -181,16 +183,13 @@ def dashboard() -> None:
             ))
             st.plotly_chart(style_figure(fig, 240), use_container_width=True, config={"displayModeBar": False})
     with right, st.container(border=True):
-        st.markdown("**Alertas automáticas**")
-        products = c.store.products()
-        low = automation.low_stock(products)
-        inactive = automation.inactive_customers(
-            c.store.customers(), c.store.sales(), int(c.settings["inactive_days"])
-        )
-        st.metric("Bajo stock mínimo", len(low))
-        st.metric("Clientes a reactivar", len(inactive))
-        if "automations" in PAGES:
-            st.page_link(PAGES["automations"], label="Ver automatizaciones", icon=":material/arrow_forward:")
+        st.markdown("**Alertas inteligentes**")
+        alerts = pages_intel.cached_alerts(c)
+        pages_intel.show_alerts(alerts, limit=3)
+        if len(alerts) > 3:
+            st.caption(f"Y {len(alerts) - 3} más.")
+        if "intelligence" in PAGES:
+            st.page_link(PAGES["intelligence"], label="Ver todas y el análisis", icon=":material/arrow_forward:")
 
     by_user = cur_sales[cur_sales["user_name"] != ""].groupby("user_name")["total"].agg(["sum", "count"])
     if not by_user.empty:
@@ -207,7 +206,7 @@ def dashboard() -> None:
                             config={"displayModeBar": False})
 
     st.markdown("#### Recomendaciones")
-    for level, message in automation.insights(products, cur_lines, c.preset["item_label"]):
+    for level, message in automation.insights(c.store.products(), cur_lines, c.preset["item_label"]):
         insight(level, message)
 
 
@@ -363,7 +362,7 @@ def _confirm_cancel(sale_id: int, number: str) -> None:
             st.error("Solo un encargado o el administrador puede anular ventas.")
             return
         try:
-            c.store.cancel_sale(sale_id)
+            c.store.cancel_sale(sale_id, by=c.who)
         except SaleError as exc:
             st.error(str(exc))
         else:

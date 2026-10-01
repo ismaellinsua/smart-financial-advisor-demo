@@ -86,6 +86,22 @@ button[kind="primary"]:disabled, button[data-testid^="stBaseButton-primary"]:dis
 .sm-change {{ font-size: 1.05rem; padding: .3rem 0 .6rem; }}
 .sm-change b {{ color: var(--accent); font-size: 1.3rem; }}
 
+/* Smart alerts */
+.sm-alert {{ display: flex; gap: .7rem; align-items: flex-start; padding: .65rem .85rem; border-radius: 10px;
+             margin-bottom: .45rem; border-left: 3px solid #98A2B3;
+             background: var(--secondary-background-color, #F5F7FA); font-size: .9rem; }}
+.sm-alert.alta {{ border-left-color: #D92D20; }}
+.sm-alert.media {{ border-left-color: #F79009; }}
+.sm-alert .lvl {{ font-size: .66rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+                  padding: .12rem .42rem; border-radius: 6px; white-space: nowrap; margin-top: .12rem;
+                  background: #EAECF0; color: #344054; }}
+.sm-alert.alta .lvl {{ background: #FEE4E2; color: #B42318; }}
+.sm-alert.media .lvl {{ background: #FEF0C7; color: #93370D; }}
+.sm-alert b {{ display: block; }}
+.sm-alert span.d {{ opacity: .75; font-size: .84rem; }}
+.sm-abc {{ display: inline-block; min-width: 1.6rem; text-align: center; font-weight: 700; border-radius: 6px;
+           padding: .05rem .4rem; color: #fff; }}
+
 /* Insight list */
 .sm-insight {{ display: flex; gap: .7rem; align-items: flex-start; padding: .7rem .9rem; border-radius: 10px;
                margin-bottom: .5rem; background: var(--secondary-background-color, #F5F7FA); font-size: .93rem; }}
@@ -113,6 +129,9 @@ button[kind="primary"]:disabled, button[data-testid^="stBaseButton-primary"]:dis
 .sm-topbar .next {{ white-space: nowrap; opacity: .65; }}
 .sm-topbar .who {{ white-space: nowrap; font-size: .76rem; padding: .1rem .55rem; border-radius: 999px;
                   background: color-mix(in srgb, var(--accent) 12%, transparent); }}
+.sm-topbar .alerts {{ white-space: nowrap; font-size: .76rem; font-weight: 600; padding: .1rem .55rem;
+                     border-radius: 999px; background: #FEE4E2; color: #B42318; }}
+.sm-topbar .alerts.calm {{ background: #FEF0C7; color: #93370D; }}
 @media (max-width: 640px) {{ .sm-topbar .next, .sm-topbar .sep.n, .sm-topbar .biz {{ display: none; }} }}
 
 /* Agenda cards */
@@ -158,11 +177,16 @@ def sidebar_brand(name: str, business_type_label: str) -> None:
 
 
 def topbar(business: str, today_total: str, today_count: int, next_up: str = "", person: str = "",
-           own: bool = False) -> None:
+           own: bool = False, alerts: tuple[int, int] | None = None) -> None:
+    """`alerts` is (total, urgent); shown only to people who can act on them."""
     sales = f"{today_count} venta" + ("" if today_count == 1 else "s")
     nxt = f"<span class='sep n'>·</span><span class='next'>{escape(next_up)}</span>" if next_up else ""
     who = f"<span class='who'>{escape(person)}</span>" if person else ""
     label = "Tus ventas hoy" if own else "Hoy"
+    if alerts and alerts[0]:
+        total, urgent = alerts
+        text = f"{total} aviso" + ("" if total == 1 else "s")
+        who = f"<span class='alerts{'' if urgent else ' calm'}' title='Alertas inteligentes'>{text}</span>" + who
     st.markdown(
         f"<div class='sm-topbar' role='status'><span class='dot'></span>"
         f"<span class='biz'>{escape(business)}</span>{nxt}"
@@ -202,3 +226,14 @@ def style_figure(fig: go.Figure, height: int = 320) -> go.Figure:
     fig.update_yaxes(gridcolor="rgba(128,128,128,.15)", zeroline=False, title=None)
     fig.update_traces(selector=dict(type="bar"), marker_cornerradius=4)
     return fig
+
+
+ALERT_LEVELS = {"alta": "Urgente", "media": "Atención", "baja": "Idea"}
+
+
+def alert_card(alert: dict) -> None:
+    st.markdown(
+        f"<div class='sm-alert {escape(alert['level'])}'><span class='lvl'>{ALERT_LEVELS[alert['level']]}</span>"
+        f"<div><b>{escape(alert['title'])}</b><span class='d'>{escape(alert['detail'])}</span></div></div>",
+        unsafe_allow_html=True,
+    )

@@ -11,7 +11,7 @@ import streamlit as st
 
 from core.presets import PRESETS
 from core.security import ROLES
-from ui import pages, pages_management, pages_promos, pages_tables
+from ui import pages, pages_intel, pages_management, pages_promos, pages_tables
 from ui.auth import logout_button, require_user
 from ui.context import PAGES, ctx
 from ui.styles import inject_css, sidebar_brand, sidebar_copyright, topbar
@@ -55,6 +55,8 @@ PAGES.update(
     customers=st.Page(pages.customers_page, title="Clientes", icon=":material/group:", url_path="clientes"),
     automations=st.Page(pages.automations_page, title="Automatizaciones", icon=":material/bolt:",
                         url_path="automatizaciones"),
+    intelligence=st.Page(pages_intel.intelligence_page, title="Alertas y análisis", icon=":material/insights:",
+                         url_path="inteligencia"),
     settings=st.Page(pages.settings_page, title="Configuración", icon=":material/settings:", url_path="ajustes"),
     promos=st.Page(pages_promos.promotions_page, title="Promociones", icon=":material/sell:",
                    url_path="promociones"),
@@ -79,7 +81,7 @@ sections = {"Operación": [*([P["dashboard"]] if c.can("encargado") else []),
                           *([P["cash"]] if c.can("encargado") else []), P["history"]]}
 if c.can("encargado"):
     sections["Gestión"] = [P["products"], P["customers"], P["promos"], P["purchases"], P["expenses"]]
-    sections["Inteligencia"] = [P["automations"]]
+    sections["Inteligencia"] = [P["intelligence"], P["automations"]]
 if c.can("admin"):
     sections["Ajustes"] = [P["settings"], P["team"]]
 
@@ -105,5 +107,6 @@ if show_agenda:
                 else f"{first['starts_at']:%d/%m %H:%M}")
         next_up = f"Próxima: {when} · {first['who']}"
 topbar(c.settings["business_name"], c.money_short(today["total"].sum()), len(today), next_up,
-       person=f"{c.who} · {ROLES[c.role]}", own=not c.can("encargado"))
+       person=f"{c.who} · {ROLES[c.role]}", own=not c.can("encargado"),
+       alerts=pages_intel.alert_counts(c) if c.can("encargado") else None)
 nav.run()

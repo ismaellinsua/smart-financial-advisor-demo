@@ -742,3 +742,102 @@ def test_recurring_expenses_and_profit(store):
     with pytest.raises(ValueError):
         store.add_expense(date(2026, 3, 5), "Inventada", "x", 10)
 
+
+
+# ------------------------------------------------------------------ intelligence
+def test_abc_classifies_by_margin(store):
+    from core import intelligence
+    now = datetime.now()
+    for sku, qty in [("ZAP-003", 10), ("CAM-001", 3), ("CIN-005", 1)]:
+        store.create_sale([{"product_id": product_id(store, sku), "quantity": qty}], "Tarjeta",
+                          when=now - timedelta(days=1))
+    abc = intelligence.abc_analysis(store.products(), store.sale_lines(start=now - timedelta(days=30)))
+    klass = dict(zip(abc["name"], abc["abc"]))
+    assert abc.iloc[0]["name"] == "Zapatilla urbana" and klass["Zapatilla urbana"] == "A"
+    assert klass["Camisa de lino"] == "B"  # 80 % of the margin is already covered by the first product
+    assert klass["Vela aromática"] == "C"  # active but unsold
+    assert abc["share"].sum() == pytest.approx(100, abs=0.2)
+    summary = intelligence.abc_summary(abc)
+    assert sum(v["count"] for v in summary.values()) == len(store.products())
+
+
+def test_price_suggestions_and_apply(store):
+    from core import intelligence
+    assert intelligence.round_price(7.01) == 7.05 and intelligence.round_price(12.31) == 12.4
+    assert intelligence.round_price(150.2) == 151.0 and intelligence.round_price(7.05) == 7.05
+    sug = intelligence.price_suggestions(store.products(), 60)
+    assert set(sug["name"]) == {"Camisa de lino", "Pantalón chino", "Zapatilla urbana", "Bolso de piel"}
+    row = sug.set_index("name").loc["Camisa de lino"]
+    assert row["suggested"] == 40.0 and row["new_margin_pct"] >= 60  # 16 / 0.4
+    with pytest.raises(ValueError):
+        intelligence.price_suggestions(store.products(), 0)
+    assert store.set_prices({int(row["id"]): row["suggested"]}) == 1
+    assert store.products().set_index("sku").loc["CAM-001", "price"] == 40.0
+    with pytest.raises(ValueError):
+        store.set_prices({int(row["id"]): 0})
+
+
+def test_smart_alerts(store):
+    now = datetime.now()
+    shirt, bag = product_id(store, "CAM-001"), product_id(store, "BOL-004")
+    # Busy week two weeks ago, quiet this week: sales drop.
+    for d in range(8, 14):
+        store.create_sale([{"product_id": shirt, "quantity": 1}], "Tarjeta", when=now - timedelta(days=d),
+                          user_name="Ana")
+    store.create_sale([{"product_id": shirt, "quantity": 1}], "Tarjeta", when=now - timedelta(days=1),
+                      user_name="Ana")
+    # The bag keeps selling and runs out.
+    store.create_sale([{"product_id": bag, "quantity": 2}], "Tarjeta", when=now - timedelta(days=9), user_name="Ana")
+    # Pablo's sales get voided and returned again and again.
+    for i in range(4):
+        sale = store.create_sale([{"product_id": shirt, "quantity": 1}], "Efectivo", when=now - timedelta(days=3, hours=i),
+                                 user_name="Pablo")
+        if i % 2:
+            store.cancel_sale(sale["id"], by="Encargada")
+        else:
+            item = store.returnable(sale["id"])[0]
+            store.create_refund(sale["id"], {item["id"]: 1}, "Efectivo", "Defectuoso", user_name="Encargada")
+    store.close_cash((now - timedelta(days=2)).date(), 100, 50)  # 50 short
+    table = store.save_table("Terraza 1", "Terraza", 4)
+    order = store.open_order(table, 2, "Ana")
+    with store.db.tx() as cur:
+        cur.execute("UPDATE orders SET opened_at = ? WHERE id = ?",
+                    ((now - timedelta(hours=5)).isoformat(timespec="seconds"), order))
+
+    alerts = store.alerts(now)
+    by_area = {a["area"]: a for a in alerts}
+    assert by_area["Ventas"]["level"] == "alta"
+    assert by_area["Caja"]["level"] == "alta" and "50,00" in by_area["Caja"]["detail"]
+    assert "Bolso de piel" in by_area["Stock"]["detail"]
+    assert by_area["Equipo"]["title"].endswith("Pablo")
+    assert "Terraza 1" in by_area["Mesas"]["detail"]
+    assert "Catálogo" in by_area
+    assert [a["level"] for a in alerts] == sorted((a["level"] for a in alerts), key=["alta", "media", "baja"].index)
+    voided = store.sales()
+    assert set(voided[voided["status"] == "anulada"]["voided_by"]) == {"Encargada"}
+
+
+def test_no_alerts_without_activity(store):
+    assert store.alerts() == []
+
+
+def test_weekly_report_and_pdf(store):
+    from core.pdfs import weekly_report_pdf
+    from core.store_intel import week_start
+    start = week_start(datetime.now().date()) - timedelta(days=7)
+    shirt = product_id(store, "CAM-001")
+    store.create_sale([{"product_id": shirt, "quantity": 2}], "Tarjeta", when=start + timedelta(days=1, hours=10),
+                      user_name="Ana")
+    store.create_sale([{"product_id": shirt, "quantity": 1}], "Tarjeta", when=start - timedelta(days=3), user_name="Ana")
+    report = store.weekly_report(start)
+    n = report["numbers"]
+    assert n["cur"]["count"] == 1 and n["prev"]["count"] == 1
+    assert n["delta"]["revenue"] == pytest.approx(100)
+    assert n["by_day"][1][2] == 1 and len(n["by_day"]) == 7
+    assert report["complete"]
+    store.save_recurring("Alquiler", "Local", 520, 1)
+    report = store.weekly_report(start)
+    assert report["profit"]["fixed"] == pytest.approx(120)  # 520 a month is 120 a week
+    assert report["profit"]["net"] == pytest.approx(n["cur"]["margin"] - 120)
+    pdf = weekly_report_pdf(report, store.settings())
+    assert pdf.startswith(b"%PDF") and len(pdf) > 2000

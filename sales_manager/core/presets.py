@@ -18,6 +18,7 @@ PRESETS = {
         "item_label": "Producto",
         "item_label_plural": "Productos",
         "tax_rate": 21.0,
+        "target_margin": 45,  # usual gross margin on price, for price suggestions
         "categories": ["Ropa", "Calzado", "Accesorios", "Hogar"],
         "track_stock": True,
         "catalog": [
@@ -54,6 +55,7 @@ PRESETS = {
                    "hours": [13, 13.5, 14, 14.5, 20.5, 21, 21.5, 22]},
         "item_label_plural": "Carta",
         "tax_rate": 10.0,
+        "target_margin": 70,  # usual gross margin on price, for price suggestions
         "categories": ["Entrantes", "Principales", "Postres", "Bebidas"],
         "track_stock": True,
         "catalog": [
@@ -84,6 +86,7 @@ PRESETS = {
                    "hours": [9, 10, 11, 12, 16, 17, 18]},
         "item_label_plural": "Servicios",
         "tax_rate": 21.0,
+        "target_margin": 60,  # usual gross margin on price, for price suggestions
         "categories": ["Consultoría", "Formación", "Soporte", "Proyectos"],
         "track_stock": False,
         # A freelancer closes far fewer, larger sales than a shop: keep the demo figures believable.
@@ -113,6 +116,7 @@ PRESETS = {
         "item_label": "Artículo",
         "item_label_plural": "Catálogo",
         "tax_rate": 21.0,
+        "target_margin": 40,  # usual gross margin on price, for price suggestions
         "categories": ["Electrónica", "Accesorios", "Packs", "Envíos"],
         "track_stock": True,
         "catalog": [

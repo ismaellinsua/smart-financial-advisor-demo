@@ -1,7 +1,7 @@
 """PDF documents: invoices and end-of-day cash reports."""
 
 import re
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from html import escape
 from io import BytesIO
 
@@ -272,3 +272,109 @@ def purchase_order_pdf(po: dict, settings: dict) -> bytes:
     if po.get("notes"):
         story.append(_p(f"Notas: {po['notes']}", st["muted"]))
     return _build(story, f"Pedido {po['number']}")
+
+
+def _grid(rows: list, widths: list, accent, total: bool = False, extra: list | None = None) -> Table:
+    table = Table(rows, colWidths=[w * mm for w in widths], repeatRows=1)
+    style = [("LINEBELOW", (0, 0), (-1, 0), 1, INK), ("LINEBELOW", (0, 1), (-1, -1), 0.4, LINE),
+             ("TOPPADDING", (0, 0), (-1, -1), 4), ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+             ("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+             ("VALIGN", (0, 0), (-1, -1), "TOP")]
+    if total:
+        style.append(("LINEABOVE", (0, -1), (-1, -1), 1.5, accent))
+    table.setStyle(TableStyle(style + (extra or [])))
+    return table
+
+
+def weekly_report_pdf(report: dict, settings: dict) -> bytes:
+    """Monday report: how the week went against the one before, what sold, who sold, alerts and what to do."""
+    accent = _accent(settings)
+    st = _styles(accent)
+    money = lambda v: format_money(v, CURRENCIES.get(settings.get("currency", "EUR"), "€"))  # noqa: E731
+    minus = lambda v: f"−{money(v)}" if v >= 0.005 else money(0)  # noqa: E731
+    pct = lambda v: "—" if v is None else f"{v:+.1f} %".replace(".", ",")  # noqa: E731
+    n = report["numbers"]
+    start, last = report["start"], report["end"] - timedelta(days=1)
+    meta = [f"Del {start:%d/%m} al {last:%d/%m/%Y}"]
+    if not report.get("complete", True):
+        meta.append("Semana en curso (datos parciales)")
+    story = [_header(settings, st, "INFORME SEMANAL", meta, accent), Spacer(1, 7 * mm)]
+
+    def section(title: str) -> None:
+        story.extend([Spacer(1, 6 * mm), _p(title, st["label"]), Spacer(1, 2 * mm)])
+
+    section("RESUMEN FRENTE A LA SEMANA ANTERIOR")
+    cur, prev, d = n["cur"], n["prev"], n["delta"]
+    rows = [[_p("Indicador", st["label"]), _p("Esta semana", st["label_r"]), _p("Anterior", st["label_r"]),
+             _p("Variación", st["label_r"])]]
+    for label, key, fmt in [("Facturación (con impuestos, neta de devoluciones)", "revenue", money),
+                            ("Ventas", "count", str), ("Ticket medio", "ticket", money),
+                            ("Margen bruto", "margin", money)]:
+        rows.append([_p(label, st["base"]), _p(fmt(cur[key]), st["right"]), _p(fmt(prev[key]), st["right"]),
+                     _p(pct(d[key]), st["right"])])
+    story.append(_grid(rows, [80, 30, 30, 30], accent))
+    if cur["refunds"]:
+        story += [Spacer(1, 1.5 * mm), _p(f"Devoluciones de la semana: {money(cur['refunds'])}.", st["muted"])]
+
+    p = report["profit"]
+    section("BENEFICIO ESTIMADO DE LA SEMANA")
+    rows = [[_p(a, st["base"]), _p(b, st["right"])] for a, b in [
+        ("Ventas netas (sin impuestos)", money(p["net_sales"])), ("Margen bruto", money(p["gross"])),
+        ("Gastos fijos (parte semanal)", minus(p["fixed"])), ("Otros gastos de la semana", minus(p["variable"])), ("Beneficio neto estimado", money(p["net"]))]]
+    story.append(_grid([[_p("Concepto", st["label"]), _p("Importe", st["label_r"])], *rows], [120, 50], accent,
+                       total=True))
+
+    section("VENTAS POR DÍA")
+    rows = [[_p("Día", st["label"]), _p("Ventas", st["label_r"]), _p("Facturación", st["label_r"])]]
+    for name, day, count, total in n["by_day"]:
+        rows.append([_p(f"{name} {day:%d/%m}", st["base"]), _p(count, st["right"]), _p(money(total), st["right"])])
+    story.append(_grid(rows, [90, 30, 50], accent))
+
+    if not n["top"].empty:
+        section("LO MÁS VENDIDO")
+        rows = [[_p("Producto", st["label"]), _p("Uds.", st["label_r"]), _p("Ventas netas", st["label_r"]),
+                 _p("Margen", st["label_r"])]]
+        for name, r in n["top"].iterrows():
+            rows.append([_p(name, st["base"]), _p(f"{r['units']:g}", st["right"]), _p(money(r["revenue"]), st["right"]),
+                         _p(money(r["margin"]), st["right"])])
+        story.append(_grid(rows, [90, 20, 30, 30], accent))
+
+    if not n["team"].empty:
+        section("VENTAS POR PERSONA")
+        rows = [[_p("Persona", st["label"]), _p("Ventas", st["label_r"]), _p("Facturación", st["label_r"])]]
+        for who, r in n["team"].iterrows():
+            rows.append([_p(who, st["base"]), _p(int(r["count"]), st["right"]), _p(money(r["sum"]), st["right"])])
+        story.append(_grid(rows, [90, 30, 50], accent))
+
+    summary = report["abc_summary"]
+    section("ANÁLISIS ABC · ÚLTIMOS 30 DÍAS")
+    rows = [[_p("Clase", st["label"]), _p("Productos", st["label_r"]), _p("% del margen", st["label_r"]),
+             _p("Productos clave", st["label"])]]
+    for k, text in [("A", "Imprescindibles"), ("B", "Complementarios"), ("C", "Poco peso")]:
+        names = ", ".join(report["abc"][report["abc"]["abc"] == k]["name"].head(4))
+        rows.append([_p(f"{k} · {text}", st["base"]), _p(summary[k]["count"], st["right"]),
+                     _p(f"{summary[k]['margin_share']:.0f} %", st["right"]), _p(names or "—", st["muted"])])
+    story.append(_grid(rows, [38, 22, 25, 85], accent, extra=[("LEFTPADDING", (3, 0), (3, -1), 10)]))
+
+    closings = report["closings"]
+    if not closings.empty:
+        section("CIERRES DE CAJA")
+        rows = [[_p("Día", st["label"]), _p("Esperado", st["label_r"]), _p("Contado", st["label_r"]),
+                 _p("Diferencia", st["label_r"])]]
+        for _, r in closings.sort_values("day").iterrows():
+            rows.append([_p(f"{date.fromisoformat(str(r['day'])[:10]):%d/%m}", st["base"]),
+                         _p(money(r["expected_cash"]), st["right"]), _p(money(r["counted_cash"]), st["right"]),
+                         _p(money(r["difference"]), st["right"])])
+        story.append(_grid(rows, [70, 33, 33, 34], accent))
+
+    if report["alerts"]:
+        section("ALERTAS")
+        for a in report["alerts"]:
+            story += [_p(f"[{a['level'].upper()}] {a['title']}", st["base"]), _p(a["detail"], st["muted"]),
+                      Spacer(1, 1.5 * mm)]
+
+    if report["recommendations"]:
+        section("RECOMENDACIONES PARA ESTA SEMANA")
+        for i, rec in enumerate(report["recommendations"], 1):
+            story += [_p(f"{i}. {rec}", st["base"]), Spacer(1, 1.2 * mm)]
+    return _build(story, f"Informe semanal {start:%d-%m-%Y}")

@@ -21,6 +21,7 @@ from .presets import DEFAULT_SETTINGS, PAYMENT_METHODS, PRESETS
 from .pricing import PROMO_KINDS, PROMO_SCOPES, apply_promotions, compute_totals
 from .store_orders import OrdersMixin
 from .store_purchases import PurchasesMixin
+from .store_intel import IntelligenceMixin
 from .store_refunds import RefundsMixin
 from .security import (
     DUMMY_HASH, ROLE_RANK, ROLES, USERNAME_RE, check_secret_strength, clean_text, hash_secret, is_safe_identifier,
@@ -302,6 +303,8 @@ MIGRATIONS = [
     ("sales", "points_redeemed", "INTEGER NOT NULL DEFAULT 0"),
     ("sales", "points_earned", "INTEGER NOT NULL DEFAULT 0"),
     ("products", "supplier_id", "INTEGER"),
+    ("sales", "voided_by", "TEXT NOT NULL DEFAULT ''"),
+    ("sales", "voided_at", "TEXT"),
 ]
 
 # Failed logins before an account is locked, and for how long. Each new lock doubles the wait (5, 10, 20 min…
@@ -495,7 +498,7 @@ def _is_postgres(target) -> bool:
 
 
 # ----------------------------------------------------------------------------- store
-class Store(RefundsMixin, OrdersMixin, PurchasesMixin):
+class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin):
     SaleError = SaleError
     def __init__(self, path=DEFAULT_DB_PATH):
         self.db = _Postgres(str(path)) if _is_postgres(path) else _SQLite(str(path))
@@ -869,9 +872,10 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin):
         df["points"] = df["points"].astype(int) if not df.empty else df["points"]
         return df
 
-    def cancel_sale(self, sale_id: int) -> None:
+    def cancel_sale(self, sale_id: int, by: str = "", when: datetime | None = None) -> None:
         """Void a sale and return its units to stock. Sales are never deleted, to keep numbering intact."""
         sale_id = int(sale_id)
+        stamp = (when or datetime.now()).isoformat(timespec="seconds")
         with self.db.tx() as cur:
             sale = cur.execute("SELECT status FROM sales WHERE id = ?", (sale_id,)).fetchone()
             if sale is None or sale["status"] == "anulada":
@@ -890,7 +894,8 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin):
                     "UPDATE products SET stock = stock + ? WHERE id = ? AND track_stock = 1",
                     (item["quantity"], item["product_id"]),
                 )
-            cur.execute("UPDATE sales SET status = 'anulada' WHERE id = ?", (sale_id,))
+            cur.execute("UPDATE sales SET status = 'anulada', voided_by = ?, voided_at = ? WHERE id = ?",
+                        (by, stamp, sale_id))
             # Undo the points this sale earned or spent.
             moves = cur.execute("SELECT customer_id, SUM(points) AS n FROM loyalty_moves WHERE sale_id = ? "
                                 "GROUP BY customer_id", (sale_id,)).fetchall()
@@ -898,7 +903,7 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin):
                 if m["n"]:
                     cur.execute("INSERT INTO loyalty_moves(customer_id, sale_id, points, reason, created_at) "
                                 "VALUES (?, ?, ?, 'anulación', ?)",
-                                (m["customer_id"], sale_id, -int(m["n"]), datetime.now().isoformat(timespec="seconds")))
+                                (m["customer_id"], sale_id, -int(m["n"]), stamp))
 
     def sale(self, sale_id: int) -> dict:
         sale_id = int(sale_id)
@@ -1508,6 +1513,18 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin):
                     when=when,
                     user_name=rng.choice(["Marta", "Diego", "Sara"]),  # demo team, shown in the Panel
                 )
+
+        # One seller with more voids and returns than the rest, for the team alert to show.
+        recent = self.sales(start=now - timedelta(days=12), include_cancelled=False)
+        diego = recent[recent["user_name"] == "Diego"].head(5)
+        for i, (sale_id, created) in enumerate(zip(diego["id"], diego["created_at"])):
+            later = min(created.to_pydatetime() + timedelta(minutes=20), now)
+            if i < 2:
+                self.cancel_sale(int(sale_id), by="Marta", when=later)
+            else:
+                item = self.returnable(int(sale_id))[0]
+                self.create_refund(int(sale_id), {item["id"]: 1}, "Efectivo", "El cliente no quedó satisfecho",
+                                   user_name="Marta", when=later)
 
         # Closed tills for the last few days, with the small differences real counts have.
         for days_ago in range(5, 0, -1):

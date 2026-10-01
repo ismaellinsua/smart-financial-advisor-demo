@@ -9,7 +9,7 @@ from core.db import Store
 
 APP = str(Path(__file__).resolve().parent.parent / "app.py")
 ROOT = str(Path(APP).parent)
-PAGES = ["dashboard", "point_of_sale", "history", "products_page", "customers_page", "automations_page",
+PAGES = ["dashboard", "intelligence_page", "point_of_sale", "history", "products_page", "customers_page", "automations_page",
          "settings_page", "cash_page", "agenda_page", "team_page", "promotions_page", "tables_page",
          "kitchen_page", "purchases_page", "expenses_page"]
 
@@ -25,6 +25,8 @@ ui.pages_tables.get_store = lambda: store
 import ui.pages_management
 ui.pages.purchases_page = ui.pages_management.purchases_page
 ui.pages.expenses_page = ui.pages_management.expenses_page
+import ui.pages_intel
+ui.pages.intelligence_page = ui.pages_intel.intelligence_page
 from core.db import Store
 import streamlit as st
 store = Store({db!r})
