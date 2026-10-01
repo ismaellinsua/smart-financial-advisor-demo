@@ -10,8 +10,8 @@ from core.receipts import receipt_html
 
 
 @pytest.fixture
-def store():
-    s = Store(":memory:")
+def store(make_store):
+    s = make_store()
     s.load_preset("retail", with_demo_sales=False)
     return s
 
@@ -67,8 +67,8 @@ def test_cancel_sale_restores_stock(store):
         store.cancel_sale(sale["id"])
 
 
-def test_services_preset_does_not_track_stock():
-    s = Store(":memory:")
+def test_services_preset_does_not_track_stock(make_store):
+    s = make_store()
     s.load_preset("services", with_demo_sales=False)
     pid = int(s.products()["id"].iloc[0])
     sale = s.create_sale([{"product_id": pid, "quantity": 5}], "Transferencia")
@@ -76,8 +76,8 @@ def test_services_preset_does_not_track_stock():
 
 
 @pytest.mark.parametrize("business_type", list(PRESETS))
-def test_every_preset_generates_demo_activity(business_type):
-    s = Store(":memory:")
+def test_every_preset_generates_demo_activity(make_store, business_type):
+    s = make_store()
     s.load_preset(business_type)
     assert len(s.sales()) > 50
     assert (s.products()["stock"] >= 0).all()
@@ -126,12 +126,12 @@ def test_receipt_escapes_html(store):
     assert sale["number"] in html
 
 
-def test_backup_and_restore_round_trip(store):
+def test_backup_and_restore_round_trip(store, make_store):
     pid = product_id(store, "CAM-001")
     store.create_sale([{"product_id": pid, "quantity": 1}], "Tarjeta")
     backup = store.backup_bytes()
 
-    other = Store(":memory:")
+    other = make_store()
     other.load_preset("services", with_demo_sales=False)
     other.restore(backup)
     assert len(other.sales()) == 1
@@ -153,3 +153,35 @@ def test_restore_rejects_invalid_files(store):
         with pytest.raises(ValueError):
             store.restore(path.read_bytes())
     assert not store.products().empty  # untouched
+
+
+def test_ids_continue_after_reload(store):
+    """After a reset or restore, new rows get fresh ids instead of colliding with copied ones."""
+    pid = product_id(store, "CAM-001")
+    first = store.create_sale([{"product_id": pid, "quantity": 1}], "Tarjeta")
+    store.restore(store.backup_bytes())
+    second = store.create_sale([{"product_id": pid, "quantity": 1}], "Tarjeta")
+    assert second["id"] > first["id"]
+    store.reset()
+    assert store.is_empty()
+    new_id = store.upsert_product({"sku": "X-1", "name": "Nuevo", "category": "General", "price": 1, "cost": 0,
+                                   "stock": 1, "min_stock": 0, "track_stock": 1, "active": 1})
+    assert new_id >= 1
+
+
+def test_postgres_reconnects_after_server_drops_connections(make_store):
+    """Free cloud databases suspend and drop idle connections; the next request must still work."""
+    if make_store.targets.backend != "postgres":
+        pytest.skip("PostgreSQL only")
+    import psycopg
+
+    from conftest import PG_URL
+
+    store = make_store()
+    store.load_preset("retail", with_demo_sales=False)
+    with psycopg.connect(PG_URL, autocommit=True) as admin:
+        admin.execute(
+            "SELECT pg_terminate_backend(pid) FROM pg_stat_activity "
+            "WHERE datname = current_database() AND pid <> pg_backend_pid()"
+        )
+    assert not store.products().empty

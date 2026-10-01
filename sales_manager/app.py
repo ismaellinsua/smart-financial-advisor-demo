@@ -13,7 +13,15 @@ from ui.styles import inject_css, sidebar_brand
 
 st.set_page_config(page_title="Gestor de Ventas", page_icon=":material/storefront:", layout="wide")
 
-c = ctx()
+try:
+    c = ctx()
+except Exception as exc:  # the database is unreachable or the URL is wrong; retried on the next visit
+    st.error(
+        "No se pudo conectar con la base de datos. Revisa que `database_url` en los *Secrets* de Streamlit "
+        "sea la cadena de conexión completa de Neon (empieza por `postgresql://`)."
+    )
+    st.caption(f"Detalle técnico: {type(exc).__name__}")
+    st.stop()
 inject_css(c.settings["accent_color"])
 
 if not require_login():

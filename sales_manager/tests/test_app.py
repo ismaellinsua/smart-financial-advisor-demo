@@ -26,17 +26,21 @@ ui.pages.{fn}()
 
 
 @pytest.fixture(scope="module")
-def demo_db(tmp_path_factory):
-    path = tmp_path_factory.mktemp("db") / "demo.db"
-    Store(path).load_preset("restaurant")
-    return str(path)
+def demo_db(module_targets):
+    target = module_targets.new()
+    store = Store(target)
+    store.load_preset("restaurant")
+    store.close()
+    return target
 
 
 @pytest.fixture(scope="module")
-def empty_db(tmp_path_factory):
-    path = tmp_path_factory.mktemp("db") / "empty.db"
-    Store(path).load_preset("services", with_demo_sales=False)
-    return str(path)
+def empty_db(module_targets):
+    target = module_targets.new()
+    store = Store(target)
+    store.load_preset("services", with_demo_sales=False)
+    store.close()
+    return target
 
 
 @pytest.mark.parametrize("fn", PAGES)
@@ -53,12 +57,14 @@ def test_page_renders(demo_db, fn):
 
 def test_point_of_sale_checkout(demo_db):
     at = AppTest.from_string(SCRIPT.format(root=ROOT, db=demo_db, fn="point_of_sale"), default_timeout=30).run()
-    before = len(Store(demo_db).sales())
+    check = Store(demo_db)
+    before = len(check.sales())
     at.button(key=next(b.key for b in at.button if b.key and b.key.startswith("add_"))).click().run()
     charge = next(b for b in at.button if b.label.startswith("Cobrar"))
     charge.click().run()
     assert not at.exception, at.exception
-    assert len(Store(demo_db).sales()) == before + 1
+    assert len(check.sales()) == before + 1
+    check.close()
 
 
 def test_onboarding_creates_workspace(tmp_path, monkeypatch):
