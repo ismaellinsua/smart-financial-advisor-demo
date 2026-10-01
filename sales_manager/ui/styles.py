@@ -62,6 +62,25 @@ button[kind="primary"]:disabled, button[data-testid^="stBaseButton-primary"]:dis
 .sm-totals .grand td {{ font-size: 1.35rem; font-weight: 700; color: var(--accent);
                         border-top: 2px solid var(--accent); padding-top: .5rem; }}
 
+/* Tables, orders and kitchen */
+.sm-table {{ line-height: 1.5; font-size: .88rem; }}
+.sm-table b {{ font-size: 1rem; }}
+.sm-table .amt {{ font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }}
+.sm-table.busy {{ border-left: 3px solid var(--accent); padding-left: .55rem; }}
+.sm-ready {{ margin-left: .4rem; font-size: .68rem; font-weight: 700; padding: .05rem .4rem; border-radius: 6px;
+             background: #D1FADF; color: #05603A; }}
+.sm-oline {{ font-size: .9rem; line-height: 1.35; }}
+.sm-oline .chip {{ font-size: .66rem; font-weight: 700; text-transform: uppercase; padding: .05rem .4rem;
+                   border-radius: 6px; background: #F2F4F7; color: #475467; margin-left: .3rem; }}
+.sm-oline.preparando .chip {{ background: #FEF0C7; color: #93370D; }}
+.sm-oline.listo .chip {{ background: #D1FADF; color: #05603A; }}
+.sm-oline.paid {{ opacity: .45; }}
+.sm-oline .note, .sm-kds .note {{ font-style: italic; color: #B54708; font-size: .85rem; }}
+.sm-oline .by {{ font-size: .72rem; opacity: .55; }}
+.sm-kds {{ font-size: 1rem; line-height: 1.4; }}
+.sm-kds .place {{ font-size: .78rem; opacity: .7; }}
+.sm-kds.late .place {{ color: #B42318; opacity: 1; font-weight: 700; }}
+
 /* Checkout */
 .sm-promo {{ font-size: .85rem; color: #067647; padding: .1rem 0; }}
 .sm-change {{ font-size: 1.05rem; padding: .3rem 0 .6rem; }}

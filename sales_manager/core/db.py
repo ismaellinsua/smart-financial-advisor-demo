@@ -19,6 +19,7 @@ import pandas as pd
 
 from .presets import DEFAULT_SETTINGS, PAYMENT_METHODS, PRESETS
 from .pricing import PROMO_KINDS, PROMO_SCOPES, apply_promotions, compute_totals
+from .store_orders import OrdersMixin
 from .store_refunds import RefundsMixin
 from .security import (
     DUMMY_HASH, ROLE_RANK, ROLES, USERNAME_RE, check_secret_strength, clean_text, hash_secret, is_safe_identifier,
@@ -173,6 +174,37 @@ CREATE TABLE IF NOT EXISTS credit_notes (
     issued_by TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS idx_refunds_sale ON refunds(sale_id);
+CREATE TABLE IF NOT EXISTS dining_tables (
+    id {pk},
+    name TEXT NOT NULL,
+    zone TEXT NOT NULL DEFAULT 'Sala',
+    seats INTEGER NOT NULL DEFAULT 4,
+    active INTEGER NOT NULL DEFAULT 1
+);
+CREATE TABLE IF NOT EXISTS orders (
+    id {pk},
+    table_id INTEGER REFERENCES dining_tables(id),
+    label TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'abierta',
+    opened_at TEXT NOT NULL,
+    opened_by TEXT NOT NULL DEFAULT '',
+    guests INTEGER NOT NULL DEFAULT 0,
+    closed_at TEXT NOT NULL DEFAULT ''
+);
+CREATE TABLE IF NOT EXISTS order_items (
+    id {pk},
+    order_id INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+    product_id INTEGER NOT NULL REFERENCES products(id),
+    name TEXT NOT NULL,
+    quantity INTEGER NOT NULL CHECK (quantity > 0),
+    notes TEXT NOT NULL DEFAULT '',
+    added_by TEXT NOT NULL DEFAULT '',
+    added_at TEXT NOT NULL,
+    kitchen TEXT NOT NULL DEFAULT 'pendiente',
+    sale_id INTEGER REFERENCES sales(id)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_one_open_per_table ON orders(table_id) WHERE status = 'abierta';
+CREATE INDEX IF NOT EXISTS idx_order_items_order ON order_items(order_id);
 CREATE TABLE IF NOT EXISTS users (
     id {pk},
     username TEXT UNIQUE NOT NULL,
@@ -225,7 +257,8 @@ MAX_LOCKOUT_MINUTES = 24 * 60
 
 # Insertion order respects foreign keys; deletion goes in reverse.
 DATA_TABLES = ["products", "customers", "sales", "sale_items", "invoices", "appointments", "cash_closings",
-               "sale_payments", "promotions", "loyalty_moves", "refunds", "refund_items", "credit_notes"]
+               "sale_payments", "promotions", "loyalty_moves", "refunds", "refund_items", "credit_notes",
+               "dining_tables", "orders", "order_items"]
 ALL_TABLES = ["settings", *DATA_TABLES]
 # Tables any backup must have; newer ones are created when an older backup is opened.
 CORE_TABLES = {"settings", "products", "customers", "sales", "sale_items"}
@@ -406,7 +439,7 @@ def _is_postgres(target) -> bool:
 
 
 # ----------------------------------------------------------------------------- store
-class Store(RefundsMixin):
+class Store(RefundsMixin, OrdersMixin):
     SaleError = SaleError
     def __init__(self, path=DEFAULT_DB_PATH):
         self.db = _Postgres(str(path)) if _is_postgres(path) else _SQLite(str(path))
@@ -1430,6 +1463,22 @@ class Store(RefundsMixin):
         agenda = preset.get("agenda")
         if agenda:
             self._generate_demo_appointments(rng, agenda, customer_ids, products, now)
+        if preset.get("tables"):
+            self._generate_demo_tables(rng, preset["tables"], products)
+
+    def _generate_demo_tables(self, rng, layout: dict, products) -> None:
+        table_ids = [self.save_table(name, zone, seats) for zone, tables in layout.items() for name, seats in tables]
+        waiters = ["Marta", "Diego", "Sara"]
+        statuses = ["servido", "servido", "listo", "preparando", "pendiente"]
+        for table_id in rng.sample(table_ids, k=min(4, len(table_ids))):
+            order_id = self.open_order(table_id, guests=rng.randint(2, 5), opened_by=rng.choice(waiters))
+            for _ in range(rng.randint(2, 5)):
+                pid = int(rng.choice(list(products["id"])))
+                category = products.set_index("id").loc[pid, "category"]
+                note = rng.choice({"Principales": ["", "", "poco hecho", "al punto"],
+                                   "Entrantes": ["", "", "para compartir", "sin cebolla"]}.get(category, [""]))
+                item = self.add_order_item(order_id, pid, rng.randint(1, 3), note, added_by=rng.choice(waiters))
+                self.set_kitchen_status(item, rng.choice(statuses))
 
     def _generate_demo_appointments(self, rng, agenda, customer_ids, products, now) -> None:
         walk_ins = ["Laura Pérez", "Javier Romero", "Elena Castro", "Pablo Navarro", "Marta Gil"]

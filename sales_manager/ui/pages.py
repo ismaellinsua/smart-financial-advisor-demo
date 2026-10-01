@@ -1246,9 +1246,14 @@ def settings_page() -> None:
         values["opening_float"] = b.number_input(f"Fondo de caja habitual ({c.symbol})", 0.0, 100000.0,
                                                  float(s["opening_float"] or 0), step=10.0)
         agenda_options = {"auto": "Automática según el tipo de negocio", "si": "Sí", "no": "No"}
-        values["agenda_enabled"] = st.selectbox(
+        a, b = st.columns(2)
+        values["agenda_enabled"] = a.selectbox(
             "Mostrar agenda de citas y reservas", list(agenda_options), list(agenda_options).index(
                 s["agenda_enabled"] if s["agenda_enabled"] in agenda_options else "auto"),
+            format_func=agenda_options.get)
+        values["tables_enabled"] = b.selectbox(
+            "Mostrar mesas, comandas y cocina", list(agenda_options), list(agenda_options).index(
+                s.get("tables_enabled") if s.get("tables_enabled") in agenda_options else "auto"),
             format_func=agenda_options.get)
         st.markdown("##### Automatizaciones")
         a, b = st.columns(2)

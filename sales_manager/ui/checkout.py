@@ -70,11 +70,13 @@ def _payments(c, total: float, prefix: str) -> tuple[list[dict] | None, str | No
     return payments, None
 
 
-def checkout_panel(c, cart: list[dict], prefix: str, *, customer_widget=None, button_label: str = "Cobrar"):
+def checkout_panel(c, cart: list[dict], prefix: str, *, customer_widget=None, button_label: str = "Cobrar",
+                   charge_fn=None):
     """Draw customer, discount, points, totals and payment for `cart`; return the sale once charged.
 
     `customer_widget(customers_by_id) -> id | None` lets the caller draw its own customer picker (the till adds
-    a «new customer» button); by default a plain selectbox is shown.
+    a «new customer» button); by default a plain selectbox is shown. `charge_fn(cart, **checkout)` replaces the
+    default `create_sale`, e.g. to charge a table order.
     """
     customers = c.store.customers()
     names = {int(i): n for i, n in zip(customers["id"], customers["name"])}
@@ -127,8 +129,8 @@ def checkout_panel(c, cart: list[dict], prefix: str, *, customer_widget=None, bu
     if st.button(f"{button_label} {c.money(totals['total'])}", type="primary", use_container_width=True,
                  disabled=payments is None, icon=":material/payments:", key=f"{prefix}_charge"):
         try:
-            return c.store.create_sale(cart, customer_id=customer_id, discount_pct=discount, user_name=c.who,
-                                       payments=payments, redeem_points=redeem)
+            return (charge_fn or c.store.create_sale)(cart, customer_id=customer_id, discount_pct=discount,
+                                                      user_name=c.who, payments=payments, redeem_points=redeem)
         except SaleError as exc:
             st.error(str(exc))
     return None

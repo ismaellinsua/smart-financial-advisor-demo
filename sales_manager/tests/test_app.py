@@ -10,14 +10,18 @@ from core.db import Store
 APP = str(Path(__file__).resolve().parent.parent / "app.py")
 ROOT = str(Path(APP).parent)
 PAGES = ["dashboard", "point_of_sale", "history", "products_page", "customers_page", "automations_page",
-         "settings_page", "cash_page", "agenda_page", "team_page", "promotions_page"]
+         "settings_page", "cash_page", "agenda_page", "team_page", "promotions_page", "tables_page",
+         "kitchen_page"]
 
 # Renders a single page function against a given database file.
 SCRIPT = """
 import sys
 sys.path.insert(0, {root!r})
-import ui.context, ui.pages, ui.pages_promos
+import ui.context, ui.pages, ui.pages_promos, ui.pages_tables
 ui.pages.promotions_page = ui.pages_promos.promotions_page
+ui.pages.tables_page = ui.pages_tables.tables_page
+ui.pages.kitchen_page = ui.pages_tables.kitchen_page
+ui.pages_tables.get_store = lambda: store
 from core.db import Store
 import streamlit as st
 store = Store({db!r})
@@ -85,6 +89,27 @@ def test_point_of_sale_split_bill(demo_db):
     sale = check.sale(int(check.sales().iloc[0]["id"]))
     assert sale["payment_method"] in ("Mixto", "Tarjeta") and len(sale["payments"]) == 2
     assert sum(p["amount"] for p in sale["payments"]) == pytest.approx(sale["total"])
+    check.close()
+
+
+def test_table_order_flow(demo_db):
+    at = AppTest.from_string(SCRIPT.format(root=ROOT, db=demo_db, fn="tables_page", role="empleado"),
+                             default_timeout=30).run()
+    assert not at.exception, at.exception
+    check = Store(demo_db)
+    before = len(check.sales())
+    free = next(b for b in at.button if b.label == "Abrir")
+    free.click().run()
+    oid = at.session_state["table_order"]
+    adds = [b.key for b in at.button if b.key and b.key.startswith(f"oadd_{oid}_")]
+    at.button(key=adds[0]).click().run()
+    at.button(key=adds[1]).click().run()
+    assert len(check.order(oid)["items"]) == 2
+    at.button(key=f"charge_toggle_{oid}").click().run()
+    at.button(key=f"order_{oid}_charge").click().run()
+    assert not at.exception, at.exception
+    assert len(check.sales()) == before + 1
+    assert check.order(oid)["status"] == "cobrada"
     check.close()
 
 

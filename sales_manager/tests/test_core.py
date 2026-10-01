@@ -629,3 +629,57 @@ def test_kpis_are_net_of_refunds(store):
     start, end, prev_start = automation.period_bounds(7)
     k = automation.kpis(store.sales(), store.sale_lines(), start, end, prev_start, store.refunds())
     assert k["revenue"] == pytest.approx(sale["total"] / 2, abs=0.01)
+
+
+# ------------------------------------------------------------ tables & orders
+def test_orders_split_payment_and_kitchen(make_store):
+    s = make_store()
+    s.load_preset("restaurant", with_demo_sales=False)
+    for pid in s.promotions()["id"]:
+        s.delete_promotion(int(pid))
+    mesa = s.save_table("Mesa 1", "Sala", 4)
+    other = s.save_table("Mesa 2", "Sala", 2)
+    order_id = s.open_order(mesa, guests=3, opened_by="Marta")
+    assert s.open_order(mesa, opened_by="Diego") == order_id  # second waiter joins the same order
+    products = s.products().set_index("sku")
+    beer, steak = int(products.loc["BEB-007", "id"]), int(products.loc["PRI-004", "id"])
+    s.add_order_item(order_id, beer, 2, added_by="Marta")
+    s.add_order_item(order_id, beer, 2, added_by="Diego")  # merges with the line still pending
+    steak_line = s.add_order_item(order_id, steak, 1, "poco hecho", added_by="Diego")
+    order = s.order(order_id)
+    assert [(i["name"], i["quantity"]) for i in order["items"]] == [
+        ("Vino de la casa (copa)", 4), ("Solomillo a la brasa", 1)]
+
+    s.advance_kitchen(steak_line)
+    assert s.kitchen_queue().set_index("id").loc[steak_line, "kitchen"] == "preparando"
+    with pytest.raises(ValueError, match="encargado"):
+        s.change_order_item(steak_line, -1)
+    s.change_order_item(steak_line, +1)  # adding more is always fine
+
+    beer_line = order["items"][0]["id"]
+    first = s.charge_order(order_id, {beer_line: 2}, payment_method="Efectivo", user_name="Marta")
+    assert [(i["name"], i["quantity"]) for i in first["items"]] == [("Vino de la casa (copa)", 2)]
+    left = s.order(order_id)
+    assert left["status"] == "abierta" and sum(i["quantity"] for i in left["unpaid"]) == 2 + 2
+    with pytest.raises(ValueError, match="cobrada"):
+        s.cancel_order(order_id)
+    s.open_order(other, opened_by="Sara")
+    with pytest.raises(ValueError, match="ocupada"):
+        s.move_order(order_id, other)
+    s.charge_order(order_id, payment_method="Tarjeta", user_name="Marta")
+    assert s.order(order_id)["status"] == "cobrada"
+    import pandas as pd
+    assert pd.isna(s.dining_tables().set_index("id").loc[mesa, "order_id"])  # the table is free again
+    assert len(s.sales()) == 2
+
+
+def test_order_without_table_and_cancel(make_store):
+    s = make_store()
+    s.load_preset("restaurant", with_demo_sales=False)
+    with pytest.raises(ValueError):
+        s.open_order(None)
+    order_id = s.open_order(None, label="Para llevar · Ana")
+    s.add_order_item(order_id, int(s.products().iloc[0]["id"]))
+    s.cancel_order(order_id)
+    with pytest.raises(ValueError, match="abierta"):
+        s.add_order_item(order_id, int(s.products().iloc[0]["id"]))

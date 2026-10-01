@@ -37,6 +37,8 @@ PRESETS = {
         "demo_name": "Café Aurora",
         "description": "Bares, cafeterías y restaurantes. Carta de platos y bebidas.",
         "item_label": "Plato",
+        "tables": {"Sala": [(f"Mesa {n}", 4) for n in range(1, 9)],
+                   "Terraza": [(f"Terraza {n}", 2) for n in range(1, 5)]},
         # Table reservations: several can share the same time.
         "agenda": {"title": "Reservas", "single": False, "duration": 90,
                    "hours": [13, 13.5, 14, 14.5, 20.5, 21, 21.5, 22]},
@@ -128,6 +130,7 @@ DEFAULT_SETTINGS = {
     "invoice_series": "FAC",
     "refund_prefix": "DEV",
     "agenda_enabled": "auto",
+    "tables_enabled": "auto",
     "opening_float": "150",
     "session_minutes": "720",
     "loyalty_enabled": "si",

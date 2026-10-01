@@ -11,7 +11,7 @@ import streamlit as st
 
 from core.presets import PRESETS
 from core.security import ROLES
-from ui import pages, pages_promos
+from ui import pages, pages_promos, pages_tables
 from ui.auth import logout_button, require_user
 from ui.context import PAGES, ctx
 from ui.styles import inject_css, sidebar_brand, sidebar_copyright, topbar
@@ -42,11 +42,13 @@ if c.store.is_empty():
     st.stop()
 
 show_agenda = pages.agenda_enabled(c.settings, c.preset)
+show_tables = pages_tables.tables_enabled(c.settings, c.preset)
+staff_home = "tables" if show_tables else "pos"  # where waiters land after signing in
 PAGES.update(
     dashboard=st.Page(pages.dashboard, title="Panel", icon=":material/space_dashboard:", url_path="panel",
                       default=c.can("encargado")),
     pos=st.Page(pages.point_of_sale, title="Vender", icon=":material/point_of_sale:", url_path="vender",
-                default=not c.can("encargado")),
+                default=not c.can("encargado") and staff_home == "pos"),
     history=st.Page(pages.history, title="Historial", icon=":material/receipt_long:", url_path="historial"),
     products=st.Page(pages.products_page, title=c.preset["item_label_plural"], icon=":material/inventory_2:",
                      url_path="catalogo"),
@@ -56,6 +58,9 @@ PAGES.update(
     settings=st.Page(pages.settings_page, title="Configuración", icon=":material/settings:", url_path="ajustes"),
     promos=st.Page(pages_promos.promotions_page, title="Promociones", icon=":material/sell:",
                    url_path="promociones"),
+    tables=st.Page(pages_tables.tables_page, title="Mesas", icon=":material/table_restaurant:", url_path="mesas",
+                   default=not c.can("encargado") and staff_home == "tables"),
+    kitchen=st.Page(pages_tables.kitchen_page, title="Cocina", icon=":material/skillet:", url_path="cocina"),
     team=st.Page(pages.team_page, title="Equipo y seguridad", icon=":material/shield_person:", url_path="equipo"),
     cash=st.Page(pages.cash_page, title="Caja", icon=":material/account_balance_wallet:", url_path="caja"),
     agenda=st.Page(pages.agenda_page, title=pages.agenda_config(c.preset)["title"], icon=":material/event:",
@@ -64,7 +69,8 @@ PAGES.update(
 
 # Each role only gets the pages it may use; a hidden page cannot be opened by typing its address.
 P = PAGES
-sections = {"Operación": [*([P["dashboard"]] if c.can("encargado") else []), P["pos"],
+sections = {"Operación": [*([P["dashboard"]] if c.can("encargado") else []),
+                          *([P["tables"], P["kitchen"]] if show_tables else []), P["pos"],
                           *([P["agenda"]] if show_agenda else []),
                           *([P["cash"]] if c.can("encargado") else []), P["history"]]}
 if c.can("encargado"):
@@ -77,7 +83,7 @@ sidebar_brand(c.settings["business_name"], PRESETS[c.settings["business_type"]][
 if c.can("admin") and st.sidebar.button("Cambiar de negocio", icon=":material/swap_horiz:",
                                         use_container_width=True):
     pages.switch_business_dialog()
-nav = st.navigation(sections)
+nav = st.navigation(sections, expanded=True)
 logout_button(c.store, user)
 sidebar_copyright()
 
