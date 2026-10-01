@@ -2,6 +2,7 @@
 
 import random
 import sqlite3
+import tempfile
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -270,6 +271,8 @@ class Store:
             sql += " AND s.status = 'completada'"
         df = pd.read_sql_query(sql + " ORDER BY s.created_at DESC", self.conn, params=params)
         df["created_at"] = pd.to_datetime(df["created_at"])
+        money = ["subtotal", "discount", "tax", "total", "discount_pct", "tax_rate"]
+        df[money] = df[money].astype(float)
         return df
 
     def sale_lines(self, start: datetime | None = None, end: datetime | None = None) -> pd.DataFrame:
@@ -290,10 +293,49 @@ class Store:
             params.append(end.isoformat(timespec="seconds"))
         df = pd.read_sql_query(sql, self.conn, params=params)
         df["created_at"] = pd.to_datetime(df["created_at"])
+        # An empty result comes back with object columns; keep numeric types so analytics work with no sales.
+        numeric = ["quantity", "unit_price", "unit_cost", "discount_pct", "revenue", "cost"]
+        df[numeric] = df[numeric].astype(float)
         df["margin"] = df["revenue"] - df["cost"]
         return df
 
     # ---------------------------------------------------------------- demo setup
+    # ------------------------------------------------------------- backups
+    REQUIRED_TABLES = {"settings", "products", "customers", "sales", "sale_items"}
+
+    def backup_bytes(self) -> bytes:
+        """Consistent snapshot of the whole database as a SQLite file."""
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "backup.db"
+            dest = sqlite3.connect(path)
+            try:
+                self.conn.backup(dest)
+            finally:
+                dest.close()
+            return path.read_bytes()
+
+    def restore(self, data: bytes) -> None:
+        """Replace all data with a backup produced by `backup_bytes`. Validates it before touching anything."""
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "restore.db"
+            path.write_bytes(data)
+            try:
+                src = sqlite3.connect(path)
+                tables = {r[0] for r in src.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
+                ok = src.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
+            except sqlite3.DatabaseError as exc:
+                raise ValueError("El archivo no es una copia de seguridad válida.") from exc
+            try:
+                if not ok or not self.REQUIRED_TABLES <= tables:
+                    raise ValueError("El archivo no es una copia de seguridad de este gestor o está dañado.")
+                src.backup(self.conn)
+            finally:
+                src.close()
+        self.conn.executescript(SCHEMA)  # adds anything newer versions expect
+        for key, value in DEFAULT_SETTINGS.items():
+            self.conn.execute("INSERT OR IGNORE INTO settings(key, value) VALUES (?, ?)", (key, value))
+        self.conn.commit()
+
     def is_empty(self) -> bool:
         return self.conn.execute("SELECT COUNT(*) FROM products").fetchone()[0] == 0
 

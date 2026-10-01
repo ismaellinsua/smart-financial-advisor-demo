@@ -700,3 +700,24 @@ def settings_page() -> None:
             c.store.reset()
             st.session_state.pop("cart", None)
             st.rerun()
+
+    st.markdown("##### Copia de seguridad")
+    with st.container(border=True):
+        st.caption("Descarga una copia de todos tus datos (catálogo, clientes y ventas) y guárdala en tu móvil o en la "
+                   "nube. Si publicas la app en Streamlit Community Cloud, hazlo con frecuencia: allí los datos se "
+                   "pierden cuando la app se reinicia o se actualiza.")
+        st.download_button(
+            "Descargar copia de seguridad", c.store.backup_bytes(), f"ventas-{date.today():%Y-%m-%d}.db",
+            "application/octet-stream", icon=":material/download:", type="primary",
+        )
+        upload = st.file_uploader("Restaurar desde una copia", type=["db"])
+        confirm_restore = st.checkbox("Entiendo que se reemplazarán los datos actuales por los de la copia")
+        if st.button("Restaurar copia", disabled=not (upload and confirm_restore), icon=":material/restore:"):
+            try:
+                c.store.restore(upload.getvalue())
+            except ValueError as exc:
+                st.error(str(exc))
+            else:
+                st.session_state.pop("cart", None)
+                st.session_state["settings_flash"] = "Copia restaurada correctamente."
+                st.rerun()
