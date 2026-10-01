@@ -737,9 +737,9 @@ def _appointment_card(c, a) -> None:
     ] if x)
     with st.container(border=True):
         st.markdown(
-            f"<div class='sm-appt {status}'><div class='when'>{a['starts_at']:%H:%M}<span>–{end:%H:%M}</span></div>"
+            f"<div class='sm-appt {escape(status)}'><div class='when'>{a['starts_at']:%H:%M}<span>–{end:%H:%M}</span></div>"
             f"<div class='who'>{escape(str(a['who']))}<div class='what'>{escape(detail)}</div></div>"
-            f"<span class='chip'>{STATUS_LABELS.get(status, status)}</span></div>",
+            f"<span class='chip'>{escape(STATUS_LABELS.get(status, status))}</span></div>",
             unsafe_allow_html=True,
         )
         if status != "pendiente":

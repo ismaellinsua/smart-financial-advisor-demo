@@ -63,9 +63,9 @@ ventas de ejemplo. Los datos se guardan en `sales_manager/data/ventas.db` (SQLit
    ```toml
    app_password = "elige-una-contraseña-segura"
    ```
-   Es la contraseña de instalación: la app la pide una sola vez, para crear la cuenta del administrador. Sin ella,
-   una app publicada no deja crear el administrador. Después cada persona del equipo entra con su usuario y su PIN
-   (**Equipo y seguridad**).
+   Es la contraseña de instalación: la app la pide una sola vez, para crear la cuenta del administrador. Si no la
+   pones, la app pide en su lugar un código que aparece en «Manage app → Logs». Después cada persona del equipo entra
+   con su usuario y su PIN (**Equipo y seguridad**).
 4. Pulsa **Deploy**. Abre la URL en el móvil y usa «Añadir a pantalla de inicio» para tenerla como una app.
 
 **Importante sobre los datos:** sin base de datos externa, Streamlit Community Cloud guarda los datos en un archivo
@@ -99,8 +99,8 @@ segundos en despertar la primera vez; la app se reconecta sola.
 |---|---|
 | Cuentas individuales | Cada persona entra con su usuario y su PIN o contraseña. Las contraseñas se guardan cifradas con PBKDF2-SHA256 (600.000 iteraciones y sal aleatoria), nunca en claro. |
 | Roles | **Administrador:** todo. **Encargado:** panel, caja, catálogo, clientes, facturas y anulaciones. **Empleado:** vender, agenda y consultar tickets. Cada página comprueba el rol en el servidor, no solo el menú. |
-| Fuerza bruta | 5 intentos fallidos bloquean la cuenta 5 minutos; los fallos se retrasan y quedan registrados. Un usuario inexistente tarda lo mismo que uno real. |
-| Primer acceso | En una app publicada, crear el administrador exige `app_password` de los *Secrets*. Sin ella, la app se niega, para que nadie se apropie de ella tras un reinicio. |
+| Fuerza bruta | 5 intentos fallidos bloquean la cuenta; cada nuevo bloqueo dura el doble (5, 10, 20 min… hasta 24 h). Los fallos se retrasan y quedan registrados. Un usuario inexistente tarda lo mismo que uno real. |
+| Primer acceso | Crear el administrador exige `app_password` de los *Secrets* o, si no existe, un código de un solo uso que solo aparece en el registro del servidor (terminal o «Manage app → Logs»). Así nadie puede apropiarse de la app tras un reinicio. |
 | Sesiones | Se cierran tras un tiempo sin uso (configurable, 12 h por defecto) y al desactivar a una persona. Recargar la página pide de nuevo el PIN. |
 | Registro de actividad | Accesos, intentos fallidos, anulaciones, facturas, cierres y reaperturas de caja, cambios de configuración, restauraciones y cambios en el equipo. |
 | Copias de seguridad | No incluyen usuarios ni registro: las credenciales no salen del servidor. Al restaurar solo se aceptan tablas y columnas conocidas (sin inyección SQL por nombres de columna) y se valida el archivo. |

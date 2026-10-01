@@ -86,13 +86,20 @@ def _app(store, monkeypatch, secrets=None, user=None):
 
 
 def test_first_run_creates_admin_then_business(tmp_path, monkeypatch):
+    import ui.auth
+
     store = Store(tmp_path / "empty.db")
     at = _app(store, monkeypatch)
     assert not at.exception
-    at.text_input[0].input("Ismael")
-    at.text_input[1].input("ismael")
-    at.text_input[2].input("Segura2026")
-    at.text_input[3].input("Segura2026")
+    fields = at.text_input
+    fields[0].input("NO-ES-EL-CODIGO")
+    fields[1].input("Ismael")
+    fields[2].input("ismael")
+    fields[3].input("Segura2026")
+    fields[4].input("Segura2026")
+    at.button[0].click().run()
+    assert at.error and not store.has_users()  # without the code from the server log, no admin
+    at.text_input[0].input(ui.auth.setup_code())
     at.button[0].click().run()
     assert not at.exception, at.exception
     assert store.has_users() and store.users().iloc[0]["role"] == "admin"

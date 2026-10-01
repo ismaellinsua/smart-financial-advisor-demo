@@ -117,6 +117,7 @@ CREATE TABLE IF NOT EXISTS users (
     secret_hash TEXT NOT NULL,
     active INTEGER NOT NULL DEFAULT 1,
     failed_attempts INTEGER NOT NULL DEFAULT 0,
+    lockouts INTEGER NOT NULL DEFAULT 0,
     locked_until TEXT NOT NULL DEFAULT '',
     last_login TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL
@@ -144,9 +145,11 @@ MIGRATIONS = [
     ("cash_closings", "closed_by", "TEXT NOT NULL DEFAULT ''"),
 ]
 
-# Failed logins before an account is locked, and for how long.
+# Failed logins before an account is locked, and for how long. Each new lock doubles the wait (5, 10, 20 min…
+# up to a day), so guessing a short PIN online stays impractical.
 MAX_FAILED_LOGINS = 5
 LOCKOUT_MINUTES = 5
+MAX_LOCKOUT_MINUTES = 24 * 60
 
 # Insertion order respects foreign keys; deletion goes in reverse.
 DATA_TABLES = ["products", "customers", "sales", "sale_items", "invoices", "appointments", "cash_closings"]
@@ -927,7 +930,8 @@ class Store:
             if user is None:
                 raise ValueError("Usuario no encontrado.")
             check_secret_strength(secret, user["role"])
-            cur.execute("UPDATE users SET secret_hash = ?, failed_attempts = 0, locked_until = '' WHERE id = ?",
+            cur.execute("UPDATE users SET secret_hash = ?, failed_attempts = 0, lockouts = 0, locked_until = '' "
+                        "WHERE id = ?",
                         (hash_secret(secret), int(user_id)))
             self._audit(cur, by, "contraseña_cambiada", user["username"])
 
@@ -946,22 +950,27 @@ class Store:
             if user is None:
                 pass  # the failed attempt is recorded; raise once the transaction has committed
             elif user["locked_until"] and datetime.fromisoformat(user["locked_until"]) > now:
-                minutes = max(1, round((datetime.fromisoformat(user["locked_until"]) - now).seconds / 60))
+                minutes = max(1, round((datetime.fromisoformat(user["locked_until"]) - now).total_seconds() / 60))
                 raise AuthError(f"Demasiados intentos fallidos. Vuelve a intentarlo en {minutes} min.")
             elif verify_secret(secret, user["secret_hash"]):
-                cur.execute("UPDATE users SET failed_attempts = 0, locked_until = '', last_login = ? WHERE id = ?",
+                cur.execute("UPDATE users SET failed_attempts = 0, lockouts = 0, locked_until = '', last_login = ? "
+                            "WHERE id = ?",
                             (now.isoformat(timespec="seconds"), user["id"]))
                 self._audit(cur, username, "acceso", "")
                 return {k: user[k] for k in ("id", "username", "name", "role")}
             else:
                 failed = user["failed_attempts"] + 1
-                locked = (now + timedelta(minutes=LOCKOUT_MINUTES)).isoformat(timespec="seconds") \
-                    if failed >= MAX_FAILED_LOGINS else ""
-                cur.execute("UPDATE users SET failed_attempts = ?, locked_until = ? WHERE id = ?",
-                            (0 if locked else failed, locked, user["id"]))
+                lockouts = user["lockouts"]
+                if failed >= MAX_FAILED_LOGINS:
+                    lock_minutes = min(LOCKOUT_MINUTES * 2 ** lockouts, MAX_LOCKOUT_MINUTES)
+                    locked = (now + timedelta(minutes=lock_minutes)).isoformat(timespec="seconds")
+                    failed, lockouts = 0, lockouts + 1
+                cur.execute("UPDATE users SET failed_attempts = ?, lockouts = ?, locked_until = ? WHERE id = ?",
+                            (failed, lockouts, locked, user["id"]))
                 self._audit(cur, username, "acceso_fallido", "cuenta bloqueada" if locked else f"intento {failed}")
         if locked:
-            raise AuthError(f"Demasiados intentos fallidos. Cuenta bloqueada {LOCKOUT_MINUTES} minutos.")
+            minutes = round((datetime.fromisoformat(locked) - now).total_seconds() / 60)
+            raise AuthError(f"Demasiados intentos fallidos. Cuenta bloqueada {minutes} minutos.")
         raise generic
 
     @staticmethod

@@ -373,10 +373,17 @@ def test_users_and_login_lockout(make_store):
         s.authenticate("ana", "0000", now=now)
     with pytest.raises(AuthError, match="Demasiados"):
         s.authenticate("ana", "4826", now=now)  # even the right PIN waits
-    assert s.authenticate("ana", "4826", now=now + timedelta(minutes=LOCKOUT_MINUTES + 1))["name"] == "Ana"
+    later = now + timedelta(minutes=LOCKOUT_MINUTES + 1)
+    for _ in range(MAX_FAILED_LOGINS - 1):
+        with pytest.raises(AuthError, match="incorrectos"):
+            s.authenticate("ana", "0000", now=later)
+    with pytest.raises(AuthError, match=f"bloqueada {2 * LOCKOUT_MINUTES} minutos"):
+        s.authenticate("ana", "0000", now=later)  # second lock lasts twice as long
+    after = later + timedelta(minutes=2 * LOCKOUT_MINUTES + 1)
+    assert s.authenticate("ana", "4826", now=after)["name"] == "Ana"
 
     actions = list(s.audit_log()["action"])
-    assert actions.count("acceso_fallido") == MAX_FAILED_LOGINS + 1 and "acceso" in actions
+    assert actions.count("acceso_fallido") == 2 * MAX_FAILED_LOGINS + 1 and "acceso" in actions
 
     with pytest.raises(ValueError, match="administrador"):
         s.update_user(admin, role="empleado")  # last admin

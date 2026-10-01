@@ -1,6 +1,7 @@
 """Staff accounts: first-run administrator setup, login, idle timeout and logout."""
 
 import hmac
+import secrets
 import threading
 import time as _time
 from collections import deque
@@ -18,6 +19,7 @@ SESSION_SEEN = "last_seen"
 _SETUP_FAILURES: deque = deque()
 _SETUP_LOCK = threading.Lock()
 SETUP_MAX_FAILURES, SETUP_WINDOW_SECONDS = 10, 600
+_SETUP_CODE: str | None = None
 
 
 def configured_password() -> str | None:
@@ -50,33 +52,37 @@ def _sign_in(store: Store, user: dict) -> None:
     st.rerun()
 
 
-def _is_local_request() -> bool:
-    try:
-        host = (st.context.headers.get("Host") or "").split(":")[0].strip("[]").lower()
-    except Exception:
-        host = ""
-    return host in {"", "localhost", "127.0.0.1", "::1"}
+def setup_code() -> str:
+    """One-time code for creating the first administrator when no `app_password` is configured.
+
+    It is written to the server log (the terminal locally, «Manage app → Logs» on Streamlit Cloud), which only
+    the owner can read. Unlike a check on the request's Host header, a visitor cannot forge it.
+    """
+    global _SETUP_CODE
+    with _SETUP_LOCK:
+        if _SETUP_CODE is None:
+            _SETUP_CODE = secrets.token_hex(4).upper()
+            print(f"[Gestor de Ventas] Código de instalación para crear el administrador: {_SETUP_CODE}", flush=True)
+        return _SETUP_CODE
 
 
 def _bootstrap(store: Store) -> None:
-    """No accounts yet: create the administrator. Requires `app_password` when it is configured."""
-    setup_password = configured_password()
+    """No accounts yet: create the administrator, proving ownership with `app_password` or the setup code."""
+    expected = configured_password() or setup_code()
     _, center, _ = st.columns([1, 2, 1])
     with center:
         page_header("Crea tu cuenta de administrador",
                     "Será la cuenta con todos los permisos. Después podrás dar de alta a tu equipo.",
                     eyebrow="Primer acceso")
-        if not setup_password and not _is_local_request():
-            # Published without a setup password: whoever arrived first would own the app. Refuse.
-            st.error("Para crear el administrador en una app publicada, añade primero `app_password` en los "
-                     "*Secrets* de Streamlit (⋮ → Settings → Secrets) y recarga esta página.",
-                     icon=":material/lock:")
-            return
-        if not setup_password:
-            st.info("Estás en tu propio ordenador. Si publicas la app, configura `app_password` en los *Secrets* "
-                    "para que solo tú puedas crear el administrador.", icon=":material/info:")
+        if configured_password():
+            code_label = "Contraseña de instalación (app_password)"
+        else:
+            code_label = "Código de instalación"
+            st.info("Escribe el código de instalación que aparece en el registro del servidor: en tu ordenador, "
+                    "en la terminal; en Streamlit, en «Manage app → Logs». Si configuras `app_password` en los "
+                    "*Secrets*, se usará esa contraseña en su lugar.", icon=":material/key:")
         with st.form("bootstrap"):
-            code = st.text_input("Contraseña de instalación (app_password)", type="password") if setup_password else ""
+            code = st.text_input(code_label, type="password", max_chars=128)
             name = st.text_input("Tu nombre", max_chars=120)
             username = st.text_input("Usuario", max_chars=30, placeholder="p. ej. ismael",
                                      help="Minúsculas, números, punto o guion. Lo usarás para entrar.")
@@ -84,13 +90,13 @@ def _bootstrap(store: Store) -> None:
                                    help="Al menos 8 caracteres, con letras y números o símbolos.")
             repeat = st.text_input("Repite la contraseña", type="password", max_chars=128)
             if st.form_submit_button("Crear administrador", type="primary", use_container_width=True):
-                if setup_password and _setup_blocked():
+                if _setup_blocked():
                     st.error("Demasiados intentos. Espera unos minutos.")
                     return
-                if setup_password and not hmac.compare_digest(code.encode(), setup_password.encode()):
+                if not hmac.compare_digest(code.strip().encode(), expected.encode()):
                     _setup_failed()
                     _time.sleep(1)
-                    st.error("La contraseña de instalación no es correcta.")
+                    st.error("La contraseña o el código de instalación no es correcto.")
                     return
                 if secret != repeat:
                     st.error("Las contraseñas no coinciden.")
