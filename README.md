@@ -32,6 +32,17 @@ This repository contains a **DEMO version** of the project.
 
 ---
 
+## 💼 Nuevo: Gestor de Ventas
+Aplicación de punto de venta, inventario, clientes y automatizaciones adaptable a cualquier negocio
+(tienda, restaurante, servicios o e-commerce). Ver [`sales_manager/README.md`](sales_manager/README.md).
+
+```bash
+pip install -r requirements.txt
+streamlit run sales_manager/app.py
+```
+
+---
+
 ## 🔒 Full Version (Commercial)
 The **full commercial version** includes:
 - Complete source code

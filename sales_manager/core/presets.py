@@ -1,0 +1,90 @@
+"""Business presets: each one adapts vocabulary, taxes, categories and a sample catalog."""
+
+PRESETS = {
+    "retail": {
+        "label": "Tienda / Comercio minorista",
+        "item_label": "Producto",
+        "item_label_plural": "Productos",
+        "tax_rate": 21.0,
+        "categories": ["Ropa", "Calzado", "Accesorios", "Hogar"],
+        "track_stock": True,
+        "catalog": [
+            # sku, name, category, price, cost, stock, min_stock
+            ("CAM-001", "Camisa de lino", "Ropa", 39.90, 16.00, 25, 8),
+            ("PAN-002", "Pantalón chino", "Ropa", 49.90, 21.00, 18, 6),
+            ("ZAP-003", "Zapatilla urbana", "Calzado", 79.00, 35.00, 12, 5),
+            ("BOL-004", "Bolso de piel", "Accesorios", 120.00, 52.00, 2, 3),
+            ("CIN-005", "Cinturón clásico", "Accesorios", 24.50, 8.50, 30, 10),
+            ("VEL-006", "Vela aromática", "Hogar", 14.90, 4.20, 40, 12),
+        ],
+    },
+    "restaurant": {
+        "label": "Restaurante / Cafetería",
+        "item_label": "Plato",
+        "item_label_plural": "Carta",
+        "tax_rate": 10.0,
+        "categories": ["Entrantes", "Principales", "Postres", "Bebidas"],
+        "track_stock": True,
+        "catalog": [
+            ("ENT-001", "Croquetas caseras (6 uds)", "Entrantes", 8.50, 2.40, 60, 20),
+            ("ENT-002", "Ensalada mediterránea", "Entrantes", 9.90, 3.10, 40, 10),
+            ("PRI-003", "Arroz del día", "Principales", 16.50, 5.20, 35, 10),
+            ("PRI-004", "Solomillo a la brasa", "Principales", 22.00, 9.80, 6, 8),
+            ("POS-005", "Tarta de queso", "Postres", 6.50, 1.70, 25, 8),
+            ("BEB-006", "Café especialidad", "Bebidas", 2.20, 0.45, 200, 50),
+            ("BEB-007", "Vino de la casa (copa)", "Bebidas", 3.80, 1.10, 90, 24),
+        ],
+    },
+    "services": {
+        "label": "Servicios profesionales",
+        "item_label": "Servicio",
+        "item_label_plural": "Servicios",
+        "tax_rate": 21.0,
+        "categories": ["Consultoría", "Formación", "Soporte", "Proyectos"],
+        "track_stock": False,
+        "catalog": [
+            ("CON-001", "Hora de consultoría", "Consultoría", 75.00, 30.00, 0, 0),
+            ("CON-002", "Auditoría inicial", "Consultoría", 450.00, 180.00, 0, 0),
+            ("FOR-003", "Taller in-company (4 h)", "Formación", 600.00, 220.00, 0, 0),
+            ("SOP-004", "Plan de soporte mensual", "Soporte", 199.00, 70.00, 0, 0),
+            ("PRO-005", "Proyecto web básico", "Proyectos", 1800.00, 900.00, 0, 0),
+        ],
+    },
+    "ecommerce": {
+        "label": "E-commerce / Tienda online",
+        "item_label": "Artículo",
+        "item_label_plural": "Catálogo",
+        "tax_rate": 21.0,
+        "categories": ["Electrónica", "Accesorios", "Packs", "Envíos"],
+        "track_stock": True,
+        "catalog": [
+            ("ELE-001", "Auriculares inalámbricos", "Electrónica", 59.90, 24.00, 35, 10),
+            ("ELE-002", "Altavoz portátil", "Electrónica", 89.00, 38.00, 4, 6),
+            ("ACC-003", "Funda protectora", "Accesorios", 15.90, 3.20, 80, 20),
+            ("ACC-004", "Cargador rápido USB-C", "Accesorios", 24.90, 7.80, 50, 15),
+            ("PAC-005", "Pack home office", "Packs", 149.00, 72.00, 8, 4),
+            # Optional 8th field overrides the preset's track_stock.
+            ("ENV-006", "Envío urgente 24 h", "Envíos", 6.90, 4.50, 0, 0, False),
+        ],
+    },
+}
+
+PAYMENT_METHODS = ["Tarjeta", "Efectivo", "Transferencia", "Bizum", "Otro"]
+
+CURRENCIES = {"EUR": "€", "USD": "$", "MXN": "$", "COP": "$", "ARS": "$", "CLP": "$", "PEN": "S/", "GBP": "£"}
+
+DEFAULT_SETTINGS = {
+    "business_name": "Mi Negocio",
+    "business_type": "retail",
+    "tax_id": "",
+    "address": "",
+    "email": "",
+    "phone": "",
+    "currency": "EUR",
+    "tax_rate": "21.0",
+    "invoice_prefix": "VTA",
+    "accent_color": "#1F4E79",
+    "inactive_days": "30",
+    "reorder_lead_days": "14",
+    "receipt_footer": "Gracias por su compra.",
+}
