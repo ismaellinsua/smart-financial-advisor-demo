@@ -683,3 +683,62 @@ def test_order_without_table_and_cancel(make_store):
     s.cancel_order(order_id)
     with pytest.raises(ValueError, match="abierta"):
         s.add_order_item(order_id, int(s.products().iloc[0]["id"]))
+
+
+# --------------------------------------------- suppliers, purchases, expenses
+def test_purchase_receive_updates_stock_cost_and_expenses(store):
+    from core.pdfs import purchase_order_pdf
+
+    supplier = store.save_supplier({"name": "Textiles Norte", "email": "p@x.example.com"})
+    pid = product_id(store, "CAM-001")  # cost 16, stock 25
+    po = store.create_purchase(supplier, [{"product_id": pid, "quantity": 25, "unit_cost": 20}], created_by="Ana")
+    order = store.purchase(po)
+    assert order["number"] == f"PED-{datetime.now().year}-0001" and order["total"] == 500
+    assert purchase_order_pdf(order, store.settings()).startswith(b"%PDF")
+    store.set_purchase_status(po, "enviado")
+    item = order["items"][0]
+    store.receive_purchase(po, {item["id"]: 25}, received_by="Ana", method="Transferencia")
+    product = store.products().set_index("id").loc[pid]
+    assert int(product["stock"]) == 50 and float(product["cost"]) == pytest.approx(18.0)  # (25·16 + 25·20) / 50
+    expense = store.expenses().iloc[0]
+    assert (expense["category"], expense["amount"]) == ("Compras a proveedores", 500)
+    with pytest.raises(ValueError):
+        store.receive_purchase(po)  # already received
+    with pytest.raises(ValueError):
+        store.create_purchase(supplier, [{"product_id": pid, "quantity": 0, "unit_cost": 1}])
+
+
+def test_drafts_from_reorder_suggestions(store):
+    import pandas as pd
+
+    a = store.save_supplier({"name": "A"})
+    b = store.save_supplier({"name": "B"})
+    store.set_product_supplier(product_id(store, "CAM-001"), a)
+    store.set_product_supplier(product_id(store, "CIN-005"), b)
+    numbers = store.draft_purchases(pd.DataFrame({"sku": ["CAM-001", "CIN-005", "VEL-006"],
+                                                  "suggested_qty": [5, 3, 2]}))
+    assert len(numbers) == 3  # supplier A, supplier B and one without supplier
+    assert set(store.purchases()["status"]) == {"borrador"}
+
+
+def test_recurring_expenses_and_profit(store):
+    from datetime import date
+
+    store.save_recurring("Alquiler", "Local", 900, 31)
+    store.save_recurring("Suministros", "Luz", 100, 10)
+    created = store.apply_recurring(until=date(2026, 3, 31), since=date(2026, 1, 1))
+    assert created == 6  # 2 a month for 3 months; day 31 falls on 28 Feb
+    assert store.apply_recurring(until=date(2026, 3, 31), since=date(2026, 1, 1)) == 0  # idempotent
+    feb = store.expenses(date(2026, 2, 1), date(2026, 3, 1))
+    assert sorted(feb["day"].dt.day) == [10, 28]
+
+    store.add_expense(date(2026, 3, 5), "Compras a proveedores", "Mercancía", 300)
+    store.create_sale([{"product_id": product_id(store, "CAM-001"), "quantity": 10}], "Tarjeta",
+                      when=datetime(2026, 3, 15, 12, 0))
+    p = store.profit(date(2026, 3, 1), date(2026, 4, 1))
+    assert p["net_sales"] == pytest.approx(399.0) and p["cogs"] == pytest.approx(160.0)
+    assert p["opex"] == pytest.approx(1000.0) and p["purchases"] == pytest.approx(300.0)
+    assert p["net"] == pytest.approx(399 - 160 - 1000)
+    with pytest.raises(ValueError):
+        store.add_expense(date(2026, 3, 5), "Inventada", "x", 10)
+

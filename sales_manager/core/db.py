@@ -20,6 +20,7 @@ import pandas as pd
 from .presets import DEFAULT_SETTINGS, PAYMENT_METHODS, PRESETS
 from .pricing import PROMO_KINDS, PROMO_SCOPES, apply_promotions, compute_totals
 from .store_orders import OrdersMixin
+from .store_purchases import PurchasesMixin
 from .store_refunds import RefundsMixin
 from .security import (
     DUMMY_HASH, ROLE_RANK, ROLES, USERNAME_RE, check_secret_strength, clean_text, hash_secret, is_safe_identifier,
@@ -205,6 +206,59 @@ CREATE TABLE IF NOT EXISTS order_items (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_one_open_per_table ON orders(table_id) WHERE status = 'abierta';
 CREATE INDEX IF NOT EXISTS idx_order_items_order ON order_items(order_id);
+CREATE TABLE IF NOT EXISTS suppliers (
+    id {pk},
+    name TEXT NOT NULL,
+    tax_id TEXT NOT NULL DEFAULT '',
+    email TEXT NOT NULL DEFAULT '',
+    phone TEXT NOT NULL DEFAULT '',
+    notes TEXT NOT NULL DEFAULT '',
+    active INTEGER NOT NULL DEFAULT 1
+);
+CREATE TABLE IF NOT EXISTS recurring_expenses (
+    id {pk},
+    category TEXT NOT NULL,
+    description TEXT NOT NULL,
+    amount {real} NOT NULL,
+    day_of_month INTEGER NOT NULL,
+    method TEXT NOT NULL DEFAULT 'Transferencia',
+    active INTEGER NOT NULL DEFAULT 1
+);
+CREATE TABLE IF NOT EXISTS purchase_orders (
+    id {pk},
+    number TEXT UNIQUE NOT NULL,
+    supplier_id INTEGER REFERENCES suppliers(id),
+    status TEXT NOT NULL DEFAULT 'borrador',
+    created_at TEXT NOT NULL,
+    created_by TEXT NOT NULL DEFAULT '',
+    received_at TEXT NOT NULL DEFAULT '',
+    received_by TEXT NOT NULL DEFAULT '',
+    notes TEXT NOT NULL DEFAULT '',
+    total {real} NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS purchase_items (
+    id {pk},
+    po_id INTEGER NOT NULL REFERENCES purchase_orders(id) ON DELETE CASCADE,
+    product_id INTEGER NOT NULL REFERENCES products(id),
+    name TEXT NOT NULL,
+    quantity INTEGER NOT NULL CHECK (quantity > 0),
+    unit_cost {real} NOT NULL,
+    received INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS expenses (
+    id {pk},
+    day TEXT NOT NULL,
+    category TEXT NOT NULL,
+    description TEXT NOT NULL,
+    amount {real} NOT NULL,
+    method TEXT NOT NULL DEFAULT 'Transferencia',
+    supplier_id INTEGER REFERENCES suppliers(id),
+    purchase_id INTEGER REFERENCES purchase_orders(id),
+    recurring_id INTEGER REFERENCES recurring_expenses(id),
+    created_by TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_expenses_day ON expenses(day);
 CREATE TABLE IF NOT EXISTS users (
     id {pk},
     username TEXT UNIQUE NOT NULL,
@@ -247,6 +301,7 @@ MIGRATIONS = [
     ("sales", "loyalty_discount", "{real} NOT NULL DEFAULT 0"),
     ("sales", "points_redeemed", "INTEGER NOT NULL DEFAULT 0"),
     ("sales", "points_earned", "INTEGER NOT NULL DEFAULT 0"),
+    ("products", "supplier_id", "INTEGER"),
 ]
 
 # Failed logins before an account is locked, and for how long. Each new lock doubles the wait (5, 10, 20 min…
@@ -258,7 +313,8 @@ MAX_LOCKOUT_MINUTES = 24 * 60
 # Insertion order respects foreign keys; deletion goes in reverse.
 DATA_TABLES = ["products", "customers", "sales", "sale_items", "invoices", "appointments", "cash_closings",
                "sale_payments", "promotions", "loyalty_moves", "refunds", "refund_items", "credit_notes",
-               "dining_tables", "orders", "order_items"]
+               "dining_tables", "orders", "order_items", "suppliers", "recurring_expenses", "purchase_orders",
+               "purchase_items", "expenses"]
 ALL_TABLES = ["settings", *DATA_TABLES]
 # Tables any backup must have; newer ones are created when an older backup is opened.
 CORE_TABLES = {"settings", "products", "customers", "sales", "sale_items"}
@@ -439,7 +495,7 @@ def _is_postgres(target) -> bool:
 
 
 # ----------------------------------------------------------------------------- store
-class Store(RefundsMixin, OrdersMixin):
+class Store(RefundsMixin, OrdersMixin, PurchasesMixin):
     SaleError = SaleError
     def __init__(self, path=DEFAULT_DB_PATH):
         self.db = _Postgres(str(path)) if _is_postgres(path) else _SQLite(str(path))
@@ -1465,6 +1521,34 @@ class Store(RefundsMixin, OrdersMixin):
             self._generate_demo_appointments(rng, agenda, customer_ids, products, now)
         if preset.get("tables"):
             self._generate_demo_tables(rng, preset["tables"], products)
+        self._generate_demo_purchasing(rng, preset, products, now)
+
+    def _generate_demo_purchasing(self, rng, preset: dict, products, now) -> None:
+        supplier_ids = [self.save_supplier({"name": name, "email": email, "tax_id": tax})
+                        for name, email, tax in preset.get("suppliers", [])]
+        if supplier_ids:
+            for i, pid in enumerate(products["id"]):
+                self.set_product_supplier(int(pid), supplier_ids[i % len(supplier_ids)])
+        for category, description, amount, day in preset.get("fixed_costs", []):
+            self.save_recurring(category, description, amount, day)
+        self.apply_recurring(until=now.date(), since=(now - timedelta(days=60)).date())
+        # One past delivery (already received and paid) and one order waiting to be sent.
+        tracked = products[products["track_stock"] == 1]
+        if not tracked.empty and supplier_ids:
+            def items_from(supplier_id):  # each order only carries products that supplier provides
+                own = [p for i, (_, p) in enumerate(products.iterrows())
+                       if supplier_ids[i % len(supplier_ids)] == supplier_id and p["track_stock"] == 1]
+                return [{"product_id": int(p["id"]), "quantity": rng.randint(10, 30), "unit_cost": float(p["cost"])}
+                        for p in own[:3]]
+            if items := items_from(supplier_ids[0]):
+                past = self.create_purchase(supplier_ids[0], items, created_by="Demo", when=now - timedelta(days=20))
+                self.receive_purchase(past, received_by="Demo", when=now - timedelta(days=18))
+            if items := items_from(supplier_ids[-1])[:2]:
+                self.create_purchase(supplier_ids[-1], items, "Pendiente de enviar", created_by="Demo")
+        for days_ago, category, description, amount in [(25, "Marketing", "Anuncios en redes sociales", 120),
+                                                         (12, "Mantenimiento", "Revisión de equipos", 85)]:
+            self.add_expense((now - timedelta(days=days_ago)).date(), category, description, amount,
+                             created_by="Demo")
 
     def _generate_demo_tables(self, rng, layout: dict, products) -> None:
         table_ids = [self.save_table(name, zone, seats) for zone, tables in layout.items() for name, seats in tables]

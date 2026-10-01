@@ -235,3 +235,40 @@ def credit_note_pdf(note: dict, settings: dict) -> bytes:
               _p(f"Devolución {refund['number']} · Ticket original {refund['sale_number']} · "
                  f"Importe devuelto por {refund['method']}", st["muted"])]
     return _build(story, f"Factura rectificativa {note['number']}")
+
+
+def purchase_order_pdf(po: dict, settings: dict) -> bytes:
+    """Order to send to a supplier: products, units and agreed cost."""
+    accent = _accent(settings)
+    st = _styles(accent)
+    money = lambda v: format_money(v, CURRENCIES.get(settings.get("currency", "EUR"), "€"))  # noqa: E731
+    created = datetime.fromisoformat(po["created_at"])
+    story = [_header(settings, st, "PEDIDO DE COMPRA", [f"Nº {po['number']}", f"Fecha: {created:%d/%m/%Y}"], accent),
+             Spacer(1, 8 * mm)]
+    supplier = [_p("PROVEEDOR", st["label"]), _p(po.get("supplier_name") or "—", st["base"])]
+    for key in ("supplier_tax_id", "supplier_email"):
+        if po.get(key):
+            supplier.append(_p(po[key], st["muted"]))
+    box = Table([[supplier]], colWidths=[170 * mm])
+    box.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, -1), SOFT), ("BOX", (0, 0), (-1, -1), 0.5, LINE),
+                             ("LEFTPADDING", (0, 0), (-1, -1), 8), ("TOPPADDING", (0, 0), (-1, -1), 6),
+                             ("BOTTOMPADDING", (0, 0), (-1, -1), 8)]))
+    story += [box, Spacer(1, 8 * mm)]
+    rows = [[_p("Producto", st["label"]), _p("Unidades", st["label_r"]), _p("Coste unit.", st["label_r"]),
+             _p("Importe", st["label_r"])]]
+    for item in po["items"]:
+        rows.append([_p(item["name"], st["base"]), _p(item["quantity"], st["right"]),
+                     _p(money(item["unit_cost"]), st["right"]), _p(money(item["quantity"] * item["unit_cost"]), st["right"])])
+    rows.append([_p("Total (sin impuestos)", st["label"]), "", "",
+                 _p(money(sum(i["quantity"] * i["unit_cost"] for i in po["items"])), st["right"])])
+    table = Table(rows, colWidths=[95 * mm, 22 * mm, 25 * mm, 28 * mm], repeatRows=1)
+    table.setStyle(TableStyle([
+        ("LINEBELOW", (0, 0), (-1, 0), 1, INK), ("LINEBELOW", (0, 1), (-1, -2), 0.4, LINE),
+        ("LINEABOVE", (0, -1), (-1, -1), 1.5, accent),
+        ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+    ]))
+    story += [table, Spacer(1, 8 * mm)]
+    if po.get("notes"):
+        story.append(_p(f"Notas: {po['notes']}", st["muted"]))
+    return _build(story, f"Pedido {po['number']}")

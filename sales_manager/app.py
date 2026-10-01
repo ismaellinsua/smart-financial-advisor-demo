@@ -11,7 +11,7 @@ import streamlit as st
 
 from core.presets import PRESETS
 from core.security import ROLES
-from ui import pages, pages_promos, pages_tables
+from ui import pages, pages_management, pages_promos, pages_tables
 from ui.auth import logout_button, require_user
 from ui.context import PAGES, ctx
 from ui.styles import inject_css, sidebar_brand, sidebar_copyright, topbar
@@ -61,6 +61,10 @@ PAGES.update(
     tables=st.Page(pages_tables.tables_page, title="Mesas", icon=":material/table_restaurant:", url_path="mesas",
                    default=not c.can("encargado") and staff_home == "tables"),
     kitchen=st.Page(pages_tables.kitchen_page, title="Cocina", icon=":material/skillet:", url_path="cocina"),
+    purchases=st.Page(pages_management.purchases_page, title="Compras", icon=":material/local_shipping:",
+                      url_path="compras"),
+    expenses=st.Page(pages_management.expenses_page, title="Gastos y beneficio", icon=":material/account_balance:",
+                     url_path="gastos"),
     team=st.Page(pages.team_page, title="Equipo y seguridad", icon=":material/shield_person:", url_path="equipo"),
     cash=st.Page(pages.cash_page, title="Caja", icon=":material/account_balance_wallet:", url_path="caja"),
     agenda=st.Page(pages.agenda_page, title=pages.agenda_config(c.preset)["title"], icon=":material/event:",
@@ -74,7 +78,7 @@ sections = {"Operación": [*([P["dashboard"]] if c.can("encargado") else []),
                           *([P["agenda"]] if show_agenda else []),
                           *([P["cash"]] if c.can("encargado") else []), P["history"]]}
 if c.can("encargado"):
-    sections["Gestión"] = [P["products"], P["customers"], P["promos"]]
+    sections["Gestión"] = [P["products"], P["customers"], P["promos"], P["purchases"], P["expenses"]]
     sections["Inteligencia"] = [P["automations"]]
 if c.can("admin"):
     sections["Ajustes"] = [P["settings"], P["team"]]

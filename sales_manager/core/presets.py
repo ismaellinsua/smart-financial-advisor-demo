@@ -2,6 +2,10 @@
 
 PRESETS = {
     "retail": {
+        "suppliers": [("Textiles Norte S.L.", "pedidos@textilesnorte.example.com", "B11111111"),
+                      ("Complementos Sur", "ventas@complementossur.example.com", "B22222222")],
+        "fixed_costs": [("Alquiler", "Alquiler del local", 900, 1), ("Nóminas", "Nómina dependienta", 1650, 28),
+                        ("Suministros", "Luz e internet", 140, 10), ("Seguros", "Seguro del local", 45, 5)],
         "promotions": [
             {"name": "3x2 en accesorios", "kind": "nxm", "buy": 3, "pay": 2, "scope": "categoria",
              "target": "Accesorios"},
@@ -27,6 +31,12 @@ PRESETS = {
         ],
     },
     "restaurant": {
+        "suppliers": [("Distribuciones Gastro S.L.", "pedidos@gastro.example.com", "B33333333"),
+                      ("Bodegas del Valle", "comercial@bodegasvalle.example.com", "B44444444")],
+        "fixed_costs": [("Alquiler", "Alquiler del local", 950, 1), ("Nóminas", "Nóminas de sala y cocina", 3200, 28),
+                        ("Suministros", "Luz, agua y gas", 380, 10), ("Seguros", "Seguro de responsabilidad", 60, 5)],
+        # A café serves many small tickets a day.
+        "demo_sales_per_day": (10, 20),
         "promotions": [
             {"name": "Happy hour bebidas −30 %", "kind": "porcentaje", "value": 30, "scope": "categoria",
              "target": "Bebidas", "start_time": "18:00", "end_time": "20:00"},
@@ -57,6 +67,10 @@ PRESETS = {
         ],
     },
     "services": {
+        "suppliers": [("Papelería Central", "pedidos@papeleria.example.com", "B55555555")],
+        "fixed_costs": [("Impuestos y tasas", "Cuota de autónomos", 300, 28),
+                        ("Alquiler", "Puesto en coworking", 220, 1),
+                        ("Software y servicios", "Software de gestión y correo", 45, 3)],
         "promotions": [
             {"name": "Formación −10 %", "kind": "porcentaje", "value": 10, "scope": "categoria",
              "target": "Formación"},
@@ -85,6 +99,10 @@ PRESETS = {
         ],
     },
     "ecommerce": {
+        "suppliers": [("TechDistribución S.A.", "b2b@techdistribucion.example.com", "A66666666"),
+                      ("Embalajes Express", "ventas@embalajes.example.com", "B77777777")],
+        "fixed_costs": [("Alquiler", "Almacén", 450, 1), ("Software y servicios", "Plataforma de tienda online", 79, 3),
+                        ("Marketing", "Campañas de anuncios", 300, 15), ("Transporte", "Tarifa plana de envíos", 180, 20)],
         "promotions": [
             {"name": "3x2 en fundas y cargadores", "kind": "nxm", "buy": 3, "pay": 2, "scope": "categoria",
              "target": "Accesorios"},

@@ -1161,8 +1161,14 @@ def automations_page() -> None:
                     "estimated_cost": st.column_config.NumberColumn("Coste estimado", format=f"%.2f {c.symbol}"),
                 },
             )
-            st.download_button("Generar orden de compra (CSV)", _csv(sug), "orden_de_compra.csv", "text/csv",
-                               type="primary", icon=":material/shopping_cart_checkout:")
+            a, b = st.columns(2)
+            if a.button("Crear pedidos a proveedores", type="primary", icon=":material/shopping_cart_checkout:",
+                        use_container_width=True):
+                numbers = c.store.draft_purchases(sug, created_by=c.who)
+                c.store.audit(c.username, "pedidos_generados", ", ".join(numbers))
+                st.success(f"Pedidos en borrador: {', '.join(numbers)}. Revísalos y envíalos en Gestión → Compras.")
+            b.download_button("Descargar sugerencias (CSV)", _csv(sug), "orden_de_compra.csv", "text/csv",
+                              icon=":material/download:", use_container_width=True)
 
     with t2:
         low = automation.low_stock(products)

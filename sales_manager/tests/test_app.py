@@ -11,7 +11,7 @@ APP = str(Path(__file__).resolve().parent.parent / "app.py")
 ROOT = str(Path(APP).parent)
 PAGES = ["dashboard", "point_of_sale", "history", "products_page", "customers_page", "automations_page",
          "settings_page", "cash_page", "agenda_page", "team_page", "promotions_page", "tables_page",
-         "kitchen_page"]
+         "kitchen_page", "purchases_page", "expenses_page"]
 
 # Renders a single page function against a given database file.
 SCRIPT = """
@@ -22,6 +22,9 @@ ui.pages.promotions_page = ui.pages_promos.promotions_page
 ui.pages.tables_page = ui.pages_tables.tables_page
 ui.pages.kitchen_page = ui.pages_tables.kitchen_page
 ui.pages_tables.get_store = lambda: store
+import ui.pages_management
+ui.pages.purchases_page = ui.pages_management.purchases_page
+ui.pages.expenses_page = ui.pages_management.expenses_page
 from core.db import Store
 import streamlit as st
 store = Store({db!r})
