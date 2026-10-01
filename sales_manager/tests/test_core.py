@@ -575,3 +575,57 @@ def test_promotion_validation(store):
     assert store.promotions().iloc[0]["active"] == 0
     store.delete_promotion(pid)
     assert store.promotions().empty
+
+
+# ------------------------------------------------------------ refunds
+def test_partial_refunds_add_up_exactly(store):
+    cid = store.upsert_customer({"name": "Eva"})
+    cam, cin = product_id(store, "CAM-001"), product_id(store, "CIN-005")
+    stock_before = int(store.products().set_index("id").loc[cam, "stock"])
+    sale = store.create_sale([{"product_id": cam, "quantity": 3}, {"product_id": cin, "quantity": 1}], "Efectivo",
+                             customer_id=cid, discount_pct=10)
+    cam_item = next(i for i in sale["items"] if i["product_id"] == cam)
+    cin_item = next(i for i in sale["items"] if i["product_id"] == cin)
+    with pytest.raises(ValueError, match="motivo"):
+        store.create_refund(sale["id"], {cam_item["id"]: 1}, "Efectivo", "")
+    with pytest.raises(SaleError, match="quedan 3"):
+        store.create_refund(sale["id"], {cam_item["id"]: 4}, "Efectivo", "Talla")
+
+    points_before = store.customer_points(cid)
+    first = store.create_refund(sale["id"], {cam_item["id"]: 1}, "Efectivo", "Talla equivocada", user_name="Ana")
+    assert first["number"].startswith("DEV-") and first["credit_note"] is None
+    assert first["total"] == pytest.approx(39.90 * 0.9 * 1.21, abs=0.02)
+    assert int(store.products().set_index("id").loc[cam, "stock"]) == stock_before - 3 + 1
+    assert store.customer_points(cid) < points_before
+    assert [i["remaining"] for i in store.returnable(sale["id"])] == [2, 1]
+    assert store.day_summary(datetime.now().date())["cash"] == pytest.approx(sale["total"] - first["total"])
+
+    with pytest.raises(SaleError, match="devoluciones"):
+        store.cancel_sale(sale["id"])
+    second = store.create_refund(sale["id"], {cam_item["id"]: 2, cin_item["id"]: 1}, "Tarjeta", "No le gusta")
+    assert first["total"] + second["total"] == pytest.approx(sale["total"], abs=0.001)
+    assert store.sale_lines()["revenue"].sum() == pytest.approx(0, abs=0.001)
+    with pytest.raises(SaleError):
+        store.create_refund(sale["id"], {cin_item["id"]: 1}, "Tarjeta", "Otra vez")
+
+
+def test_refund_of_invoiced_sale_issues_corrective_invoice(store):
+    from core.pdfs import credit_note_pdf
+
+    sale = store.create_sale([{"product_id": product_id(store, "BOL-004"), "quantity": 1}], "Tarjeta")
+    store.create_invoice(sale["id"], {"name": "Norte S.L.", "tax_id": "B12345678"})
+    refund = store.create_refund(sale["id"], {sale["items"][0]["id"]: 1}, "Tarjeta", "Defecto de fábrica")
+    assert refund["credit_note"]["number"] == f"FACR-{datetime.now().year}-0001"
+    note = store.credit_note(refund["id"])
+    assert note["invoice"]["number"].startswith("FAC-")
+    assert credit_note_pdf(note, store.settings()).startswith(b"%PDF")
+    assert len(store.refunds()) == 1 and store.refunds().iloc[0]["credit_note"] == refund["credit_note"]["number"]
+
+
+def test_kpis_are_net_of_refunds(store):
+    pid = product_id(store, "CAM-001")
+    sale = store.create_sale([{"product_id": pid, "quantity": 2}], "Tarjeta")
+    store.create_refund(sale["id"], {sale["items"][0]["id"]: 1}, "Tarjeta", "Talla")
+    start, end, prev_start = automation.period_bounds(7)
+    k = automation.kpis(store.sales(), store.sale_lines(), start, end, prev_start, store.refunds())
+    assert k["revenue"] == pytest.approx(sale["total"] / 2, abs=0.01)

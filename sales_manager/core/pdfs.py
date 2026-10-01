@@ -154,6 +154,7 @@ def cash_closing_pdf(closing: dict, settings: dict) -> bytes:
         rows.append([_p(method, st["base"]), _p(entry["count"], st["right"]), _p(money(entry["total"]), st["right"])])
     rows.append([_p("Total", st["label"]), _p(closing["sales_count"], st["right"]),
                  _p(money(closing["total_sales"]), st["right"])])
+    refunded = sum(e.get("refunded", 0) for e in closing["breakdown"].values())
     table = Table(rows, colWidths=[90 * mm, 30 * mm, 50 * mm])
     table.setStyle(TableStyle([
         ("LINEBELOW", (0, 0), (-1, 0), 1, INK), ("LINEBELOW", (0, 1), (-1, -2), 0.4, LINE),
@@ -161,7 +162,10 @@ def cash_closing_pdf(closing: dict, settings: dict) -> bytes:
         ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
         ("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 0),
     ]))
-    story += [table, Spacer(1, 8 * mm), _p("ARQUEO DE EFECTIVO", st["label"]), Spacer(1, 2 * mm)]
+    story.append(table)
+    if refunded:
+        story += [Spacer(1, 2 * mm), _p(f"Importes netos: incluyen devoluciones por {money(refunded)}.", st["muted"])]
+    story += [Spacer(1, 8 * mm), _p("ARQUEO DE EFECTIVO", st["label"]), Spacer(1, 2 * mm)]
 
     diff = closing["difference"]
     diff_text = "Cuadra" if abs(diff) < 0.005 else (f"Sobran {money(diff)}" if diff > 0 else f"Faltan {money(-diff)}")
@@ -182,3 +186,52 @@ def cash_closing_pdf(closing: dict, settings: dict) -> bytes:
         story += [_p("NOTAS", st["label"]), _p(closing["notes"], st["base"]), Spacer(1, 8 * mm)]
     story += [Spacer(1, 14 * mm), _p("Firma del responsable: ______________________________", st["muted"])]
     return _build(story, f"Cierre de caja {day:%d/%m/%Y}")
+
+
+def credit_note_pdf(note: dict, settings: dict) -> bytes:
+    """Corrective invoice: negative amounts that cancel all or part of an invoice, with the reason."""
+    refund, invoice = note["refund"], note["invoice"]
+    accent = _accent(settings)
+    st = _styles(accent)
+    money = lambda v: format_money(v, CURRENCIES.get(settings.get("currency", "EUR"), "€"))  # noqa: E731
+    issued = datetime.fromisoformat(note["issued_at"])
+    original = datetime.fromisoformat(invoice["issued_at"])
+    story = [_header(settings, st, "FACTURA RECTIFICATIVA",
+                     [f"Nº {note['number']}", f"Fecha: {issued:%d/%m/%Y}"], accent), Spacer(1, 6 * mm),
+             _p(f"Rectifica la factura {invoice['number']} de {original:%d/%m/%Y}. Motivo: {refund['reason']}",
+                st["base"]), Spacer(1, 6 * mm)]
+
+    customer = [_p("CLIENTE", st["label"]), _p(invoice["customer_name"], st["base"]),
+                _p(f"NIF/CIF: {invoice['customer_tax_id']}", st["base"])]
+    if invoice.get("customer_address"):
+        customer.append(_p(invoice["customer_address"], st["muted"]))
+    box = Table([[customer]], colWidths=[170 * mm])
+    box.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, -1), SOFT), ("BOX", (0, 0), (-1, -1), 0.5, LINE),
+                             ("LEFTPADDING", (0, 0), (-1, -1), 8), ("TOPPADDING", (0, 0), (-1, -1), 6),
+                             ("BOTTOMPADDING", (0, 0), (-1, -1), 8)]))
+    story += [box, Spacer(1, 8 * mm)]
+
+    rows = [[_p("Concepto devuelto", st["label"]), _p("Cant.", st["label_r"]), _p("Base", st["label_r"])]]
+    for item in refund["items"]:
+        rows.append([_p(item["name"], st["base"]), _p(f"−{item['quantity']}", st["right"]),
+                     _p(f"−{money(item['net_amount'])}", st["right"])])
+    lines = Table(rows, colWidths=[110 * mm, 25 * mm, 35 * mm], repeatRows=1)
+    lines.setStyle(TableStyle([
+        ("LINEBELOW", (0, 0), (-1, 0), 1, INK), ("LINEBELOW", (0, 1), (-1, -1), 0.4, LINE),
+        ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+    ]))
+    story += [lines, Spacer(1, 6 * mm)]
+    total_rows = [[_p("Base imponible", st["base"]), _p(f"−{money(refund['base'])}", st["right"])],
+                  [_p(f"IVA ({refund['tax_rate']:g} %)", st["base"]), _p(f"−{money(refund['tax'])}", st["right"])],
+                  [_p("TOTAL", st["doc"]), _p(f"−{money(refund['total'])}", st["doc"])]]
+    table = Table(total_rows, colWidths=[45 * mm, 40 * mm], hAlign="RIGHT")
+    table.setStyle(TableStyle([
+        ("LINEABOVE", (0, -1), (-1, -1), 1.5, accent),
+        ("TOPPADDING", (0, 0), (-1, -1), 3), ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+    ]))
+    story += [table, Spacer(1, 10 * mm),
+              _p(f"Devolución {refund['number']} · Ticket original {refund['sale_number']} · "
+                 f"Importe devuelto por {refund['method']}", st["muted"])]
+    return _build(story, f"Factura rectificativa {note['number']}")

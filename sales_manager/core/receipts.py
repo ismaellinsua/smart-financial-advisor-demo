@@ -108,3 +108,28 @@ def receipt_html(sale: dict, settings: dict) -> str:
 <div class="pay muted">{paid}{points}</div>
 <footer class="muted">{escape(settings.get('receipt_footer', ''))}</footer>
 </div></body></html>"""
+
+
+def refund_receipt_html(refund: dict, settings: dict) -> str:
+    """Simple printable proof of a return for the customer."""
+    symbol = CURRENCIES.get(settings.get("currency", "EUR"), "€")
+    money = lambda v: format_money(v, symbol)  # noqa: E731
+    when = datetime.fromisoformat(refund["created_at"]).strftime("%d/%m/%Y %H:%M")
+    rows = "".join(f"<tr><td>{escape(i['name'])}</td><td class='n'>{i['quantity']}</td>"
+                   f"<td class='n'>−{money(i['net_amount'])}</td></tr>" for i in refund["items"])
+    note = (f"<p>Factura rectificativa: <b>{escape(refund['credit_note']['number'])}</b></p>"
+            if refund.get("credit_note") else "")
+    return f"""<!doctype html><html lang="es"><head><meta charset="utf-8">
+<title>{escape(refund['number'])}</title>
+<style>body {{ font-family: Arial, sans-serif; max-width: 560px; margin: 32px auto; color: #1b2430; }}
+table {{ width: 100%; border-collapse: collapse; }} td, th {{ padding: 6px 0; border-bottom: 1px solid #eee; }}
+.n {{ text-align: right; }} .total {{ font-size: 20px; font-weight: 700; text-align: right; margin-top: 12px; }}
+.muted {{ color: #667085; font-size: 13px; }}</style></head><body>
+<h2>{escape(settings.get('business_name', ''))}</h2>
+<p><b>Devolución {escape(refund['number'])}</b> · {when}<br>
+<span class="muted">Ticket original {escape(refund['sale_number'])} · Motivo: {escape(refund['reason'])}</span></p>
+<table><tr><th align="left">Concepto</th><th class="n">Cant.</th><th class="n">Base</th></tr>{rows}</table>
+<p class="muted">IVA: −{money(refund['tax'])}</p>
+<div class="total">Devuelto: {money(refund['total'])}</div>
+<p class="muted">Forma de devolución: {escape(refund['method'])}</p>{note}
+</body></html>"""

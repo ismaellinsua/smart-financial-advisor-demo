@@ -12,8 +12,8 @@ from core import automation
 from core.db import SaleError
 from core.presets import CURRENCIES, PAYMENT_METHODS, PRESETS
 from core.security import ROLES, csv_safe
-from core.pdfs import cash_closing_pdf, invoice_pdf
-from core.receipts import receipt_html
+from core.pdfs import cash_closing_pdf, credit_note_pdf, invoice_pdf
+from core.receipts import receipt_html, refund_receipt_html
 from ui.checkout import checkout_panel
 from ui.context import PAGES, ctx, get_store
 from ui.styles import insight, page_header, style_figure
@@ -120,7 +120,8 @@ def dashboard() -> None:
     start, end, prev_start = automation.period_bounds(period)
     sales = c.store.sales(start=prev_start)
     lines = c.store.sale_lines(start=prev_start)
-    k = automation.kpis(sales, lines, start, end, prev_start)
+    refunds = c.store.refunds(start=prev_start)
+    k = automation.kpis(sales, lines, start, end, prev_start, refunds)
 
     m1, m2, m3, m4 = st.columns(4)
     vs = f"Variación frente a los {period} días anteriores."
@@ -138,6 +139,9 @@ def dashboard() -> None:
         st.markdown("**Facturación diaria**")
         days = pd.date_range(start.date(), date.today(), freq="D")
         daily = cur_sales.groupby(cur_sales["created_at"].dt.normalize())["total"].sum().reindex(days, fill_value=0)
+        if not refunds.empty:  # returns lower the day they were made
+            back = refunds.groupby(refunds["created_at"].dt.normalize())["total"].sum()
+            daily = daily.sub(back.reindex(days, fill_value=0), fill_value=0)
         fig = go.Figure(go.Bar(
             x=daily.index, y=daily.values, marker_color=accent,
             hovertemplate="%{x|%d/%m/%Y}<br><b>%{y:,.2f} " + c.symbol + "</b><extra></extra>",
@@ -406,16 +410,18 @@ def _invoice_dialog(sale_id: int) -> None:
 
 def history() -> None:
     c = ctx()
-    page_header("Historial de ventas", "Consulta ventas, reimprime tickets, emite facturas o anula ventas.",
-                eyebrow="Ventas")
+    page_header("Historial de ventas", "Consulta ventas, reimprime tickets, emite facturas, devuelve productos "
+                "o anula ventas.", eyebrow="Ventas")
     if not c.can("encargado"):
         _history_sales(c)  # staff: look up and reprint tickets only
         return
-    sales_tab, invoices_tab = st.tabs(["Ventas", "Facturas"])
+    sales_tab, invoices_tab, refunds_tab = st.tabs(["Ventas", "Facturas", "Devoluciones"])
     with sales_tab:
         _history_sales(c)
     with invoices_tab:
         _history_invoices(c)
+    with refunds_tab:
+        _history_refunds(c)
 
 
 def _history_sales(c) -> None:
@@ -492,12 +498,95 @@ def _history_sales(c) -> None:
         elif b.button("Emitir factura", disabled=sale["status"] != "completada" or not c.can("encargado"),
                       use_container_width=True, icon=":material/request_quote:"):
             _invoice_dialog(sale["id"])
-        if d.button("Anular venta", disabled=sale["status"] == "anulada" or bool(invoice) or not c.can("encargado"),
-                    use_container_width=True, icon=":material/block:",
-                    help="Las ventas facturadas no se anulan aquí." if invoice else None):
-            _confirm_cancel(sale["id"], sale["number"])
+        past_refunds = c.store.sale_refunds(sale["id"])
+        if past_refunds:
+            st.caption("Devoluciones: " + " · ".join(
+                f"{r['number']} ({c.money(r['total'])})" + (f", rectificativa {r['credit_note']['number']}"
+                                                          if r["credit_note"] else "") for r in past_refunds))
+        if d.button("Devolver productos", disabled=sale["status"] != "completada" or not c.can("encargado"),
+                    use_container_width=True, icon=":material/undo:"):
+            _refund_dialog(sale["id"])
+        if c.can("encargado") and sale["status"] == "completada" and not invoice and not past_refunds:
+            if st.button("Anular la venta completa", icon=":material/block:", type="tertiary"):
+                _confirm_cancel(sale["id"], sale["number"])
 
 
+
+
+@st.dialog("Devolver productos")
+def _refund_dialog(sale_id: int) -> None:
+    c = ctx()
+    if not c.can("encargado"):
+        st.error("Solo un encargado o el administrador puede registrar devoluciones.")
+        return
+    sale = c.store.sale(sale_id)
+    st.caption(f"Venta {sale['number']} · {c.money(sale['total'])}. Elige cuántas unidades devuelves de cada producto.")
+    quantities = {}
+    for item in c.store.returnable(sale_id):
+        if item["remaining"] <= 0:
+            st.caption(f"{item['name']}: ya devuelto por completo.")
+            continue
+        quantities[item["id"]] = st.number_input(
+            f"{item['name']} (quedan {item['remaining']} de {item['quantity']})", 0, int(item["remaining"]), 0,
+            key=f"refund_{sale_id}_{item['id']}")
+    methods = [m for m in PAYMENT_METHODS]
+    default = sale["payments"][0]["method"] if sale.get("payments") else sale["payment_method"]
+    method = st.selectbox("Devolver el dinero por", methods,
+                          index=methods.index(default) if default in methods else 0, key=f"refund_m_{sale_id}")
+    reason = st.text_input("Motivo", max_chars=500, placeholder="Ej.: talla equivocada, producto defectuoso…",
+                           key=f"refund_r_{sale_id}")
+    if c.store.invoice_for_sale(sale_id):
+        st.info("La venta está facturada: se emitirá una factura rectificativa automáticamente.",
+                icon=":material/request_quote:")
+    slot = st.empty()
+    if slot.button("Registrar devolución", type="primary", use_container_width=True, icon=":material/undo:",
+                   disabled=not any(quantities.values())):
+        try:
+            refund = c.store.create_refund(sale_id, quantities, method, reason, user_name=c.who)
+        except (ValueError, SaleError) as exc:
+            st.error(str(exc))
+            return
+        slot.empty()
+        c.store.audit(c.username, "devolucion", f"{refund['number']} · {sale['number']} · {refund['total']:.2f}")
+        st.success(f"Devolución **{refund['number']}** registrada: {c.money(refund['total'])} por {method}.")
+        st.download_button("Justificante de devolución", refund_receipt_html(refund, c.settings),
+                           f"{refund['number']}.html", "text/html", icon=":material/receipt_long:",
+                           use_container_width=True)
+        if refund["credit_note"]:
+            note = c.store.credit_note(refund["id"])
+            st.download_button(f"Factura rectificativa {note['number']} (PDF)", credit_note_pdf(note, c.settings),
+                               f"{note['number']}.pdf", "application/pdf", type="primary",
+                               icon=":material/request_quote:", use_container_width=True)
+
+
+def _history_refunds(c) -> None:
+    df = c.store.refunds()
+    if df.empty:
+        st.info("Sin devoluciones. Se registran desde una venta del Historial con «Devolver productos».")
+        return
+    event = st.dataframe(
+        df, hide_index=True, use_container_width=True, on_select="rerun", selection_mode="single-row",
+        key="refunds_table",
+        column_order=["number", "created_at", "sale_number", "reason", "method", "total", "credit_note", "user_name"],
+        column_config={
+            "number": "Devolución", "created_at": st.column_config.DatetimeColumn("Fecha", format="DD/MM/YYYY HH:mm"),
+            "sale_number": "Ticket", "reason": "Motivo", "method": "Devuelto por",
+            "total": st.column_config.NumberColumn("Importe", format=f"%.2f {c.symbol}"),
+            "credit_note": "Rectificativa", "user_name": "Registró",
+        },
+    )
+    st.download_button("Exportar devoluciones a CSV", _csv(df.drop(columns=["id"])), "devoluciones.csv", "text/csv",
+                       icon=":material/download:")
+    if event.selection.rows:
+        refund = c.store.refund(int(df.iloc[event.selection.rows[0]]["id"]))
+        a, b = st.columns(2)
+        a.download_button("Justificante", refund_receipt_html(refund, c.settings), f"{refund['number']}.html",
+                          "text/html", icon=":material/receipt_long:", use_container_width=True)
+        if refund["credit_note"]:
+            note = c.store.credit_note(refund["id"])
+            b.download_button(f"Rectificativa {note['number']}", credit_note_pdf(note, c.settings),
+                              f"{note['number']}.pdf", "application/pdf", icon=":material/request_quote:",
+                              use_container_width=True)
 
 
 def _history_invoices(c) -> None:
@@ -551,12 +640,16 @@ def cash_page() -> None:
         st.markdown("**Por forma de pago**")
         if summary["breakdown"]:
             df = pd.DataFrame(
-                [{"method": m, "count": e["count"], "total": e["total"]} for m, e in summary["breakdown"].items()]
+                [{"method": m, "count": e["count"], "refunded": e.get("refunded", 0.0), "total": e["total"]}
+                 for m, e in summary["breakdown"].items()]
             ).sort_values("total", ascending=False)
-            st.dataframe(df, hide_index=True, use_container_width=True, column_config={
-                "method": "Forma de pago", "count": "Ventas",
-                "total": st.column_config.NumberColumn("Importe", format=f"%.2f {c.symbol}"),
-            })
+            st.dataframe(df, hide_index=True, use_container_width=True,
+                         column_order=["method", "count", *(["refunded"] if summary["refunded"] else []), "total"],
+                         column_config={
+                             "method": "Forma de pago", "count": "Cobros",
+                             "refunded": st.column_config.NumberColumn("Devuelto", format=f"%.2f {c.symbol}"),
+                             "total": st.column_config.NumberColumn("Neto", format=f"%.2f {c.symbol}"),
+                         })
         else:
             st.caption("No hay ventas este día.")
         if summary["cancelled"]:

@@ -21,14 +21,21 @@ def _pct_change(current: float, previous: float):
     return (current - previous) / previous * 100
 
 
-def kpis(sales: pd.DataFrame, lines: pd.DataFrame, start: datetime, end: datetime, prev_start: datetime) -> dict:
-    """Headline numbers for the window [start, end) compared with [prev_start, start)."""
+def kpis(sales: pd.DataFrame, lines: pd.DataFrame, start: datetime, end: datetime, prev_start: datetime,
+         refunds: pd.DataFrame | None = None) -> dict:
+    """Headline numbers for the window [start, end) compared with [prev_start, start), net of returns."""
     done = sales[sales["status"] == "completada"]
     cur = done[(done["created_at"] >= start) & (done["created_at"] < end)]
     prev = done[(done["created_at"] >= prev_start) & (done["created_at"] < start)]
     cur_lines = lines[(lines["created_at"] >= start) & (lines["created_at"] < end)]
 
-    revenue, prev_revenue = cur["total"].sum(), prev["total"].sum()
+    def returned(lo, hi) -> float:
+        if refunds is None or refunds.empty:
+            return 0.0
+        return float(refunds[(refunds["created_at"] >= lo) & (refunds["created_at"] < hi)]["total"].sum())
+
+    revenue = cur["total"].sum() - returned(start, end)
+    prev_revenue = prev["total"].sum() - returned(prev_start, start)
     count, prev_count = len(cur), len(prev)
     ticket = revenue / count if count else 0.0
     prev_ticket = prev_revenue / prev_count if prev_count else 0.0

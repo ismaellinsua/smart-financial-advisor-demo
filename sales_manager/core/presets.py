@@ -126,6 +126,7 @@ DEFAULT_SETTINGS = {
     "reorder_lead_days": "14",
     "receipt_footer": "Gracias por su compra.",
     "invoice_series": "FAC",
+    "refund_prefix": "DEV",
     "agenda_enabled": "auto",
     "opening_float": "150",
     "session_minutes": "720",

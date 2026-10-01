@@ -19,6 +19,7 @@ import pandas as pd
 
 from .presets import DEFAULT_SETTINGS, PAYMENT_METHODS, PRESETS
 from .pricing import PROMO_KINDS, PROMO_SCOPES, apply_promotions, compute_totals
+from .store_refunds import RefundsMixin
 from .security import (
     DUMMY_HASH, ROLE_RANK, ROLES, USERNAME_RE, check_secret_strength, clean_text, hash_secret, is_safe_identifier,
     verify_secret,
@@ -141,6 +142,37 @@ CREATE TABLE IF NOT EXISTS loyalty_moves (
 );
 CREATE INDEX IF NOT EXISTS idx_payments_sale ON sale_payments(sale_id);
 CREATE INDEX IF NOT EXISTS idx_loyalty_customer ON loyalty_moves(customer_id);
+CREATE TABLE IF NOT EXISTS refunds (
+    id {pk},
+    number TEXT UNIQUE NOT NULL,
+    sale_id INTEGER NOT NULL REFERENCES sales(id),
+    created_at TEXT NOT NULL,
+    user_name TEXT NOT NULL DEFAULT '',
+    reason TEXT NOT NULL DEFAULT '',
+    method TEXT NOT NULL,
+    base {real} NOT NULL,
+    tax {real} NOT NULL,
+    total {real} NOT NULL
+);
+CREATE TABLE IF NOT EXISTS refund_items (
+    id {pk},
+    refund_id INTEGER NOT NULL REFERENCES refunds(id) ON DELETE CASCADE,
+    sale_item_id INTEGER NOT NULL REFERENCES sale_items(id),
+    product_id INTEGER NOT NULL REFERENCES products(id),
+    name TEXT NOT NULL,
+    quantity INTEGER NOT NULL CHECK (quantity > 0),
+    net_amount {real} NOT NULL,
+    unit_cost {real} NOT NULL
+);
+CREATE TABLE IF NOT EXISTS credit_notes (
+    id {pk},
+    number TEXT UNIQUE NOT NULL,
+    invoice_id INTEGER NOT NULL REFERENCES invoices(id),
+    refund_id INTEGER UNIQUE NOT NULL REFERENCES refunds(id),
+    issued_at TEXT NOT NULL,
+    issued_by TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS idx_refunds_sale ON refunds(sale_id);
 CREATE TABLE IF NOT EXISTS users (
     id {pk},
     username TEXT UNIQUE NOT NULL,
@@ -193,7 +225,7 @@ MAX_LOCKOUT_MINUTES = 24 * 60
 
 # Insertion order respects foreign keys; deletion goes in reverse.
 DATA_TABLES = ["products", "customers", "sales", "sale_items", "invoices", "appointments", "cash_closings",
-               "sale_payments", "promotions", "loyalty_moves"]
+               "sale_payments", "promotions", "loyalty_moves", "refunds", "refund_items", "credit_notes"]
 ALL_TABLES = ["settings", *DATA_TABLES]
 # Tables any backup must have; newer ones are created when an older backup is opened.
 CORE_TABLES = {"settings", "products", "customers", "sales", "sale_items"}
@@ -374,7 +406,8 @@ def _is_postgres(target) -> bool:
 
 
 # ----------------------------------------------------------------------------- store
-class Store:
+class Store(RefundsMixin):
+    SaleError = SaleError
     def __init__(self, path=DEFAULT_DB_PATH):
         self.db = _Postgres(str(path)) if _is_postgres(path) else _SQLite(str(path))
         with self.db.tx() as cur:
@@ -754,6 +787,8 @@ class Store:
             sale = cur.execute("SELECT status FROM sales WHERE id = ?", (sale_id,)).fetchone()
             if sale is None or sale["status"] == "anulada":
                 raise SaleError("La venta no existe o ya está anulada.")
+            if cur.execute("SELECT id FROM refunds WHERE sale_id = ?", (sale_id,)).fetchone():
+                raise SaleError("Esta venta tiene devoluciones: usa «Devolver» para el resto de unidades.")
             invoice = cur.execute("SELECT number FROM invoices WHERE sale_id = ?", (sale_id,)).fetchone()
             if invoice:
                 raise SaleError(
@@ -812,22 +847,34 @@ class Store:
         return df
 
     def sale_lines(self, start: datetime | None = None, end: datetime | None = None) -> pd.DataFrame:
-        """Line-level data of completed sales, with margin, for analytics."""
+        """Line-level data of completed sales, with margin, for analytics. Returns appear as negative lines on
+        the day they happened, so revenue, margins and demand are always net of returns."""
+        def window(column: str) -> tuple[str, list]:
+            sql, params = "", []
+            if start:
+                sql += f" AND {column} >= ?"
+                params.append(start.isoformat(timespec="seconds"))
+            if end:
+                sql += f" AND {column} < ?"
+                params.append(end.isoformat(timespec="seconds"))
+            return sql, params
+
+        sold_where, sold_params = window("s.created_at")
+        back_where, back_params = window("r.created_at")
         sql = (
-            "SELECT i.*, s.created_at, s.customer_id, s.discount_pct, p.category, "
+            "SELECT i.sale_id, i.product_id, i.name, i.quantity, i.unit_price, i.unit_cost, s.created_at, "
+            "s.customer_id, s.discount_pct, p.category, "
             "COALESCE(i.net_amount, i.quantity * i.unit_price * (1 - s.discount_pct / 100.0)) AS revenue, "
             "i.quantity * i.unit_cost AS cost "
             "FROM sale_items i JOIN sales s ON s.id = i.sale_id "
-            "JOIN products p ON p.id = i.product_id WHERE s.status = 'completada'"
+            "JOIN products p ON p.id = i.product_id WHERE s.status = 'completada'" + sold_where +
+            " UNION ALL "
+            "SELECT r.sale_id, ri.product_id, ri.name, -ri.quantity, 0, ri.unit_cost, r.created_at, "
+            "s.customer_id, 0, p.category, -ri.net_amount, -(ri.quantity * ri.unit_cost) "
+            "FROM refund_items ri JOIN refunds r ON r.id = ri.refund_id JOIN sales s ON s.id = r.sale_id "
+            "JOIN products p ON p.id = ri.product_id WHERE 1 = 1" + back_where
         )
-        params: list = []
-        if start:
-            sql += " AND s.created_at >= ?"
-            params.append(start.isoformat(timespec="seconds"))
-        if end:
-            sql += " AND s.created_at < ?"
-            params.append(end.isoformat(timespec="seconds"))
-        df = self._frame(sql, params)
+        df = self._frame(sql, [*sold_params, *back_params])
         df["created_at"] = pd.to_datetime(df["created_at"])
         # An empty result comes back with object columns; keep numeric types so analytics work with no sales.
         numeric = ["quantity", "unit_price", "unit_cost", "discount_pct", "revenue", "cost"]
@@ -1024,12 +1071,18 @@ class Store:
             entry = breakdown.setdefault(r["method"], {"count": 0, "total": 0.0})
             entry["count"] += 1
             entry["total"] = round(entry["total"] + float(r["amount"]), 2)
+        refunds = self.refunds_by_method(day)
+        for method, amount in refunds.items():
+            entry = breakdown.setdefault(method, {"count": 0, "total": 0.0})
+            entry["refunded"] = amount
+            entry["total"] = round(entry["total"] - amount, 2)  # net of what was handed back
         return {
             "breakdown": breakdown,
             "count": len(completed),
             "total": round(sum(e["total"] for e in breakdown.values()), 2),
             "cash": breakdown.get("Efectivo", {}).get("total", 0.0),
             "cancelled": len(cancelled),
+            "refunded": round(sum(refunds.values()), 2),
         }
 
     def close_cash(
