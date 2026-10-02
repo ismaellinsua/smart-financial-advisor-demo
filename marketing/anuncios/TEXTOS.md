@@ -8,12 +8,25 @@ Todo listo para publicar cuando tengas la web y el contacto activos. Las imágen
 | `*-historia.png` | 1080 × 1920 | Historias de Instagram/Facebook, estados de WhatsApp, TikTok |
 | `*-horizontal.png` | 1200 × 628 | Facebook, LinkedIn, Google y anuncios con enlace |
 
-Campañas: `general`, `restaurante`, `tienda`, `autonomo` y `online`.
+Campañas por tipo de negocio: `general`, `restaurante`, `tienda`, `autonomo` y `online`.
+Campañas por función: `cobro`, `cocina`, `caja`, `equipo`, `promociones` e `informe`.
+
+### Vídeos (carpeta `video/`)
+
+| Archivo | Tamaño | Dónde se usa |
+|---|---|---|
+| `*-reel.mp4` | 1080 × 1920, 17 s | Reels, TikTok, historias, estados de WhatsApp, Shorts de YouTube |
+| `*-feed.mp4` | 1080 × 1350, 17 s | Publicación con vídeo en Instagram, Facebook y LinkedIn |
+| `*.html` | — | El mismo anuncio animado: ábrelo en el navegador para verlo o enseñarlo en una visita (botón «Ver otra vez») |
+
+Vídeos: `general`, `restaurante`, `autonomo` y `tienda`. Van **sin música** a propósito: añádela al publicar desde
+la biblioteca de Instagram o TikTok, que ya tiene los derechos. Usar una canción cualquiera puede hacer que bloqueen el vídeo.
 
 ## Antes de publicar
 
 1. Abre `generar.py` y rellena `CONTACTO` (por ejemplo `"WhatsApp 600 111 222 · nirkana.es"`).
-2. Vuelve a crear las imágenes: `python marketing/anuncios/generar.py`. Si estás en un entorno con Playwright y Chromium ya instalados en otra ruta, usa `CHROMIUM_PATH=/ruta/a/chromium`.
+2. Vuelve a crear las imágenes y los vídeos: `python marketing/anuncios/generar.py` y `python marketing/anuncios/video.py`
+   (los vídeos tardan unos 40 segundos cada uno; necesitas también ffmpeg). Si estás en un entorno con Playwright y Chromium ya instalados en otra ruta, usa `CHROMIUM_PATH=/ruta/a/chromium`.
 3. En los textos de abajo, cambia **[ENLACE]** por la dirección de tu web.
 
 ## Textos para cada red
@@ -97,6 +110,63 @@ Campañas: `general`, `restaurante`, `tienda`, `autonomo` y `online`.
 > Pide tu demo gratuita 👉 [ENLACE]
 >
 > #ecommerce #tiendaonline #vendeonline #emprendedores
+
+### Cobrar rápido (`cobro`)
+
+> Cobra en segundos, sin líos con el cambio 💳
+>
+> Toca los productos, elige la forma de pago y listo: tarjeta, efectivo, Bizum o pago mixto. La app calcula el cambio, divide la cuenta y te da el ticket o la factura en PDF.
+>
+> Pide tu demo gratuita 👉 [ENLACE]
+
+### Cocina (`cocina`)
+
+> Pedidos a cocina, sin papelitos ni gritos 👨‍🍳
+>
+> Cada comanda aparece en la pantalla de cocina en el orden en que llega, con sus notas («poco hecho», «para compartir»). Y la sala ve al momento qué platos están listos.
+>
+> Pide tu demo gratuita 👉 [ENLACE]
+
+### Cierre de caja (`caja`)
+
+> Cierra la caja en un minuto 🧾
+>
+> La app sabe cuánto efectivo debería haber en el cajón. Tú solo lo cuentas, y si no cuadra te avisa. El cierre queda guardado y firmado.
+>
+> Pide tu demo gratuita 👉 [ENLACE]
+
+### Equipo (`equipo`)
+
+> Un PIN por empleado. Cada venta, firmada 🔐
+>
+> Cada persona entra con su PIN y solo ve lo que le toca: administrador, encargado o empleado. Sabes quién ha vendido, anulado o cerrado la caja.
+>
+> Pide tu demo gratuita 👉 [ENLACE]
+
+### Promociones (`promociones`)
+
+> Happy hour y 2x1 que se aplican solos 🎉
+>
+> Crea la promoción una vez (por día, por horario o «lleva 2, paga 1») y la app la aplica sola al cobrar. Y tus clientes fieles acumulan puntos.
+>
+> Pide tu demo gratuita 👉 [ENLACE]
+
+### Informe semanal (`informe`)
+
+> Cada lunes, cómo va tu negocio 📈
+>
+> Cuánto has vendido, cuál ha sido tu mejor día, qué productos te sostienen y qué deberías cambiar. Explicado en claro, y en PDF para guardarlo.
+>
+> Pide tu demo gratuita 👉 [ENLACE]
+
+## Textos para los vídeos (Reels y TikTok)
+
+Pon poco texto: el vídeo ya lo cuenta.
+
+- **General:** ¿Libreta, Excel y calculadora? Hay una forma más fácil 👇 Demo gratuita en [ENLACE] #pymes #emprendedores #negocios
+- **Restaurante:** Sala, cocina y caja conectadas desde el móvil 🍽️ Demo gratuita en [ENLACE] #hosteleria #restaurantes #bares
+- **Autónomo:** Tu agenda y tus facturas, sin papeles 💼 Demo gratuita en [ENLACE] #autonomos #freelance #emprendedores
+- **Tienda:** Que no se te agote lo que más vendes 🛍️ Demo gratuita en [ENLACE] #comerciolocal #tiendas #retail
 
 ## Mensaje para enviar por WhatsApp (a conocidos y negocios cercanos)
 

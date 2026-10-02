@@ -56,6 +56,48 @@ ANUNCIOS = {
         "puntos": ["Ventas por canal y forma de pago", "Márgenes y precios por producto", "Aviso de clientes que se van"],
         "captura": "30-analisis-abc.png", "recorte": (360, 70, 1020, 720),
     },
+    "cobro": {
+        "etiqueta": "Cobra rápido y sin errores",
+        "titulo": "Cobra en segundos,", "titulo2": "sin líos con el cambio.",
+        "texto": "Toca los productos, elige la forma de pago y listo. La app calcula el cambio por ti.",
+        "puntos": ["Tarjeta, efectivo, Bizum o pago mixto", "Cuenta dividida entre varios", "Ticket y factura en PDF"],
+        "captura": "03-punto-de-venta.png", "recorte": (360, 40, 1020, 720), "movil": "12-movil-vender.png",
+    },
+    "cocina": {
+        "etiqueta": "Para restaurantes y bares",
+        "titulo": "Pedidos a cocina", "titulo2": "sin papelitos ni gritos.",
+        "texto": "Cada comanda aparece en la pantalla de cocina en el orden en que llega.",
+        "puntos": ["Pedidos en orden de llegada", "Notas: «poco hecho», «para compartir»", "La sala ve qué platos están listos"],
+        "captura": "24-cocina.png", "recorte": (360, 80, 1020, 720),
+    },
+    "caja": {
+        "etiqueta": "Cierre de caja",
+        "titulo": "Cierra la caja", "titulo2": "en un minuto.",
+        "texto": "La app sabe cuánto efectivo debería haber en el cajón. Tú solo lo cuentas.",
+        "puntos": ["Ventas por forma de pago", "Aviso si la caja no cuadra", "Informe del cierre guardado y firmado"],
+        "captura": "19-cierre-de-caja.png", "recorte": (360, 80, 1020, 820),
+    },
+    "equipo": {
+        "etiqueta": "Tu equipo, bajo control",
+        "titulo": "Un PIN por empleado.", "titulo2": "Cada venta, firmada.",
+        "texto": "Cada persona entra con su PIN y solo ve lo que le toca.",
+        "puntos": ["Roles: administrador, encargado y empleado", "Registro de quién hace cada cosa", "Ventas por persona en el panel"],
+        "captura": "22-equipo-y-seguridad.png", "recorte": (360, 80, 1020, 700), "movil": "21-acceso-equipo.png",
+    },
+    "promociones": {
+        "etiqueta": "Promociones y puntos",
+        "titulo": "Happy hour y 2x1", "titulo2": "que se aplican solos.",
+        "texto": "Crea la promoción una vez y la app la aplica sola al cobrar, el día y a la hora que digas.",
+        "puntos": ["Descuentos por día y por horario", "Ofertas «lleva 2, paga 1»", "Puntos para tus clientes fieles"],
+        "captura": "26-promociones.png", "recorte": (360, 80, 1020, 720),
+    },
+    "informe": {
+        "etiqueta": "Inteligencia para tu negocio",
+        "titulo": "Cada lunes,", "titulo2": "cómo va tu negocio.",
+        "texto": "Cuánto has vendido, qué ha funcionado y qué deberías cambiar, explicado en claro.",
+        "puntos": ["Ventas y beneficio de la semana", "Tu mejor y tu peor día", "Recomendaciones concretas"],
+        "captura": "32-informe-semanal.png", "recorte": (360, 85, 1020, 780),
+    },
 }
 
 CSS = """

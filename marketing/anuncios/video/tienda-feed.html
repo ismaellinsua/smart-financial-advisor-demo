@@ -1,0 +1,81 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><title>NirKanA · anuncio</title><style>
+@font-face { font-family: Jakarta; src: url("../fuentes/PlusJakartaSans.woff2") format("woff2"); font-weight: 200 800; }
+* { box-sizing: border-box; margin: 0; }
+html, body { width: 1080px; height: 1350px; overflow: hidden; }
+body { font-family: Jakarta, sans-serif; color: #fff; background: #0B1B33; position: relative; --k: 0.8; }
+.fondo { position: absolute; inset: -20%;
+  background: radial-gradient(40% 30% at 80% 10%, #2A3F8F, transparent 70%),
+              radial-gradient(40% 30% at 10% 90%, rgba(20,184,166,.35), transparent 70%),
+              linear-gradient(160deg, #0B1B33, #13265A);
+  animation: deriva 17.4s linear both; }
+@keyframes deriva { to { transform: translate(-6%, 4%) rotate(6deg); } }
+.puntos { position: absolute; inset: 0; opacity: .45;
+  background-image: radial-gradient(rgba(142,162,255,.22) 1.4px, transparent 1.4px); background-size: 34px 34px; }
+.progreso { position: absolute; top: 0; left: 0; height: 8px; width: 100%; transform-origin: left;
+  background: linear-gradient(90deg, #3B5BFD, #6D4BFF, #14B8A6); animation: prog 17.4s linear both; }
+@keyframes prog { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+.esc { position: absolute; inset: 0; display: flex; flex-direction: column; opacity: 0;
+  padding: calc(120px * var(--k)) calc(80px * var(--k)); animation: escena var(--dur) linear var(--ini) both; }
+.esc.ultima { animation-name: escena-final; }
+@keyframes escena { 0% { opacity: 0; } 8% { opacity: 1; } 90% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes escena-final { 0% { opacity: 0; } 10%, 100% { opacity: 1; } }
+.ap { opacity: 0; animation: sube .7s cubic-bezier(.2,.8,.2,1) calc(var(--ini) + var(--d, 0s)) both; }
+@keyframes sube { from { opacity: 0; transform: translateY(50px); } to { opacity: 1; transform: none; } }
+.grad { background: linear-gradient(90deg, #8EA2FF, #5EEAD4); -webkit-background-clip: text; color: transparent; }
+
+.gancho { justify-content: center; }
+.gancho h1 { font-size: calc(104px * var(--k)); font-weight: 800; letter-spacing: -.03em; line-height: 1.08; }
+.gancho h1 span { display: block; }
+
+.logo-esc { justify-content: center; align-items: center; text-align: center; gap: calc(40px * var(--k)); }
+.logo { display: grid; place-items: center; color: #fff; font-weight: 800; border-radius: 26%;
+  background: linear-gradient(135deg, #3B5BFD, #6D4BFF 55%, #14B8A6); box-shadow: 0 20px 60px -10px rgba(59,91,253,.9); }
+.logo-esc .logo { width: calc(200px * var(--k)); height: calc(200px * var(--k)); font-size: calc(120px * var(--k));
+  animation: aparece 1s cubic-bezier(.2,1.4,.3,1) calc(var(--ini) + .1s) both; }
+@keyframes aparece { from { opacity: 0; transform: scale(.4) rotate(-20deg); } to { opacity: 1; transform: none; } }
+.logo-esc .nombre { font-size: calc(110px * var(--k)); font-weight: 800; letter-spacing: -.03em; }
+.logo-esc .lema { font-size: calc(48px * var(--k)); font-weight: 600; color: #B9C4DD; max-width: 18em; line-height: 1.25; }
+.anillo { position: absolute; width: calc(560px * var(--k)); height: calc(560px * var(--k)); border-radius: 50%;
+  border: 2px solid rgba(142,162,255,.3); left: 50%; top: 50%; margin: calc(-280px * var(--k)) 0 0 calc(-280px * var(--k));
+  animation: onda 2.4s ease-out var(--ini) both; }
+@keyframes onda { from { transform: scale(.3); opacity: 1; } to { transform: scale(1.8); opacity: 0; } }
+
+.marca { display: flex; align-items: center; gap: 16px; font-size: calc(40px * var(--k)); font-weight: 800; }
+.marca .logo { width: calc(60px * var(--k)); height: calc(60px * var(--k)); font-size: calc(34px * var(--k)); }
+.num { margin-top: calc(70px * var(--k)); font-size: calc(30px * var(--k)); font-weight: 700; color: #5EEAD4; letter-spacing: .12em; }
+.funcion h2 { margin-top: calc(18px * var(--k)); font-size: calc(80px * var(--k)); font-weight: 800; letter-spacing: -.03em; line-height: 1.05; }
+.funcion p.sub { margin-top: calc(22px * var(--k)); font-size: calc(40px * var(--k)); font-weight: 500; color: #B9C4DD; line-height: 1.3; }
+.zona { flex: 1; display: flex; align-items: center; justify-content: center; perspective: 2200px; }
+.disp { border-radius: 22px; overflow: hidden; background: #fff;
+  box-shadow: 0 60px 100px -30px rgba(0,0,0,.8), 0 0 0 1.5px rgba(255,255,255,.12);
+  animation: entra var(--dur) cubic-bezier(.2,.8,.2,1) var(--ini) both; }
+@keyframes entra { 0% { opacity: 0; transform: translateY(160px) rotateX(24deg) scale(.88); }
+  30% { opacity: 1; transform: rotateX(4deg) scale(.98); } 100% { opacity: 1; transform: rotateX(0) scale(1.04); } }
+.barra { height: 36px; background: #EEF1F7; display: flex; align-items: center; gap: 9px; padding: 0 18px; }
+.barra i { width: 12px; height: 12px; border-radius: 50%; background: #FF6B6B; }
+.barra i + i { background: #FFC24B; } .barra i + i + i { background: #3DD68C; }
+.recorte { position: relative; overflow: hidden; }
+.recorte img { position: absolute; max-width: none; }
+
+.final { justify-content: center; align-items: center; text-align: center; gap: calc(44px * var(--k)); }
+.final .logo { width: calc(130px * var(--k)); height: calc(130px * var(--k)); font-size: calc(78px * var(--k)); }
+.final h2 { font-size: calc(96px * var(--k)); font-weight: 800; letter-spacing: -.03em; line-height: 1.05; }
+.boton { display: inline-block; font-size: calc(46px * var(--k)); font-weight: 800; color: #fff; border-radius: 999px;
+  padding: calc(34px * var(--k)) calc(64px * var(--k)); background: linear-gradient(135deg, #3B5BFD, #6D4BFF 55%, #14B8A6);
+  box-shadow: 0 24px 60px -16px rgba(59,91,253,1); }
+.late { animation: late 1.2s ease-in-out calc(var(--ini) + 1s) infinite; }
+@keyframes late { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+.nota { font-size: calc(36px * var(--k)); color: #9AA6BD; font-weight: 500; }
+
+#otra { position: absolute; right: 24px; bottom: 24px; font: 600 22px Jakarta, sans-serif; color: #fff; cursor: pointer;
+  background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.25); border-radius: 999px; padding: 12px 22px; display: none; }
+body.vivo #otra { display: block; }
+</style></head><body><div class="fondo"></div><div class="puntos"></div><section class="esc gancho" style="--ini:0.0s;--dur:3.2s"><h1><span class="ap" style="--d:0.15s">¿Te enteras de que algo</span><span class="ap" style="--d:0.60s">se ha agotado</span><span class="ap grad" style="--d:1.05s">cuando ya es tarde?</span></h1></section><section class="esc logo-esc" style="--ini:3.2s;--dur:2.4s"><div class="anillo"></div><div class="logo">N</div><div class="nombre ap" style="--d:.35s">NirKanA</div><div class="lema ap" style="--d:.7s">Tu tienda, siempre bajo control.</div></section><section class="esc funcion" style="--ini:5.6s;--dur:2.8s"><div class="marca"><span class="logo">N</span>NirKanA</div><div class="num ap" style="--d:.05s">01 / 03</div><h2 class="ap" style="--d:.15s">Vende con el stock al día</h2><p class="sub ap" style="--d:.3s">Cada venta descuenta del almacén.</p><div class="zona"><div class="disp"><div class="barra"><i></i><i></i><i></i></div><div class="recorte" style="width:850px;height:600px"><img src="../../../docs/screenshots/03-punto-de-venta.png" style="width:1200px;left:-300px;top:-33px" alt=""></div></div></div></section><section class="esc funcion" style="--ini:8.4s;--dur:2.8s"><div class="marca"><span class="logo">N</span>NirKanA</div><div class="num ap" style="--d:.05s">02 / 03</div><h2 class="ap" style="--d:.15s">Te avisa antes de que se agote</h2><p class="sub ap" style="--d:.3s">Y te dice qué pedir según lo que vendes.</p><div class="zona"><div class="disp"><div class="barra"><i></i><i></i><i></i></div><div class="recorte" style="width:850px;height:600px"><img src="../../../docs/screenshots/29-alertas.png" style="width:1200px;left:-300px;top:-58px" alt=""></div></div></div></section><section class="esc funcion" style="--ini:11.2s;--dur:2.8s"><div class="marca"><span class="logo">N</span>NirKanA</div><div class="num ap" style="--d:.05s">03 / 03</div><h2 class="ap" style="--d:.15s">Pide al proveedor en un clic</h2><p class="sub ap" style="--d:.3s">El stock se actualiza solo al recibirlo.</p><div class="zona"><div class="disp"><div class="barra"><i></i><i></i><i></i></div><div class="recorte" style="width:874px;height:600px"><img src="../../../docs/screenshots/27-compras.png" style="width:1234px;left:-309px;top:-69px" alt=""></div></div></div></section><section class="esc final ultima" style="--ini:14.0s;--dur:3.4s"><div class="logo ap" style="--d:.05s">N</div><h2 class="ap" style="--d:.2s">Tu tienda, siempre bajo control.</h2><div class="ap" style="--d:.45s"><span class="boton late">Pide tu demo gratuita →</span></div><p class="nota ap" style="--d:.7s">Demo de 20 minutos, sin compromiso</p></section><div class="progreso"></div><button id="otra">↻ Ver otra vez</button><script>
+// Al abrir el archivo en el navegador, el anuncio se reproduce solo y se puede repetir.
+if (!navigator.webdriver) {
+  document.body.classList.add("vivo");
+  document.getElementById("otra").onclick = () =>
+    document.getAnimations().forEach((a) => { a.currentTime = 0; a.play(); });
+}
+</script></body></html>
