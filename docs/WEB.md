@@ -9,7 +9,7 @@ frecuentes y contacto. Está en esta carpeta `docs/`:
 | `privacidad.html` | Aviso de privacidad (RGPD) |
 | `assets/site.css` | Diseño (claro y oscuro, efectos 3D) |
 | `assets/site.js` | Contacto, formulario y efectos 3D |
-| `assets/img/` | Capturas de la app optimizadas |
+| `assets/img/` | Capturas de la app optimizadas (`shots/`: `*-c.webp` recortadas para tarjetas, `*.webp` completas para ampliar) |
 
 ## Cambiar tus datos de contacto
 

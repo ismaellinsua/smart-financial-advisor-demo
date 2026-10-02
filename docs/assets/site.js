@@ -84,21 +84,12 @@ const MESSAGE = "Hola, me interesa NirKanA para mi negocio. ¿Podemos ver una de
     });
   }
 
-  // ------------------------------------------------------------ flip cards (work without motion too)
-  document.querySelectorAll(".flip").forEach((card) => {
-    const toggle = () => card.classList.toggle("on");
-    card.addEventListener("click", toggle);
-    card.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); }
-    });
-  });
-
   // ------------------------------------------------------------ scroll story: device follows the text
   const steps = [...document.querySelectorAll(".step-card")];
   const shots = [...document.querySelectorAll(".screens img")];
   const dots = [...document.querySelectorAll(".dots i")];
   const device = document.querySelector(".device");
-  const angles = [-14, 14, -10];
+  const angles = [-12, 12, -8, 10];
   const show = (i) => {
     steps.forEach((el, k) => el.classList.toggle("active", k === i));
     shots.forEach((el, k) => el.classList.toggle("on", k === i));
@@ -113,7 +104,7 @@ const MESSAGE = "Hola, me interesa NirKanA para mi negocio. ¿Podemos ver una de
     show(0);
   }
 
-  // ------------------------------------------------------------ counters (supporting "1000+", "20", etc)
+  // ------------------------------------------------------------ counters (supports a suffix such as "25+")
   const counters = document.querySelectorAll("[data-count]");
   const count = (el) => {
     const text = el.dataset.count || "0";
@@ -136,84 +127,126 @@ const MESSAGE = "Hola, me interesa NirKanA para mi negocio. ¿Podemos ver una de
     counters.forEach((el) => io.observe(el));
   }
 
-  // ------------------------------------------------------------ impact cards tilt
-  document.querySelectorAll(".impact-card").forEach((card) => {
-    if (!finePointer) return;
-    card.addEventListener("pointermove", (e) => {
-      const r = card.getBoundingClientRect();
-      const x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
-      card.style.setProperty("--rx", `${((x - 0.5) * 8).toFixed(2)}deg`);
-      card.style.setProperty("--ry", `${((0.5 - y) * 8).toFixed(2)}deg`);
+  // ------------------------------------------------------------ sector tabs (ARIA tabs with arrow keys)
+  const tabs = [...document.querySelectorAll('[role="tab"]')];
+  const selectTab = (tab, focus) => {
+    tabs.forEach((t) => {
+      const on = t === tab;
+      t.setAttribute("aria-selected", String(on));
+      t.tabIndex = on ? 0 : -1;
+      const panel = document.getElementById(t.getAttribute("aria-controls"));
+      panel.hidden = !on;
+      if (on && !reduceMotion) { panel.classList.remove("enter"); void panel.offsetWidth; panel.classList.add("enter"); }
     });
-    card.addEventListener("pointerleave", () => {
-      card.style.setProperty("--rx", "0deg");
-      card.style.setProperty("--ry", "0deg");
+    if (focus) tab.focus();
+  };
+  tabs.forEach((tab, i) => {
+    tab.addEventListener("click", () => selectTab(tab));
+    tab.addEventListener("keydown", (e) => {
+      const step = { ArrowRight: 1, ArrowLeft: -1 }[e.key];
+      if (step) { e.preventDefault(); selectTab(tabs[(i + step + tabs.length) % tabs.length], true); }
+    });
+  });
+  document.querySelectorAll("[data-tab]").forEach((link) => {
+    link.addEventListener("click", () => { const t = document.getElementById(link.dataset.tab); if (t) selectTab(t); });
+  });
+
+  // Each sector shows three screens: the thumbnails swap the big one.
+  document.querySelectorAll(".panel").forEach((panel) => {
+    const big = panel.querySelector(".browser");
+    const main = big.querySelector(".main");
+    const label = big.querySelector(".chrome > span");
+    panel.querySelectorAll(".thumbs button").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        panel.querySelectorAll(".thumbs button").forEach((b) => b.classList.toggle("on", b === btn));
+        big.dataset.full = btn.dataset.full;
+        main.classList.add("swap");
+        setTimeout(() => {
+          main.src = btn.dataset.src;
+          main.alt = btn.dataset.alt;
+          label.textContent = `nirkana · ${btn.textContent.trim().toLowerCase()}`;
+          main.classList.remove("swap");
+        }, reduceMotion ? 0 : 200);
+      });
     });
   });
 
-  // ------------------------------------------------------------ ROI calculator (benefits only, no prices)
-  const benefitsData = {
-    restaurant: { timeHours: 140, errors: 600, sales: 2500 },
-    retail: { timeHours: 100, errors: 350, sales: 1200 },
-    autonomo: { timeHours: 80, errors: 200, sales: 800 },
-    ecommerce: { timeHours: 110, errors: 400, sales: 1800 }
-  };
-  const updateROI = (type) => {
-    const data = benefitsData[type] || benefitsData.restaurant;
-    const totalBenefit = data.timeHours + data.errors + data.sales;
-
-    document.getElementById("time-hours").textContent = data.timeHours;
-    document.getElementById("errors-value").textContent = `€${data.errors}`;
-    document.getElementById("sales-value").textContent = `+€${data.sales}`;
-    document.getElementById("total-value").textContent = `€${totalBenefit}`;
-    document.getElementById("time-detail").textContent = `${data.timeHours} horas`;
-    document.getElementById("errors-detail").textContent = `€${data.errors}`;
-    document.getElementById("sales-detail").textContent = `+€${data.sales}`;
-    document.getElementById("net-value").textContent = `€${totalBenefit}`;
-  };
-  const businessType = document.getElementById("business-type");
-  if (businessType) {
-    businessType.addEventListener("change", (e) => updateROI(e.target.value));
-    updateROI("restaurant");
-  }
-
-  // ------------------------------------------------------------ parallax: images shift on scroll
-  if (!reduceMotion) {
-    const showcaseImgs = document.querySelectorAll(".showcase-img img");
-    if (showcaseImgs.length && "IntersectionObserver" in window) {
-      let frame = 0;
-      const parallaxFn = () => {
-        cancelAnimationFrame(frame);
-        frame = requestAnimationFrame(() => {
-          showcaseImgs.forEach((img) => {
-            const rect = img.getBoundingClientRect();
-            const progress = (window.innerHeight - rect.top) / (window.innerHeight + rect.height);
-            const shift = Math.max(-30, Math.min(30, (progress - 0.5) * 60));
-            img.style.transform = `translateY(${shift}px) scale(1.05)`;
-          });
-        });
-      };
-      window.addEventListener("scroll", parallaxFn, { passive: true });
-    }
-  }
-
-  // ------------------------------------------------------------ scroll reveal: sections fade in
-  if ("IntersectionObserver" in window && !reduceMotion) {
-    document.querySelectorAll("section").forEach((section, i) => {
-      section.style.opacity = "0";
-      section.style.transform = "translateY(20px)";
-      section.style.transition = `opacity .6s ease ${i * 0.05}s, transform .6s ease ${i * 0.05}s`;
-      const io = new IntersectionObserver((entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.style.opacity = "1";
-            entry.target.style.transform = "translateY(0)";
-            io.unobserve(entry.target);
-          }
-        });
-      }, { threshold: 0.1 });
-      io.observe(section);
+  // ------------------------------------------------------------ lightbox: any screenshot opens full size
+  const lightbox = document.getElementById("lightbox");
+  if (lightbox && typeof lightbox.showModal === "function") {
+    const lbImg = lightbox.querySelector("img");
+    const lbCap = lightbox.querySelector(".lb-cap");
+    document.querySelectorAll(".zoomable").forEach((el) => {
+      el.addEventListener("click", () => {
+        const img = el.querySelector("img");
+        lbImg.src = el.dataset.full;
+        lbImg.alt = img ? img.alt : "";
+        const cap = el.querySelector(".cap b");
+        lbCap.textContent = cap ? cap.textContent : lbImg.alt;
+        lightbox.showModal();
+      });
     });
+    lightbox.querySelector(".lb-close").addEventListener("click", () => lightbox.close());
+    lightbox.addEventListener("click", (e) => { if (e.target === lightbox) lightbox.close(); });
+  }
+
+  // ------------------------------------------------------------ value calculator (estimates, no prices)
+  // Share of admin time automated and share of sales recovered from mistakes, by sector. Kept deliberately modest.
+  const SECTORS = {
+    restaurant: { save: 0.5, leak: 0.01 },
+    retail: { save: 0.45, leak: 0.008 },
+    services: { save: 0.35, leak: 0.004 },
+    online: { save: 0.4, leak: 0.006 },
+  };
+  const euros = (v) => `${String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ".")} €`;
+  const calc = document.getElementById("calc");
+  if (calc) {
+    const $ = (id) => document.getElementById(id);
+    const ranges = calc.querySelectorAll('input[type="range"]');
+    const update = () => {
+      const s = SECTORS[$("c-type").value] || SECTORS.restaurant;
+      const sales = Number($("c-sales").value), hours = Number($("c-hours").value), rate = Number($("c-rate").value);
+      ranges.forEach((r) => r.style.setProperty("--fill", `${((r.value - r.min) / (r.max - r.min)) * 100}%`));
+      $("o-sales").textContent = euros(sales);
+      $("o-hours").textContent = `${hours} h`;
+      $("o-rate").textContent = euros(rate);
+      const saved = hours * 4.33 * s.save;
+      const timeValue = saved * rate;
+      const loss = sales * s.leak;
+      $("r-hours").textContent = `${Math.round(saved)} h`;
+      $("r-time").textContent = euros(timeValue);
+      $("r-loss").textContent = euros(loss);
+      $("r-year").textContent = euros((timeValue + loss) * 12);
+    };
+    calc.addEventListener("input", update);
+    calc.addEventListener("submit", (e) => e.preventDefault());
+    update();
+  }
+
+  // ------------------------------------------------------------ scroll reveal, staggered among siblings
+  if ("IntersectionObserver" in window && !reduceMotion) {
+    document.documentElement.classList.add("reveal");
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) { entry.target.classList.add("in"); io.unobserve(entry.target); }
+      });
+    }, { threshold: 0.12, rootMargin: "0px 0px -40px 0px" });
+    document.querySelectorAll("[data-reveal]").forEach((el) => {
+      const siblings = [...el.parentElement.children].filter((c) => c.hasAttribute("data-reveal"));
+      el.style.setProperty("--d", `${Math.min(siblings.indexOf(el) * 0.07, 0.42)}s`);
+      io.observe(el);
+    });
+  }
+
+  // ------------------------------------------------------------ header: highlight the section in view
+  const navLinks = [...document.querySelectorAll(".top nav a")];
+  if (navLinks.length && "IntersectionObserver" in window) {
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) navLinks.forEach((a) => a.classList.toggle("here", a.hash === `#${entry.target.id}`));
+      });
+    }, { rootMargin: "-45% 0px -50% 0px" });
+    navLinks.forEach((a) => { const s = document.querySelector(a.hash); if (s) io.observe(s); });
   }
 
   // ------------------------------------------------------------ 3D particle orb behind the headline
@@ -340,7 +373,7 @@ const MESSAGE = "Hola, me interesa NirKanA para mi negocio. ¿Podemos ver una de
   if (!finePointer) return;
 
   // ------------------------------------------------------------ cards tilt towards the pointer
-  document.querySelectorAll(".tilt, .flip").forEach((card) => {
+  document.querySelectorAll(".tilt").forEach((card) => {
     card.addEventListener("pointermove", (e) => {
       const r = card.getBoundingClientRect();
       const x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
