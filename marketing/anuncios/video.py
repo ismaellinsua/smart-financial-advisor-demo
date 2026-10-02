@@ -12,7 +12,7 @@ from pathlib import Path
 
 from playwright.sync_api import sync_playwright
 
-from generar import CONTACTO, LLAMADA
+from generar import CONTACTO, LLAMADA, WEB
 
 AQUI = Path(__file__).resolve().parent
 SALIDA = AQUI / "video"
@@ -128,7 +128,7 @@ body { font-family: Jakarta, sans-serif; color: #fff; background: #0B1B33; posit
 .final { justify-content: center; align-items: center; text-align: center; gap: calc(44px * var(--k)); }
 .final .logo { width: calc(130px * var(--k)); height: calc(130px * var(--k)); font-size: calc(78px * var(--k)); }
 .final h2 { font-size: calc(96px * var(--k)); font-weight: 800; letter-spacing: -.03em; line-height: 1.05; }
-.boton { display: inline-block; font-size: calc(46px * var(--k)); font-weight: 800; color: #fff; border-radius: 999px;
+.boton { display: inline-block; text-decoration: none; font-size: calc(46px * var(--k)); font-weight: 800; color: #fff; border-radius: 999px;
   padding: calc(34px * var(--k)) calc(64px * var(--k)); background: linear-gradient(135deg, #3B5BFD, #6D4BFF 55%, #14B8A6);
   box-shadow: 0 24px 60px -16px rgba(59,91,253,1); }
 .late { animation: late 1.2s ease-in-out calc(var(--ini) + 1s) infinite; }
@@ -188,7 +188,7 @@ def pagina(v, formato):
     partes.append(f'<section class="esc final ultima" style="--ini:{t:.1f}s;--dur:{FINAL}s">'
                   f'<div class="logo ap" style="--d:.05s">N</div>'
                   f'<h2 class="ap" style="--d:.2s">{escape(v["lema"])}</h2>'
-                  f'<div class="ap" style="--d:.45s"><span class="boton late">{escape(LLAMADA)} →</span></div>'
+                  f'<div class="ap" style="--d:.45s"><a class="boton late" href="{escape(WEB)}#contacto" target="_blank" rel="noopener">{escape(LLAMADA)} →</a></div>'
                   f'<p class="nota ap" style="--d:.7s">{nota}</p></section>')
 
     css = CSS.replace("{W}", str(w)).replace("{H}", str(h)).replace("{K}", str(k)).replace("{T}", f"{total:.1f}")

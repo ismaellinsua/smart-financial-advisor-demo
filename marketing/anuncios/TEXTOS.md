@@ -24,21 +24,32 @@ la biblioteca de Instagram o TikTok, que ya tiene los derechos. Usar una canció
 
 ### Anuncios 3D (carpeta `3d/`)
 
-Un portátil y un móvil con la app que entran girando, con avisos flotando alrededor. Hay 4 campañas: `general`,
+Un portátil y un móvil con la app que entran girando, con notificaciones de la app flotando alrededor. Hay 4 campañas: `general`,
 `restaurante`, `tienda` y `autonomo`.
 
 | Archivo | Qué es | Dónde se usa |
 |---|---|---|
-| `3d/*.html` | **Interactivo**: se gira arrastrando con el dedo o el ratón | Envíalo por WhatsApp o email, ábrelo en una tablet en una visita, o ponlo en la web. Es un solo archivo y funciona sin internet |
+| `3d/*.html` | **Interactivo**: se gira arrastrando con el dedo o el ratón, y el botón «Pide tu demo gratuita» abre un formulario de contacto | Envíalo por WhatsApp o email, ábrelo en una tablet en una visita, o ponlo en la web. Es un solo archivo y funciona sin internet |
 | `3d/video/*-reel.mp4` | Vídeo vertical de 12 s | Reels, TikTok, historias |
 | `3d/video/*-feed.mp4` | Vídeo de 12 s | Publicaciones de Instagram, Facebook y LinkedIn |
 | `3d/imagenes/*.png` | Imagen fija | Publicación, historia y horizontal |
 
 Para verlo todo junto y descargarlo, abre **`galeria.html`** en el navegador.
 
+**El formulario de los anuncios 3D** pide nombre, negocio, tipo de negocio, email, teléfono (opcional) y mensaje, con la
+casilla de consentimiento que exige el RGPD y un enlace a tu aviso de privacidad. Hasta que rellenes `WHATSAPP` o
+`FORMSPREE_ID`, al enviarlo avisa de que aún no está activo y ofrece el formulario de tu web.
+
+En Instagram, Facebook o TikTok las imágenes y los vídeos no se pueden pulsar: al crear el anuncio elige el botón
+«Más información» o «Contactar» y pon como enlace el formulario de tu web (`WEB` + `#contacto`) o tu WhatsApp.
+
 ## Antes de publicar
 
-1. Abre `generar.py` y rellena `CONTACTO` (por ejemplo `"WhatsApp 600 111 222 · nirkana.es"`).
+1. Abre `generar.py` y rellena:
+   - `CONTACTO`: el texto que se ve en los anuncios (por ejemplo `"WhatsApp 600 111 222 · nirkana.es"`).
+   - `WHATSAPP` o `FORMSPREE_ID`: a dónde llegan las solicitudes del formulario de los anuncios 3D. Con Formspree te
+     llegan al email sin que tu dirección aparezca en ningún sitio; con WhatsApp se abre un mensaje ya escrito.
+   - `WEB`: la dirección de tu web (el botón de los vídeos animados lleva a su formulario de contacto).
 2. Vuelve a crear todo: `python marketing/anuncios/generar.py`, `python marketing/anuncios/video.py`,
    `python marketing/anuncios/tresd.py` y `python marketing/anuncios/galeria.py`
    (los vídeos tardan unos 40 segundos cada uno; necesitas también ffmpeg). Si estás en un entorno con Playwright y Chromium ya instalados en otra ruta, usa `CHROMIUM_PATH=/ruta/a/chromium`.

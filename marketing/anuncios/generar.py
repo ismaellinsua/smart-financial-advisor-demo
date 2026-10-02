@@ -5,9 +5,14 @@ from pathlib import Path
 
 from playwright.sync_api import sync_playwright
 
-# Cuando quieras publicar, rellena esto y vuelve a ejecutar el script. Vacío = no aparece.
-CONTACTO = ""  # p. ej. "WhatsApp 600 111 222 · nirkana.es"
+# Cuando quieras publicar, rellena esto y vuelve a ejecutar los scripts. Vacío = no aparece.
+CONTACTO = ""  # texto que se ve en los anuncios, p. ej. "WhatsApp 600 111 222 · nirkana.es"
 LLAMADA = "Pide tu demo gratuita"
+
+# A dónde llegan las solicitudes del formulario de los anuncios interactivos (los mismos datos que en la web).
+WHATSAPP = ""      # número con prefijo y solo cifras, p. ej. "34600111222"
+FORMSPREE_ID = ""  # el código de tu formulario de Formspree (lo que va después de formspree.io/f/)
+WEB = "https://ismaellinsua.github.io/smart-financial-advisor-demo/"  # tu web; el aviso de privacidad está en WEB + "privacidad.html"
 
 AQUI = Path(__file__).resolve().parent
 CAPTURAS = AQUI.parents[1] / "docs" / "screenshots"
