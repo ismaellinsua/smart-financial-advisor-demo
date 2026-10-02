@@ -338,6 +338,42 @@ details p { color: var(--muted); margin: .7rem 0 0; }
 .impact-card h3 { font-size: 1.15rem; margin-bottom: .6rem; }
 .impact-card p { color: var(--muted); margin: 0; font-size: .95rem; }
 
+/* Gallery */
+.gallery { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-top: 1.5rem; }
+@media (max-width: 1000px) { .gallery { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 760px) { .gallery { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 520px) { .gallery { grid-template-columns: 1fr; } }
+.gallery-item { position: relative; border-radius: var(--radius); overflow: hidden; border: 1px solid var(--line);
+  transition: transform .3s ease, box-shadow .3s ease, border-color .3s ease;
+  box-shadow: 0 8px 24px rgba(14, 23, 38, .12); cursor: pointer; }
+.gallery-item:hover { transform: translateY(-4px); box-shadow: var(--shadow); border-color: var(--brand); }
+.gallery-item img { width: 100%; height: auto; display: block; aspect-ratio: 9/16; object-fit: cover; }
+.gallery-item figcaption {
+  position: absolute; bottom: 0; inset-inline: 0; padding: 12px 14px; background: linear-gradient(to top, rgba(14, 23, 38, .95), transparent);
+  color: #fff; font-size: .9rem; font-weight: 600; text-align: center; opacity: 0;
+  transition: opacity .3s ease;
+}
+.gallery-item:hover figcaption { opacity: 1; }
+
+/* Benefits Grid */
+.benefits-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-top: 1.5rem; }
+@media (max-width: 1000px) { .benefits-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 760px) { .benefits-grid { grid-template-columns: 1fr; } }
+.benefit {
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 32px 24px;
+  transition: transform .3s ease, box-shadow .3s ease, border-color .3s ease, background .3s ease;
+  text-align: center;
+}
+.benefit:hover {
+  transform: translateY(-8px); box-shadow: var(--shadow); border-color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 2%, var(--surface));
+}
+.benefit-icon { font-size: 3rem; display: block; margin-bottom: 1rem; transform: translateZ(0); }
+.benefit h3 { font-size: 1.2rem; margin: 0 0 .8rem; color: var(--ink); }
+.benefit p { color: var(--muted); margin: 0; font-size: .95rem; line-height: 1.6; }
+
+.light { background: var(--bg); border-block-color: var(--line); }
+
 /* Urgency Section */
 .urgency-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 1.5rem; }
 @media (max-width: 760px) { .urgency-grid { grid-template-columns: 1fr; } }
