@@ -400,6 +400,14 @@ details p { color: var(--muted); margin: .7rem 0 0; }
   border: 1px solid rgba(59, 91, 253, .3); padding: 1rem;
 }
 .breakdown-list li.highlight strong { font-size: 1.05rem; }
+.breakdown-list li.note-row {
+  background: rgba(94, 234, 212, .08); border: 1px solid rgba(94, 234, 212, .2);
+  padding: .8rem; font-size: .9rem; color: #7FE7D9; font-weight: 500;
+}
+.highlight-gradient {
+  background: linear-gradient(90deg, var(--brand), var(--brand-2)); -webkit-background-clip: text; background-clip: text;
+  color: transparent;
+}
 
 /* Visual Showcase */
 .visuals-section { background: var(--surface); border-block: 1px solid var(--line); }

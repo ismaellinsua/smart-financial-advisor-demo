@@ -151,32 +151,25 @@ const MESSAGE = "Hola, me interesa NirKanA para mi negocio. ¿Podemos ver una de
     });
   });
 
-  // ------------------------------------------------------------ ROI calculator
-  const roiData = {
-    restaurant: { install: 900, monthly: 79, time: 140, errors: 600, sales: 2500 },
-    retail: { install: 550, monthly: 59, time: 100, errors: 350, sales: 1200 },
-    autonomo: { install: 350, monthly: 39, time: 80, errors: 200, sales: 800 },
-    ecommerce: { install: 700, monthly: 69, time: 110, errors: 400, sales: 1800 }
+  // ------------------------------------------------------------ ROI calculator (benefits only, no prices)
+  const benefitsData = {
+    restaurant: { timeHours: 140, errors: 600, sales: 2500 },
+    retail: { timeHours: 100, errors: 350, sales: 1200 },
+    autonomo: { timeHours: 80, errors: 200, sales: 800 },
+    ecommerce: { timeHours: 110, errors: 400, sales: 1800 }
   };
   const updateROI = (type) => {
-    const data = roiData[type] || roiData.restaurant;
-    const months = 6;
-    const firstMonth = data.install + data.monthly;
-    const otherMonths = data.monthly * (months - 1);
-    const totalInvest = firstMonth + otherMonths;
-    const totalValue = data.time + data.errors + data.sales;
-    const netProfit = totalValue - totalInvest;
-    const paybackMonth = Math.ceil(data.install / data.monthly);
+    const data = benefitsData[type] || benefitsData.restaurant;
+    const totalBenefit = data.timeHours + data.errors + data.sales;
 
-    document.getElementById("install-price").textContent = `€${data.install}`;
-    document.getElementById("monthly-price").textContent = `€${data.monthly}`;
-    document.getElementById("savings-amount").textContent = `€${data.time}`;
-    document.getElementById("payback-month").textContent = paybackMonth;
-    document.getElementById("total-invest").textContent = `€${totalInvest}`;
-    document.getElementById("time-saved").textContent = `${Math.round(data.time / 10)} horas`;
-    document.getElementById("errors-saved").textContent = `€${data.errors}`;
-    document.getElementById("sales-boost").textContent = `+€${data.sales}`;
-    document.getElementById("net-profit").textContent = `€${netProfit}`;
+    document.getElementById("time-hours").textContent = data.timeHours;
+    document.getElementById("errors-value").textContent = `€${data.errors}`;
+    document.getElementById("sales-value").textContent = `+€${data.sales}`;
+    document.getElementById("total-value").textContent = `€${totalBenefit}`;
+    document.getElementById("time-detail").textContent = `${data.timeHours} horas`;
+    document.getElementById("errors-detail").textContent = `€${data.errors}`;
+    document.getElementById("sales-detail").textContent = `+€${data.sales}`;
+    document.getElementById("net-value").textContent = `€${totalBenefit}`;
   };
   const businessType = document.getElementById("business-type");
   if (businessType) {
