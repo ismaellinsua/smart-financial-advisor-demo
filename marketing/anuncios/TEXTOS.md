@@ -22,10 +22,25 @@ Campañas por función: `cobro`, `cocina`, `caja`, `equipo`, `promociones` e `in
 Vídeos: `general`, `restaurante`, `autonomo` y `tienda`. Van **sin música** a propósito: añádela al publicar desde
 la biblioteca de Instagram o TikTok, que ya tiene los derechos. Usar una canción cualquiera puede hacer que bloqueen el vídeo.
 
+### Anuncios 3D (carpeta `3d/`)
+
+Un portátil y un móvil con la app que entran girando, con avisos flotando alrededor. Hay 4 campañas: `general`,
+`restaurante`, `tienda` y `autonomo`.
+
+| Archivo | Qué es | Dónde se usa |
+|---|---|---|
+| `3d/*.html` | **Interactivo**: se gira arrastrando con el dedo o el ratón | Envíalo por WhatsApp o email, ábrelo en una tablet en una visita, o ponlo en la web. Es un solo archivo y funciona sin internet |
+| `3d/video/*-reel.mp4` | Vídeo vertical de 12 s | Reels, TikTok, historias |
+| `3d/video/*-feed.mp4` | Vídeo de 12 s | Publicaciones de Instagram, Facebook y LinkedIn |
+| `3d/imagenes/*.png` | Imagen fija | Publicación, historia y horizontal |
+
+Para verlo todo junto y descargarlo, abre **`galeria.html`** en el navegador.
+
 ## Antes de publicar
 
 1. Abre `generar.py` y rellena `CONTACTO` (por ejemplo `"WhatsApp 600 111 222 · nirkana.es"`).
-2. Vuelve a crear las imágenes y los vídeos: `python marketing/anuncios/generar.py` y `python marketing/anuncios/video.py`
+2. Vuelve a crear todo: `python marketing/anuncios/generar.py`, `python marketing/anuncios/video.py`,
+   `python marketing/anuncios/tresd.py` y `python marketing/anuncios/galeria.py`
    (los vídeos tardan unos 40 segundos cada uno; necesitas también ffmpeg). Si estás en un entorno con Playwright y Chromium ya instalados en otra ruta, usa `CHROMIUM_PATH=/ruta/a/chromium`.
 3. En los textos de abajo, cambia **[ENLACE]** por la dirección de tu web.
 
