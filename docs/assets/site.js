@@ -151,6 +151,59 @@ const MESSAGE = "Hola, me interesa NirKanA para mi negocio. ¿Podemos ver una de
     });
   });
 
+  // ------------------------------------------------------------ ROI calculator
+  const roiData = {
+    restaurant: { install: 900, monthly: 79, time: 140, errors: 600, sales: 2500 },
+    retail: { install: 550, monthly: 59, time: 100, errors: 350, sales: 1200 },
+    autonomo: { install: 350, monthly: 39, time: 80, errors: 200, sales: 800 },
+    ecommerce: { install: 700, monthly: 69, time: 110, errors: 400, sales: 1800 }
+  };
+  const updateROI = (type) => {
+    const data = roiData[type] || roiData.restaurant;
+    const months = 6;
+    const firstMonth = data.install + data.monthly;
+    const otherMonths = data.monthly * (months - 1);
+    const totalInvest = firstMonth + otherMonths;
+    const totalValue = data.time + data.errors + data.sales;
+    const netProfit = totalValue - totalInvest;
+    const paybackMonth = Math.ceil(data.install / data.monthly);
+
+    document.getElementById("install-price").textContent = `€${data.install}`;
+    document.getElementById("monthly-price").textContent = `€${data.monthly}`;
+    document.getElementById("savings-amount").textContent = `€${data.time}`;
+    document.getElementById("payback-month").textContent = paybackMonth;
+    document.getElementById("total-invest").textContent = `€${totalInvest}`;
+    document.getElementById("time-saved").textContent = `${Math.round(data.time / 10)} horas`;
+    document.getElementById("errors-saved").textContent = `€${data.errors}`;
+    document.getElementById("sales-boost").textContent = `+€${data.sales}`;
+    document.getElementById("net-profit").textContent = `€${netProfit}`;
+  };
+  const businessType = document.getElementById("business-type");
+  if (businessType) {
+    businessType.addEventListener("change", (e) => updateROI(e.target.value));
+    updateROI("restaurant");
+  }
+
+  // ------------------------------------------------------------ parallax: images shift on scroll
+  if (!reduceMotion) {
+    const showcaseImgs = document.querySelectorAll(".showcase-img img");
+    if (showcaseImgs.length && "IntersectionObserver" in window) {
+      let frame = 0;
+      const parallaxFn = () => {
+        cancelAnimationFrame(frame);
+        frame = requestAnimationFrame(() => {
+          showcaseImgs.forEach((img) => {
+            const rect = img.getBoundingClientRect();
+            const progress = (window.innerHeight - rect.top) / (window.innerHeight + rect.height);
+            const shift = Math.max(-30, Math.min(30, (progress - 0.5) * 60));
+            img.style.transform = `translateY(${shift}px) scale(1.05)`;
+          });
+        });
+      };
+      window.addEventListener("scroll", parallaxFn, { passive: true });
+    }
+  }
+
   // ------------------------------------------------------------ scroll reveal: sections fade in
   if ("IntersectionObserver" in window && !reduceMotion) {
     document.querySelectorAll("section").forEach((section, i) => {
