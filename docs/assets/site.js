@@ -113,15 +113,18 @@ const MESSAGE = "Hola, me interesa NirKanA para mi negocio. ¿Podemos ver una de
     show(0);
   }
 
-  // ------------------------------------------------------------ counters
+  // ------------------------------------------------------------ counters (supporting "1000+", "20", etc)
   const counters = document.querySelectorAll("[data-count]");
   const count = (el) => {
-    const target = Number(el.dataset.count) || 0;
-    if (reduceMotion) { el.textContent = String(target); return; }
+    const text = el.dataset.count || "0";
+    const match = text.match(/^(\d+)/);
+    const target = match ? Number(match[1]) : 0;
+    const suffix = text.replace(/^\d+/, "");
+    if (reduceMotion) { el.textContent = String(target) + suffix; return; }
     const start = performance.now();
     const tick = (now) => {
       const p = Math.min((now - start) / 1200, 1);
-      el.textContent = String(Math.round(target * (1 - Math.pow(1 - p, 3))));
+      el.textContent = String(Math.round(target * (1 - Math.pow(1 - p, 3)))) + suffix;
       if (p < 1) requestAnimationFrame(tick);
     };
     requestAnimationFrame(tick);
@@ -131,6 +134,40 @@ const MESSAGE = "Hola, me interesa NirKanA para mi negocio. ¿Podemos ver una de
       entries.forEach((entry) => { if (entry.isIntersecting) { count(entry.target); io.unobserve(entry.target); } });
     }, { threshold: 0.6 });
     counters.forEach((el) => io.observe(el));
+  }
+
+  // ------------------------------------------------------------ impact cards tilt
+  document.querySelectorAll(".impact-card").forEach((card) => {
+    if (!finePointer) return;
+    card.addEventListener("pointermove", (e) => {
+      const r = card.getBoundingClientRect();
+      const x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
+      card.style.setProperty("--rx", `${((x - 0.5) * 8).toFixed(2)}deg`);
+      card.style.setProperty("--ry", `${((0.5 - y) * 8).toFixed(2)}deg`);
+    });
+    card.addEventListener("pointerleave", () => {
+      card.style.setProperty("--rx", "0deg");
+      card.style.setProperty("--ry", "0deg");
+    });
+  });
+
+  // ------------------------------------------------------------ scroll reveal: sections fade in
+  if ("IntersectionObserver" in window && !reduceMotion) {
+    document.querySelectorAll("section").forEach((section, i) => {
+      section.style.opacity = "0";
+      section.style.transform = "translateY(20px)";
+      section.style.transition = `opacity .6s ease ${i * 0.05}s, transform .6s ease ${i * 0.05}s`;
+      const io = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.style.opacity = "1";
+            entry.target.style.transform = "translateY(0)";
+            io.unobserve(entry.target);
+          }
+        });
+      }, { threshold: 0.1 });
+      io.observe(section);
+    });
   }
 
   // ------------------------------------------------------------ 3D particle orb behind the headline
