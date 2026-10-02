@@ -2,3 +2,7 @@ sales_manager/data/
 __pycache__/
 .pytest_cache/
 .streamlit/secrets.toml
+
+# Documentos privados del negocio: nunca al repositorio público
+NEGOCIO.md
+NirKanA-negocio.pdf
