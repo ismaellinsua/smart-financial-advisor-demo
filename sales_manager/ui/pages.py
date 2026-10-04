@@ -9,7 +9,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from core import automation
-from core.db import SaleError
+from core.db import FISCAL_DATA_MESSAGE, FiscalDataError, SaleError
 from core.presets import CURRENCIES, PAYMENT_METHODS, PRESETS
 from core.security import ROLES, csv_safe
 from core.pdfs import cash_closing_pdf, credit_note_pdf, invoice_pdf
@@ -66,8 +66,9 @@ def onboarding() -> None:
                 "Tipo de negocio", list(PRESETS), format_func=lambda k: PRESETS[k]["label"]
             )
             currency = st.selectbox("Moneda", list(CURRENCIES))
-            demo = st.toggle("Cargar datos de ejemplo (60 días de ventas)", value=True,
-                             help="Ideal para explorar el panel y las automatizaciones. Puedes borrarlos luego.")
+            demo = st.toggle("Cargar datos de ejemplo (solo para probar)", value=False,
+                             help="60 días de ventas inventadas para explorar la app. Déjalo apagado si vas a "
+                                  "vender de verdad: los datos de ejemplo se borran al empezar.")
             if st.form_submit_button("Crear mi espacio", type="primary", use_container_width=True):
                 store.save_settings({"business_name": name.strip() or "Mi Negocio", "currency": currency})
                 with st.spinner("Preparando tu catálogo…"):
@@ -88,7 +89,7 @@ def switch_business_dialog() -> None:
     default_name = (c.settings["business_name"] if business_type == c.settings["business_type"]
                     else PRESETS[business_type]["demo_name"])
     name = st.text_input("Nombre del negocio", default_name, key=f"switch_name_{business_type}")
-    demo = st.toggle("Cargar datos de ejemplo para probar", value=True, key="switch_demo")
+    demo = st.toggle("Cargar datos de ejemplo para probar", value=c.store.is_demo(), key="switch_demo")
     st.warning("Se reemplazarán el catálogo, los clientes y las ventas actuales por los del nuevo negocio.",
                icon=":material/warning:")
     st.download_button(
@@ -100,10 +101,41 @@ def switch_business_dialog() -> None:
         if not c.can("admin"):
             st.error("Solo el administrador puede cambiar de negocio.")
             return
+        try:
+            with st.spinner("Preparando el nuevo negocio…"):
+                c.store.load_preset(business_type, with_demo_sales=demo)
+        except FiscalDataError as exc:
+            st.error(str(exc))
+            return
         c.store.save_settings({"business_name": name.strip() or c.settings["business_name"]})
-        with st.spinner("Preparando el nuevo negocio…"):
-            c.store.load_preset(business_type, with_demo_sales=demo)
         c.store.audit(c.username, "negocio_cambiado", f"{PRESETS[business_type]['label']} · {name}")
+        st.session_state.pop("cart", None)
+        st.rerun()
+
+
+def demo_banner(c) -> None:
+    """Demonstration data is disposable: say so on every page and let the administrator start for real."""
+    text, action = st.columns([5, 2], vertical_alignment="center")
+    text.warning("**Modo demostración.** Los datos son de ejemplo y todo lo que vendas aquí se borrará al empezar "
+                 "de verdad.", icon=":material/science:")
+    if c.can("admin") and action.button("Empezar a vender de verdad", type="primary", use_container_width=True,
+                                        icon=":material/rocket_launch:"):
+        _start_for_real_dialog()
+
+
+@st.dialog("Empezar a vender de verdad")
+def _start_for_real_dialog() -> None:
+    st.write("Se borrarán los datos de ejemplo (productos, clientes, ventas, facturas y cierres) y configurarás tu "
+             "negocio desde cero. A partir de ahí, las ventas y facturas reales **no se podrán borrar**: la ley obliga "
+             "a conservarlas.")
+    if st.checkbox("Entiendo que se borrarán los datos de ejemplo", key="start_real_confirm") and st.button(
+            "Borrar ejemplos y empezar", type="primary", use_container_width=True):
+        c = ctx()
+        if not c.can("admin"):
+            st.error("Solo el administrador puede hacerlo.")
+            return
+        c.store.reset()
+        c.store.audit(c.username, "datos_de_ejemplo_borrados")
         st.session_state.pop("cart", None)
         st.rerun()
 
@@ -1287,32 +1319,46 @@ def settings_page() -> None:
                 st.session_state["settings_flash"] = "Configuración guardada."
                 st.rerun()
 
+    replaceable = c.store.can_replace_data()
     st.markdown("##### Tipo de negocio y plantillas")
     with st.container(border=True):
         types = list(PRESETS)
         business_type = st.selectbox("Tipo de negocio", types, types.index(s["business_type"]),
                                      format_func=lambda k: PRESETS[k]["label"])
-        st.caption("Cambiar solo el tipo adapta el vocabulario de la aplicación. Cargar la plantilla reemplaza "
-                   "catálogo, clientes y ventas por los de ejemplo.")
-        demo = st.toggle("Incluir 60 días de ventas de ejemplo", value=True)
-        confirm = st.checkbox("Entiendo que se borrarán los datos actuales")
-        if not confirm:
-            st.caption("Marca la casilla de arriba para activar «Cargar plantilla» y «Empezar desde cero».")
+        if replaceable:
+            st.caption("Cambiar solo el tipo adapta el vocabulario de la aplicación. Cargar la plantilla reemplaza "
+                       "catálogo, clientes y ventas por los de ejemplo.")
+            demo = st.toggle("Incluir 60 días de ventas de ejemplo", value=c.store.is_demo())
+            confirm = st.checkbox("Entiendo que se borrarán los datos actuales")
+            if not confirm:
+                st.caption("Marca la casilla de arriba para activar «Cargar plantilla» y «Empezar desde cero».")
+        else:
+            st.caption("Cambiar el tipo adapta el vocabulario de la aplicación. " + FISCAL_DATA_MESSAGE)
+            demo = confirm = False
         a, b, d = st.columns(3)
         if a.button("Cambiar solo el tipo", use_container_width=True):
             c.store.save_settings({"business_type": business_type})
             c.store.audit(c.username, "tipo_negocio_cambiado", PRESETS[business_type]["label"])
             st.session_state["settings_flash"] = f"Tipo cambiado a «{PRESETS[business_type]['label']}»."
             st.rerun()
-        if b.button("Cargar plantilla", type="primary", disabled=not confirm, use_container_width=True):
-            with st.spinner("Cargando plantilla…"):
-                c.store.load_preset(business_type, with_demo_sales=demo)
+        if replaceable and b.button("Cargar plantilla", type="primary", disabled=not confirm,
+                                    use_container_width=True):
+            try:
+                with st.spinner("Cargando plantilla…"):
+                    c.store.load_preset(business_type, with_demo_sales=demo)
+            except FiscalDataError as exc:
+                st.error(str(exc))
+                return
             c.store.audit(c.username, "plantilla_cargada", PRESETS[business_type]["label"])
             st.session_state.pop("cart", None)
             st.session_state["settings_flash"] = "Plantilla cargada."
             st.rerun()
-        if d.button("Empezar desde cero", disabled=not confirm, use_container_width=True):
-            c.store.reset()
+        if replaceable and d.button("Empezar desde cero", disabled=not confirm, use_container_width=True):
+            try:
+                c.store.reset()
+            except FiscalDataError as exc:
+                st.error(str(exc))
+                return
             c.store.audit(c.username, "datos_borrados")
             st.session_state.pop("cart", None)
             st.rerun()
@@ -1332,6 +1378,10 @@ def settings_page() -> None:
             "Descargar copia de seguridad", c.store.backup_bytes(), f"ventas-{clock.today():%Y-%m-%d}.db",
             "application/octet-stream", icon=":material/download:", type="primary",
         )
+        if not replaceable:
+            st.caption("Restaurar una copia solo es posible en un negocio sin ventas (por ejemplo, al pasar a una base "
+                       "de datos nueva): sobre datos reales borraría todo lo emitido después de la copia.")
+            return
         upload = st.file_uploader("Restaurar desde una copia", type=["db"])
         confirm_restore = st.checkbox("Entiendo que se reemplazarán los datos actuales por los de la copia")
         if st.button("Restaurar copia", disabled=not (upload and confirm_restore), icon=":material/restore:"):

@@ -24,19 +24,11 @@ class RefundsMixin:
 
     def _next_refund_number(self, cur, when: datetime) -> str:
         prefix = (self._settings(cur).get("refund_prefix") or "DEV").strip() or "DEV"
-        stem = f"{prefix}-{when.year}-"
-        row = cur.execute("SELECT number FROM refunds WHERE number LIKE ? ORDER BY number DESC LIMIT 1",
-                          (stem + "%",)).fetchone()
-        seq = int(row["number"].rsplit("-", 1)[1]) + 1 if row else 1
-        return f"{stem}{seq:05d}"
+        return self._take_number(cur, "refunds", f"{prefix}-{when.year}-", 5)
 
     def _next_credit_note_number(self, cur, when: datetime) -> str:
         series = ((self._settings(cur).get("invoice_series") or "FAC").strip() or "FAC") + "R"
-        stem = f"{series}-{when.year}-"
-        row = cur.execute("SELECT number FROM credit_notes WHERE number LIKE ? ORDER BY number DESC LIMIT 1",
-                          (stem + "%",)).fetchone()
-        seq = int(row["number"].rsplit("-", 1)[1]) + 1 if row else 1
-        return f"{stem}{seq:04d}"
+        return self._take_number(cur, "credit_notes", f"{series}-{when.year}-", 4)
 
     @staticmethod
     def _line_net(item: dict, sale: dict) -> Decimal:

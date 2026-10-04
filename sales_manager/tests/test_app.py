@@ -226,3 +226,26 @@ def test_switch_business_button_opens_dialog(tmp_path, monkeypatch):
     assert list(radio.options) == ["Pequeño comercio / Tienda", "Restaurante / Cafetería",
                                    "Autónomo / Servicios profesionales", "Tienda online / E-commerce"]
     assert at.text_input(key="switch_name_restaurant").value == store.settings()["business_name"]
+
+
+def test_settings_hide_destructive_actions_once_there_are_real_sales(module_targets):
+    target = module_targets.new()
+    store = Store(target)
+    store.load_preset("retail", with_demo_sales=False)
+    pid = int(store.products()["id"].iloc[0])
+    store.create_sale([{"product_id": pid, "quantity": 1}], "Tarjeta")
+    store.close()
+    at = AppTest.from_string(SCRIPT.format(root=ROOT, db=target, fn="settings_page", role="admin"),
+                             default_timeout=30).run()
+    assert not at.exception, at.exception
+    labels = {b.label for b in at.button}
+    assert "Cambiar solo el tipo" in labels
+    assert not labels & {"Cargar plantilla", "Empezar desde cero", "Restaurar copia"}
+
+
+def test_settings_offer_templates_in_demo_mode(demo_db):
+    assert Store(demo_db).is_demo()
+    at = AppTest.from_string(SCRIPT.format(root=ROOT, db=demo_db, fn="settings_page", role="admin"),
+                             default_timeout=30).run()
+    assert not at.exception, at.exception
+    assert {"Cargar plantilla", "Empezar desde cero", "Restaurar copia"} <= {b.label for b in at.button}

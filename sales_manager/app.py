@@ -87,8 +87,8 @@ if c.can("admin"):
     sections["Ajustes"] = [P["settings"], P["team"]]
 
 sidebar_brand(c.settings["business_name"], PRESETS[c.settings["business_type"]]["label"])
-if c.can("admin") and st.sidebar.button("Cambiar de negocio", icon=":material/swap_horiz:",
-                                        use_container_width=True):
+if c.can("admin") and c.store.can_replace_data() and st.sidebar.button(
+        "Cambiar de negocio", icon=":material/swap_horiz:", use_container_width=True):
     pages.switch_business_dialog()
 nav = st.navigation(sections, expanded=True)
 logout_button(c.store, user)
@@ -110,4 +110,6 @@ if show_agenda:
 topbar(c.settings["business_name"], c.money_short(today["total"].sum()), len(today), next_up,
        person=f"{c.who} · {ROLES[c.role]}", own=not c.can("encargado"),
        alerts=pages_intel.alert_counts(c) if c.can("encargado") else None)
+if c.settings.get("demo_mode") == "si":
+    pages.demo_banner(c)
 nav.run()

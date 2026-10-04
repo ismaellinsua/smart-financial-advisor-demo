@@ -47,10 +47,7 @@ class PurchasesMixin:
 
     # ----------------------------------------------------------------- purchases
     def _next_purchase_number(self, cur, when: datetime) -> str:
-        stem = f"PED-{when.year}-"
-        row = cur.execute("SELECT number FROM purchase_orders WHERE number LIKE ? ORDER BY number DESC LIMIT 1",
-                          (stem + "%",)).fetchone()
-        return f"{stem}{(int(row['number'].rsplit('-', 1)[1]) + 1 if row else 1):04d}"
+        return self._take_number(cur, "purchase_orders", f"PED-{when.year}-", 4)
 
     def create_purchase(self, supplier_id: int | None, items: list[dict], notes: str = "", created_by: str = "",
                         when: datetime | None = None) -> int:
