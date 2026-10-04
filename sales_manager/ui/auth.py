@@ -262,6 +262,66 @@ def _login(store: Store, business_name: str) -> None:
                     _sign_in(store, user, secret)
         with st.expander("¿Eres el administrador y no puedes entrar?"):
             _recover(store, key)
+        if mailer() is not None:
+            with st.expander("¿Has olvidado tu contraseña de administrador? Recíbela por email"):
+                _email_reset(store, key)
+
+
+def mailer():
+    """The app's sending account (secrets smtp_*), or None when email is not set up."""
+    from core.mailer import Mailer
+
+    def secret(name: str):
+        try:
+            return st.secrets.get(name)
+        except Exception:  # no secrets file
+            return None
+    return Mailer.from_settings(secret)
+
+
+def _email_reset(store: Store, key: str) -> None:
+    """Step 1: a 6-digit code to the business email. Step 2: the code and a new password. The answer to step 1 is
+    the same whether or not the user exists, so it reveals nothing about who works here."""
+    st.caption("Te enviaremos un código al email del negocio (el que figura en Configuración). Caduca en 15 minutos.")
+    with st.form("email_reset_start", border=False):
+        username = st.text_input("Usuario del administrador", max_chars=30, key="reset_user")
+        if st.form_submit_button("Enviarme el código", width="stretch"):
+            if minutes := client_blocked_minutes(key):
+                st.error(f"Demasiados intentos desde este dispositivo. Espera {minutes} min.")
+                return
+            started = store.start_password_reset(username)
+            if started:
+                code, email = started
+                try:
+                    mailer().send(email, "Tu código para cambiar la contraseña",
+                                  f"Hola:\n\nTu código es {code}. Caduca en 15 minutos.\n\nSi no lo has pedido tú, "
+                                  "ignora este mensaje: tu contraseña no cambia.\n\nNirKanA")
+                except Exception as exc:  # noqa: BLE001 - the visitor gets the same answer; the log keeps the cause
+                    store.audit(username, "email_no_enviado", type(exc).__name__)
+            _time.sleep(0.5)
+            st.info("Si ese usuario es administrador y el negocio tiene email, te hemos enviado un código al email "
+                    "del negocio. ¿No llega en unos minutos? Usa uno de tus códigos de recuperación.")
+    with st.form("email_reset_finish", clear_on_submit=True, border=False):
+        code = st.text_input("Código recibido", max_chars=6)
+        new = st.text_input("Nueva contraseña", type="password", max_chars=128,
+                            help="Al menos 8 caracteres, con letras y números o símbolos.")
+        repeat = st.text_input("Repite la nueva contraseña", type="password", max_chars=128)
+        if st.form_submit_button("Cambiar contraseña", width="stretch"):
+            if new != repeat:
+                st.error("Las contraseñas no coinciden.")
+                return
+            try:
+                changed = store.finish_password_reset(st.session_state.get("reset_user", ""), code, new)
+            except ValueError as exc:
+                st.error(str(exc))
+                return
+            if not changed:
+                client_failed(key)
+                _time.sleep(0.8)
+                st.error("El código no es correcto o ha caducado. Pide otro.")
+                return
+            client_succeeded(key)
+            st.success("Contraseña cambiada. Ya puedes entrar con ella.")
 
 
 def _recover(store: Store, key: str) -> None:

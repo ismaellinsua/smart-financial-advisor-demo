@@ -162,3 +162,17 @@ class Directory:
             raise ValueError("Negocio no encontrado.")
         return Store(self._url, schema=tenant["schema_name"])
 
+
+
+def businesses_in(url: str) -> list[tuple[str, str | None]]:
+    """(code, schema) of each active business served by a database; [("", None)] for a single-business one.
+    Only reads: unlike Directory, it never creates the directory."""
+    import psycopg
+    from psycopg.rows import dict_row
+
+    with psycopg.connect(_secure_url(url), row_factory=dict_row, connect_timeout=30) as conn:
+        if not conn.execute("SELECT to_regclass(%s) AS t", (f"{DIRECTORY_SCHEMA}.tenants",)).fetchone()["t"]:
+            return [("", None)]
+        rows = conn.execute(f"SELECT code, schema_name FROM {DIRECTORY_SCHEMA}.tenants WHERE status = 'activo' "
+                            "ORDER BY code").fetchall()
+    return [(r["code"], r["schema_name"]) for r in rows]

@@ -158,6 +158,9 @@ DEFAULT_SETTINGS = {
     "receipt_footer": "Gracias por su compra.",
     # Paper the till prints tickets on: a4 (any printer), 80 or 58 (thermal ticket printers, roll width in mm).
     "receipt_paper": "a4",
+    # Emails to the business's address, when the operator has set up sending (see README): opt-in.
+    "email_weekly": "no",
+    "email_alerts": "no",
     "invoice_series": "FAC",
     "refund_prefix": "DEV",
     "agenda_enabled": "auto",

@@ -188,6 +188,31 @@ pg_restore --no-owner --no-privileges --dbname="postgresql://…/base_nueva" caf
 Mientras el repositorio sea público, cualquiera con cuenta de GitHub puede descargar los artefactos: están cifrados,
 pero es mejor hacer el repositorio privado.
 
+## Avisos por email
+
+Gratis con una cuenta de Gmail (por ejemplo nirkana.oficial@gmail.com):
+
+1. En esa cuenta de Google activa la verificación en dos pasos y crea una **contraseña de aplicación**
+   (Cuenta de Google → Seguridad → Contraseñas de aplicaciones).
+2. **Para la app** (recuperar la contraseña del administrador por email), en los *Secrets* de Streamlit:
+   ```toml
+   smtp_host = "smtp.gmail.com"
+   smtp_port = 587
+   smtp_user = "nirkana.oficial@gmail.com"
+   smtp_password = "la contraseña de aplicación"
+   ```
+3. **Para los envíos programados**, los mismos datos como secretos de GitHub Actions: `SMTP_HOST`, `SMTP_PORT`,
+   `SMTP_USER`, `SMTP_PASSWORD` (y opcional `SMTP_FROM`). Usa las bases de `BACKUP_DATABASES`, o
+   `NOTIFY_DATABASES` si quieres otra lista. Cada mañana, el flujo **Avisos por email** envía:
+   - el **informe semanal en PDF** cada lunes, a los negocios que lo activen;
+   - un aviso cuando aparecen **alertas importantes nuevas** (caída de ventas, productos agotados, pérdidas…).
+4. Cada negocio decide en **Configuración → Avisos por email** si los quiere, y los recibe en el email del negocio.
+   Nunca se envía nada en modo demostración ni dos veces lo mismo, aunque el flujo se ejecute de nuevo.
+
+Con el correo configurado, la pantalla de acceso ofrece al administrador recibir un **código de 6 cifras** en el
+email del negocio para cambiar su contraseña: caduca en 15 minutos, sirve una vez, admite 5 intentos y como mucho se
+piden 3 por hora. La respuesta es la misma exista o no el usuario.
+
 ## Seguridad
 
 | Medida | Detalle |

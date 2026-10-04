@@ -99,3 +99,22 @@ def test_the_clock_is_per_request_so_businesses_keep_their_own_time_zone():
     [t.start() for t in threads]
     [t.join() for t in threads]
     assert seen == {"madrid": "Europe/Madrid", "canarias": "Atlantic/Canary"}
+
+
+def test_scheduled_jobs_walk_every_active_business(directory):
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    from core.tenants import businesses_in
+
+    directory.create("cafe-aurora", "Café Aurora")
+    directory.create("tienda-sol", "Tienda Sol")
+    directory.set_status("tienda-sol", "suspendido")
+    url = directory._url
+    assert businesses_in(url) == [("cafe-aurora", "n_cafe_aurora")]
+    assert businesses_in(PG_URL) == [("", None)]  # a single-business database
+    script = Path(__file__).resolve().parents[2] / "ops" / "notify.py"
+    env = {"PATH": "/usr/bin:/bin", "NOTIFY_DATABASES": f"nube={url}"}
+    dry = subprocess.run([sys.executable, str(script)], capture_output=True, text=True, env=env)
+    assert dry.returncode == 0 and "sin configurar" in dry.stdout  # no SMTP: nothing is sent, nothing fails

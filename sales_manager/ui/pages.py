@@ -1645,6 +1645,16 @@ def settings_page() -> None:
                                                  int(s["inactive_days"]))
         values["reorder_lead_days"] = b.number_input("Días de cobertura al reponer", 1, 120,
                                                      int(s["reorder_lead_days"]))
+        st.markdown("##### Avisos por email")
+        st.caption("Llegan al email del negocio (arriba). El envío lo activa quien gestiona la app: hasta entonces "
+                   "estas opciones no envían nada.")
+        a, b = st.columns(2)
+        values["email_weekly"] = "si" if a.toggle("Informe semanal cada lunes (PDF)",
+                                                  value=s.get("email_weekly") == "si") else "no"
+        values["email_alerts"] = "si" if b.toggle("Avisos importantes del día",
+                                                  value=s.get("email_alerts") == "si",
+                                                  help="Solo cuando aparecen avisos nuevos de nivel alto: caída de "
+                                                       "ventas, productos agotados, pérdidas…") else "no"
         st.markdown("##### Seguridad")
         values["max_discount_staff"] = st.number_input(
             "Descuento máximo de los empleados sin autorización (%)", 0.0, 100.0,

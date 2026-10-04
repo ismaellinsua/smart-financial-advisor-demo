@@ -104,3 +104,35 @@ def test_a_reload_signs_back_in_from_the_cookie(tmp_path):
     store.end_session(token)  # logout
     assert "signed in as nobody" in page(token)
     store.close()
+
+
+def test_password_reset_by_email(store, monkeypatch):
+    from core.db import AuthError
+
+    assert store.start_password_reset("ana") is None  # no business email yet
+    store.save_settings({"email": "duena@example.com"})
+    assert store.start_password_reset("luis") is None  # staff reset their PIN with an administrator
+    assert store.start_password_reset("nadie") is None
+    code, email = store.start_password_reset("ana")
+    assert email == "duena@example.com" and len(code) == 6
+    token = store.create_session(_uid(store, "ana"))
+    assert not store.finish_password_reset("ana", "000000" if code != "000000" else "111111", "NuevaClave2026!")
+    with pytest.raises(ValueError):
+        store.finish_password_reset("ana", code, "corta")
+    assert store.finish_password_reset("ana", code, "NuevaClave2026!")
+    assert not store.finish_password_reset("ana", code, "OtraClave2026!")  # single use
+    assert store.resume_session(token, 720) is None  # every device signed out
+    assert store.authenticate("ana", "NuevaClave2026!")["username"] == "ana"
+    with pytest.raises(AuthError):
+        store.authenticate("ana", "Segura2026!")
+
+
+def test_password_reset_codes_resist_guessing_and_flooding(store):
+    store.save_settings({"email": "duena@example.com"})
+    code, _ = store.start_password_reset("ana")
+    wrong = "123456" if code != "123456" else "654321"
+    for _ in range(5):
+        assert not store.finish_password_reset("ana", wrong, "NuevaClave2026!")
+    assert not store.finish_password_reset("ana", code, "NuevaClave2026!")  # locked after 5 wrong tries
+    assert store.start_password_reset("ana") and store.start_password_reset("ana")
+    assert store.start_password_reset("ana") is None  # at most 3 codes an hour
