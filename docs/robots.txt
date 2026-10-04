@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+Allow: /assets/
+
+Disallow: /admin/
+Disallow: *.pdf$
+
+Sitemap: https://nirkana.app/sitemap.xml
+
+User-agent: GPTBot
+Disallow: /
