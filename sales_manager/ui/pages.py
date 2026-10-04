@@ -1263,9 +1263,13 @@ def customers_page() -> None:
                 "address": st.text_input("Dirección fiscal", placeholder="Calle, número, código postal y ciudad"),
                 "notes": st.text_area("Notas", height=80),
             }
+            consent = st.checkbox("Acepta recibir ofertas y novedades",
+                                  help="Solo con su permiso expreso (RGPD). Puede retirarlo cuando quiera.")
             if st.form_submit_button("Guardar cliente", type="primary"):
                 try:
-                    c.store.upsert_customer(data)
+                    new_id = c.store.upsert_customer(data)
+                    if consent:
+                        c.store.set_marketing_consent(new_id, True, by=c.username)
                 except ValueError as exc:
                     st.error(str(exc))
                 else:
@@ -1304,6 +1308,55 @@ def customers_page() -> None:
             st.session_state["customers_flash"] = f"{changed} cambio(s) guardado(s)."
             _bump("customers_editor")
             st.rerun()
+
+    _privacy_section(c, c.store.customers())
+
+
+def _prepare_export(cid: int) -> None:
+    c = ctx()
+    st.session_state[f"export_{cid}"] = c.store.customer_data_export(cid, by=c.username)
+
+
+def _privacy_section(c, customers: pd.DataFrame) -> None:
+    """A customer's rights (RGPD): see and take their data, stop marketing, have their data erased."""
+    st.markdown("##### Protección de datos (RGPD)")
+    with st.container(border=True):
+        people = customers[customers["anonymized_at"] == ""]
+        if people.empty:
+            st.caption("Aún no hay clientes.")
+            return
+        names = dict(zip(people["id"].astype(int), people["name"] + people["email"].map(lambda e: f" · {e}" if e else "")))
+        cid = st.selectbox("Cliente", list(names), format_func=names.get, key="privacy_customer",
+                           help="Cuando un cliente pide ver, llevarse o borrar sus datos, o dejar de recibir ofertas.")
+        person = people.set_index("id").loc[cid]
+        consent = bool(person["marketing_consent"])
+        a, b = st.columns(2)
+        with a:
+            wants = st.toggle("Acepta recibir ofertas", value=consent, key=f"consent_{cid}")
+            if wants != consent:
+                c.store.set_marketing_consent(cid, wants, by=c.username)
+                st.session_state["customers_flash"] = ("Consentimiento registrado." if wants
+                                                       else "Ya no recibirá ofertas.")
+                st.rerun()
+            if person["consent_at"]:
+                st.caption(f"Última decisión: {datetime.fromisoformat(person['consent_at']):%d/%m/%Y %H:%M}")
+        export = st.session_state.get(f"export_{cid}")
+        if export:
+            b.download_button("Descargar sus datos (JSON)", export, f"datos-cliente-{cid}.json", "application/json",
+                              icon=":material/download:", use_container_width=True, type="primary")
+        else:
+            b.button("Preparar sus datos", key=f"prepare_{cid}", use_container_width=True, icon=":material/folder_zip:",
+                     on_click=_prepare_export, args=(cid,),
+                     help="Derecho de acceso y portabilidad: todo lo que guardas de esta persona (queda registrado).")
+        with st.expander("Borrar sus datos personales (derecho de supresión)", icon=":material/person_remove:"):
+            st.caption("Se borran nombre, email, teléfono, NIF, dirección y notas. Sus compras siguen en las cifras "
+                       "sin identificarle y **las facturas se conservan tal cual**, porque la ley obliga a guardarlas.")
+            sure = st.checkbox("Confirmo que el cliente lo ha pedido", key=f"forget_ok_{cid}")
+            if st.button("Borrar datos personales", disabled=not sure, key=f"forget_{cid}", icon=":material/delete:"):
+                c.store.forget_customer(cid, by=c.username)
+                st.session_state["customers_flash"] = "Datos personales borrados. Las facturas se conservan."
+                _bump("customers_editor")
+                st.rerun()
 
 
 # --------------------------------------------------------------- automations
@@ -1364,9 +1417,13 @@ def automations_page() -> None:
 
     with t3:
         days = st.slider("Considerar inactivo tras (días)", 15, 180, int(c.settings["inactive_days"]))
-        inactive = automation.inactive_customers(c.store.customers(), sales, days)
+        customers = c.store.customers()
+        allowed = customers[customers["marketing_consent"] == 1]
+        inactive = automation.inactive_customers(allowed, sales, days)
+        st.caption(f"Solo aparecen los clientes que aceptan recibir ofertas ({len(allowed)} de {len(customers)}). "
+                   "El consentimiento se marca en Clientes → Protección de datos.")
         if inactive.empty:
-            st.success("Ningún cliente habitual lleva tanto tiempo sin comprar.")
+            st.success("Ningún cliente con permiso para ofertas lleva tanto tiempo sin comprar.")
         for _, row in inactive.iterrows():
             with st.expander(f"{row['name']} · {row['days_inactive']} días sin comprar · "
                              f"{c.money(row['lifetime_value'])} acumulados"):

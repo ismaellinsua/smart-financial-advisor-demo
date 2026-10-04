@@ -25,6 +25,7 @@ from .store_intel import IntelligenceMixin
 from .store_refunds import RefundsMixin
 from .store_billing import BillingMixin
 from .store_sessions import SessionsMixin
+from .store_privacy import PrivacyMixin
 from .security import (
     DUMMY_HASH, RECOVERY_CODE_COUNT, RECOVERY_ITERATIONS, ROLE_RANK, ROLES, USERNAME_RE, check_secret_strength,
     clean_text, hash_secret, is_safe_identifier, new_recovery_code, normalize_recovery_code, verify_secret, verify_totp,
@@ -374,6 +375,10 @@ MIGRATIONS = [
     # Income tax withheld on invoices of professionals to companies (retención de IRPF).
     ("invoices", "irpf_rate", "{real} NOT NULL DEFAULT 0"),
     ("invoices", "irpf_amount", "{real} NOT NULL DEFAULT 0"),
+    # Data protection: consent to marketing (and when it was given or withdrawn) and erasure.
+    ("customers", "marketing_consent", "INTEGER NOT NULL DEFAULT 0"),
+    ("customers", "consent_at", "TEXT NOT NULL DEFAULT ''"),
+    ("customers", "anonymized_at", "TEXT NOT NULL DEFAULT ''"),
 ]
 
 # An account locks for a fixed, short time after many failures. A long or growing lock would let anyone who knows a
@@ -610,7 +615,8 @@ def _is_postgres(target) -> bool:
 
 
 # ----------------------------------------------------------------------------- store
-class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin, BillingMixin, SessionsMixin):
+class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin, BillingMixin, SessionsMixin,
+            PrivacyMixin):
     SaleError = SaleError
     def __init__(self, path=DEFAULT_DB_PATH):
         self.db = _Postgres(str(path)) if _is_postgres(path) else _SQLite(str(path))
