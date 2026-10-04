@@ -8,6 +8,7 @@ QR code are later steps; until they exist this is not yet a complete VERI*FACTU 
 import hashlib
 from datetime import datetime
 from decimal import ROUND_HALF_UP, Decimal
+from urllib.parse import urlencode
 
 # Invoice types (TipoFactura) used by the app.
 INVOICE_TYPES = {
@@ -17,6 +18,14 @@ INVOICE_TYPES = {
     "R1": "Rectificativa (art. 80 Uno, Dos y Seis LIVA)",
     "R5": "Rectificativa de factura simplificada",
 }
+
+
+# AEAT services that check the QR printed on invoices. Records are not sent to the AEAT yet, so the app works as a
+# «no VERI*FACTU» system: its QR goes to the NoVerifactu address and invoices must not carry the «VERI*FACTU» legend.
+SENDS_TO_AEAT = False
+QR_HOSTS = {"produccion": "https://www2.agenciatributaria.gob.es", "pruebas": "https://prewww2.aeat.es"}
+QR_PATHS = {True: "/wlpl/TIKE-CONT/ValidarQR", False: "/wlpl/TIKE-CONT/ValidarQRNoVerifactu"}
+QR_SIZE_MM = 35  # the specification asks for 30 to 40 mm
 
 
 def amount(value) -> str:
@@ -67,3 +76,28 @@ def verify_chain(rows: list[dict]) -> dict:
             return {"ok": False, "checked": i, "broken_at": row["id"], "reason": "un registro ha sido alterado"}
         previous = row["hash"]
     return {"ok": True, "checked": len(rows), "broken_at": None, "reason": ""}
+
+
+def qr_url(record: dict, environment: str = "produccion") -> str:
+    """Address encoded in an invoice's tax QR code: issuer, number, date and total of its billing record."""
+    query = urlencode({"nif": record["issuer_tax_id"], "numserie": record["number"], "fecha": record["issued_on"],
+                       "importe": record["amount_total"]})
+    return f"{QR_HOSTS[environment]}{QR_PATHS[SENDS_TO_AEAT]}?{query}"
+
+
+def qr_code(url: str):
+    import segno
+
+    return segno.make_qr(url, error="m")  # ISO/IEC 18004, error correction level M as required
+
+
+def qr_svg_data_uri(url: str) -> str:
+    return qr_code(url).svg_data_uri(scale=4, border=2)
+
+
+def qr_png(url: str) -> bytes:
+    import io
+
+    out = io.BytesIO()
+    qr_code(url).save(out, kind="png", scale=8, border=2)
+    return out.getvalue()

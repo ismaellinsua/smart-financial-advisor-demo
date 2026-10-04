@@ -10,7 +10,7 @@ from reportlab.lib.enums import TA_RIGHT
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
-from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from reportlab.platypus import Image, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 from .presets import CURRENCIES
 from .pricing import format_money
@@ -67,6 +67,19 @@ def _header(settings: dict, st, title: str, meta: list[str], accent) -> Table:
     return table
 
 
+def _qr(record: dict | None, st) -> list:
+    """The tax QR code at the start of an invoice (Orden HAC/1177/2024); nothing without a billing record."""
+    if not record:
+        return []
+    from .verifactu import QR_SIZE_MM, qr_png, qr_url
+
+    image = Image(BytesIO(qr_png(qr_url(record))), width=QR_SIZE_MM * mm, height=QR_SIZE_MM * mm)
+    table = Table([[image], [_p("QR tributario", st["muted"])]], colWidths=[170 * mm], hAlign="LEFT")
+    table.setStyle(TableStyle([("LEFTPADDING", (0, 0), (-1, -1), 0), ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+                               ("BOTTOMPADDING", (0, 0), (-1, -1), 2)]))
+    return [table, Spacer(1, 4 * mm)]
+
+
 def _build(story: list, title: str) -> bytes:
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=20 * mm, rightMargin=20 * mm,
@@ -86,7 +99,7 @@ def invoice_pdf(invoice: dict, settings: dict) -> bytes:
     meta = [f"Nº {invoice['number']}", f"Fecha: {issued:%d/%m/%Y}"]
     if operation.date() != issued.date():
         meta.append(f"Fecha de la operación: {operation:%d/%m/%Y}")
-    story = [_header(settings, st, "FACTURA", meta, accent), Spacer(1, 8 * mm)]
+    story = [*_qr(invoice.get("billing"), st), _header(settings, st, "FACTURA", meta, accent), Spacer(1, 8 * mm)]
 
     customer = [_p("FACTURAR A", st["label"]), _p(invoice["customer_name"], st["base"]),
                 _p(f"NIF/CIF: {invoice['customer_tax_id']}", st["base"])]
@@ -211,7 +224,7 @@ def credit_note_pdf(note: dict, settings: dict) -> bytes:
     money = lambda v: format_money(v, CURRENCIES.get(settings.get("currency", "EUR"), "€"))  # noqa: E731
     issued = datetime.fromisoformat(note["issued_at"])
     original = datetime.fromisoformat(invoice["issued_at"])
-    story = [_header(settings, st, "FACTURA RECTIFICATIVA",
+    story = [*_qr(note.get("billing"), st), _header(settings, st, "FACTURA RECTIFICATIVA",
                      [f"Nº {note['number']}", f"Fecha: {issued:%d/%m/%Y}"], accent), Spacer(1, 6 * mm),
              _p(f"Rectifica la factura {invoice['number']} de {original:%d/%m/%Y}. Motivo: {refund['reason']}",
                 st["base"]), Spacer(1, 6 * mm)]

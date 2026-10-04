@@ -119,3 +119,42 @@ def test_backup_keeps_the_register(store, make_store):
     copy.restore(store.backup_bytes())
     assert list(copy.billing_records()["hash"]) == list(store.billing_records()["hash"])
     assert copy.verify_billing_chain()["ok"]
+
+
+def test_qr_address_follows_the_aeat_format():
+    from core.verifactu import qr_png, qr_url
+
+    record = {"issuer_tax_id": "89890001K", "number": "12345678/G33", "issued_on": "01-01-2024",
+              "amount_total": "241.40"}
+    assert qr_url(record) == ("https://www2.agenciatributaria.gob.es/wlpl/TIKE-CONT/ValidarQRNoVerifactu"
+                              "?nif=89890001K&numserie=12345678%2FG33&fecha=01-01-2024&importe=241.40")
+    assert qr_url(record, "pruebas").startswith("https://prewww2.aeat.es/wlpl/TIKE-CONT/ValidarQRNoVerifactu?")
+    assert qr_png(qr_url(record)).startswith(b"\x89PNG")
+
+
+def test_documents_carry_the_qr_only_with_a_billing_record(store):
+    from core.pdfs import credit_note_pdf, invoice_pdf
+    from core.receipts import receipt_html, refund_receipt_html
+
+    before = _sale(store)
+    assert "QR tributario" not in receipt_html(store.sale(before["id"]), store.settings())
+    store.enable_billing_register()
+    ticket = _sale(store, quantity=2)
+    sale = store.sale(ticket["id"])
+    assert sale["billing"]["number"] == ticket["number"]
+    assert "QR tributario" in receipt_html(sale, store.settings())
+    item = sale["items"][0]["id"]
+    refund = store.refund(store.create_refund(ticket["id"], {item: 1}, "Efectivo", "Talla")["id"])
+    assert refund["billing"]["invoice_type"] == "R5"
+    assert "QR tributario" in refund_receipt_html(refund, store.settings())
+
+    invoiced = _sale(store)
+    invoice = store.create_invoice(invoiced["id"], {"name": "Norte S.L.", "tax_id": "B87654321", "address": "C/ 1"})
+    assert invoice["billing"]["invoice_type"] == "F3"
+    assert invoice_pdf(invoice, store.settings()).startswith(b"%PDF")
+    note_refund = store.create_refund(invoiced["id"], {store.sale(invoiced["id"])["items"][0]["id"]: 1},
+                                      "Efectivo", "Defectuoso")
+    note = store.credit_note(note_refund["id"])
+    assert note["billing"]["invoice_type"] == "R1"
+    assert credit_note_pdf(note, store.settings()).startswith(b"%PDF")
+    assert store.refund(note_refund["id"])["billing"] is None  # its QR goes on the corrective invoice

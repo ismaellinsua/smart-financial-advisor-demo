@@ -44,6 +44,17 @@ def payment_lines(sale: dict) -> list[str]:
     return out
 
 
+def qr_block(record: dict | None) -> str:
+    """The tax QR code (Orden HAC/1177/2024), placed at the start of the document; empty without a billing record."""
+    if not record:
+        return ""
+    from .verifactu import QR_SIZE_MM, qr_svg_data_uri, qr_url
+
+    return (f"<div class='qr' style='margin-bottom:16px'><img src='{qr_svg_data_uri(qr_url(record))}' "
+            f"alt='Código QR tributario' style='width:{QR_SIZE_MM}mm;height:{QR_SIZE_MM}mm;display:block'>"
+            "<div style='font-size:11px;color:#667085'>QR tributario</div></div>")
+
+
 def receipt_html(sale: dict, settings: dict) -> str:
     symbol = CURRENCIES.get(settings.get("currency", "EUR"), "€")
     money = lambda v: format_money(v, symbol)  # noqa: E731
@@ -106,7 +117,7 @@ def receipt_html(sale: dict, settings: dict) -> str:
            color: rgba(217,45,32,.18); transform: rotate(-18deg); pointer-events: none; }}
   @media print {{ body {{ background: #fff; }} .sheet {{ box-shadow: none; margin: 0; }} }}
 </style></head>
-<body><div class="sheet">{void}
+<body><div class="sheet">{void}{qr_block(sale.get("billing"))}
 <header>
   <div><h1>{escape(settings.get('business_name', ''))}</h1><div class="muted">{business_lines}</div></div>
   <div class="doc"><div class="muted">Ticket de venta</div><strong>{escape(sale['number'])}</strong>
@@ -146,7 +157,7 @@ def refund_receipt_html(refund: dict, settings: dict) -> str:
 <style>body {{ font-family: Arial, sans-serif; max-width: 560px; margin: 32px auto; color: #1b2430; }}
 table {{ width: 100%; border-collapse: collapse; }} td, th {{ padding: 6px 0; border-bottom: 1px solid #eee; }}
 .n {{ text-align: right; }} .total {{ font-size: 20px; font-weight: 700; text-align: right; margin-top: 12px; }}
-.muted {{ color: #667085; font-size: 13px; }}</style></head><body>
+.muted {{ color: #667085; font-size: 13px; }}</style></head><body>{qr_block(refund.get("billing"))}
 <h2>{escape(settings.get('business_name', ''))}</h2>
 <p><b>Devolución {escape(refund['number'])}</b> · {when}<br>
 <span class="muted">Ticket original {escape(refund['sale_number'])} · Motivo: {escape(refund['reason'])}</span></p>

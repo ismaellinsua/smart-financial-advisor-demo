@@ -1355,9 +1355,9 @@ def _billing_register_section(c, s: dict) -> None:
     st.markdown("##### Registro de facturación (VERI*FACTU, en preparación)")
     with st.container(border=True):
         st.caption("Cada ticket, factura, rectificativa y anulación queda en un registro encadenado con la huella "
-                   "SHA-256 que exige la AEAT: no se puede modificar ni borrar. **Todavía no se envía a Hacienda** "
-                   "ni se imprime el código QR: esa parte llega en una próxima versión, así que NirKanA aún no es "
-                   "un sistema VERI*FACTU completo.")
+                   "SHA-256 que exige la AEAT: no se puede modificar ni borrar, y tickets y facturas llevan el código QR "
+                   "tributario. **Todavía no se envía a Hacienda**: esa parte llega en una próxima versión, así que "
+                   "NirKanA aún no es un sistema VERI*FACTU completo y no imprime esa leyenda.")
         if s.get("verifactu") != "si":
             ready = s.get("demo_mode") != "si" and bool((s.get("tax_id") or "").strip())
             if not ready:

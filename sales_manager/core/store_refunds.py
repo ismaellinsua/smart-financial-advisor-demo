@@ -177,8 +177,11 @@ class RefundsMixin:
             items = cur.execute("SELECT * FROM refund_items WHERE refund_id = ? ORDER BY id", (int(refund_id),)).fetchall()
             note = cur.execute("SELECT * FROM credit_notes WHERE refund_id = ?", (int(refund_id),)).fetchone()
             sale = cur.execute("SELECT number, tax_rate, customer_id FROM sales WHERE id = ?", (row["sale_id"],)).fetchone()
+            billing = self._billing_record(cur, "refund", refund_id)
+            if note:
+                note = {**note, "billing": self._billing_record(cur, "credit_note", note["id"])}
         return {**row, "items": items, "credit_note": note, "sale_number": sale["number"],
-                "tax_rate": sale["tax_rate"], "taxes": tax_breakdown(items, sale["tax_rate"])}
+                "tax_rate": sale["tax_rate"], "taxes": tax_breakdown(items, sale["tax_rate"]), "billing": billing}
 
     def refunds(self, start: datetime | None = None, end: datetime | None = None) -> pd.DataFrame:
         sql = ("SELECT r.id, r.number, r.created_at, r.user_name, r.reason, r.method, r.base, r.tax, r.total, "

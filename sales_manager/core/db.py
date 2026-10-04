@@ -1114,7 +1114,9 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin, Billin
             items = cur.execute("SELECT * FROM sale_items WHERE sale_id = ? ORDER BY id", (sale_id,)).fetchall()
             payments = cur.execute("SELECT method, amount, tendered FROM sale_payments WHERE sale_id = ? ORDER BY id",
                                    (sale_id,)).fetchall()
-        return {**row, "items": items, "payments": payments, "taxes": tax_breakdown(items, row["tax_rate"])}
+            billing = self._billing_record(cur, "sale", sale_id)
+        return {**row, "items": items, "payments": payments, "taxes": tax_breakdown(items, row["tax_rate"]),
+                "billing": billing}
 
     def sales(self, start: datetime | None = None, end: datetime | None = None, include_cancelled=True) -> pd.DataFrame:
         sql = (
@@ -1243,9 +1245,10 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin, Billin
     def invoice(self, invoice_id: int) -> dict:
         with self.db.tx() as cur:
             row = cur.execute("SELECT * FROM invoices WHERE id = ?", (int(invoice_id),)).fetchone()
+            billing = self._billing_record(cur, "invoice", invoice_id) if row else None
         if row is None:
             raise SaleError("Factura no encontrada.")
-        return {**row, "sale": self.sale(row["sale_id"])}
+        return {**row, "sale": self.sale(row["sale_id"]), "billing": billing}
 
     def invoices(self) -> pd.DataFrame:
         df = self._frame(

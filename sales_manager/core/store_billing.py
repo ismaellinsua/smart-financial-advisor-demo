@@ -78,6 +78,13 @@ class BillingMixin:
         return [{"rate": float(r["tax_rate"]), "base": round(float(r["base"]), 2), "tax": round(float(r["tax"]), 2)}
                 for r in rows]
 
+    @staticmethod
+    def _billing_record(cur, source: str, source_id) -> dict | None:
+        """The issue record of a ticket, invoice or corrective invoice, for its QR code; None if it has none."""
+        return cur.execute("SELECT number, issued_on, issuer_tax_id, amount_total, invoice_type FROM billing_records "
+                           "WHERE kind = 'alta' AND source = ? AND source_id = ? ORDER BY id LIMIT 1",
+                           (source, int(source_id))).fetchone()
+
     # ------------------------------------------------------------------ public
     def enable_billing_register(self, by: str = "") -> None:
         settings = self.settings()
