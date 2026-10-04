@@ -17,11 +17,12 @@ const MESSAGE = "Hola, me interesa NirKanA para mi negocio. ¿Podemos ver una de
   const finePointer = window.matchMedia("(pointer: fine)").matches;
 
   // ------------------------------------------------------------ direct contact buttons
-  const wa = document.getElementById("whatsapp-link");
   const phone = String(CONTACT.whatsapp).replace(/\D/g, "");
-  if (wa && phone.length >= 8) {
-    wa.href = `https://wa.me/${phone}?text=${encodeURIComponent(MESSAGE)}`;
-    wa.hidden = false;
+  if (phone.length >= 8) {
+    for (const wa of document.querySelectorAll("#whatsapp-link, #whatsapp-float")) {
+      wa.href = `https://wa.me/${phone}?text=${encodeURIComponent(MESSAGE)}`;
+      wa.hidden = false;
+    }
   }
 
   // ------------------------------------------------------------ contact form
@@ -77,7 +78,7 @@ const MESSAGE = "Hola, me interesa NirKanA para mi negocio. ¿Podemos ver una de
         lastSent = Date.now();
         say("¡Gracias! Te responderé en menos de 24 horas laborables.", "ok");
       } catch {
-        say("No se pudo enviar. Inténtalo de nuevo o escríbeme directamente por email.", "err");
+        say("No se pudo enviar. Inténtalo de nuevo en unos minutos.", "err");
       } finally {
         button.disabled = false;
       }
