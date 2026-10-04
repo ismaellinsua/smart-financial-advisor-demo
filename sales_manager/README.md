@@ -34,7 +34,7 @@ En el móvil:
 | Módulo | Qué hace |
 |---|---|
 | **Panel** | Facturación, ventas, ticket medio y margen frente al periodo anterior (netos de devoluciones); ventas diarias, lo más vendido, formas de pago, categorías y ventas por persona; alertas inteligentes y el informe semanal listo para descargar. |
-| **Vender (TPV)** | Catálogo con búsqueda, ticket, cliente, descuento, **promociones automáticas** y **canje de puntos**. Cobro en **un pago con cálculo del cambio**, **pago mixto** (parte tarjeta, parte efectivo…) o **cuenta dividida** entre varias personas. |
+| **Vender (TPV)** | Catálogo con búsqueda, ticket, cliente, descuento, **promociones automáticas** y **canje de puntos**. Cobro en **un pago con cálculo del cambio**, **pago mixto** (parte tarjeta, parte efectivo…) o **cuenta dividida** entre varias personas. En el móvil, catálogo y ticket se alternan con una barra fija y «Cobrar» siempre está a la vista. Tras cobrar: **imprimir** (A4 o ticket térmico de 80/58 mm) o enviar por **WhatsApp** o **email**. |
 | **Mesas y comandas** | Plano de mesas por zonas, comandas compartidas entre camareros (cada línea firmada), notas para cocina, comensales, cambio de mesa y pedidos para llevar. Se cobra toda la mesa o **solo los productos que paga cada persona**. |
 | **Cocina** | Pantalla que se actualiza sola: pendiente → preparando → listo → servido, con aviso de los platos que esperan demasiado. |
 | **Agenda** | Citas (autónomos) o reservas (restaurantes), sin solapes, cobro de la cita con un toque. |
@@ -46,7 +46,7 @@ En el móvil:
 | Módulo | Qué hace |
 |---|---|
 | **Catálogo / Carta** | Edición en tabla: precio, coste, margen, stock, mínimo y proveedor habitual. |
-| **Clientes** | Cartera por valor, compras, última visita y puntos. |
+| **Clientes** | Cartera por valor, compras, última visita y puntos. **Protección de datos (RGPD):** descargar todos los datos de una persona, consentimiento para ofertas (el seguimiento solo muestra a quien aceptó) y borrado de datos personales conservando las facturas. |
 | **Promociones** | Descuentos en % o 2x1 / 3x2, para todo, una categoría o un producto, por días y franja horaria (*happy hour*). Se aplican solas al cobrar, siempre la mejor para el cliente. |
 | **Fidelización** | Puntos por cada euro, canje como descuento, ranking de clientes. Las devoluciones y anulaciones restan los puntos. |
 | **Compras** | Proveedores, pedidos en PDF, recepción parcial o total: el stock y el **coste medio** se actualizan solos y el gasto queda apuntado. La reposición inteligente crea los pedidos por proveedor con un clic. |
@@ -84,8 +84,10 @@ pip install -r requirements.txt
 streamlit run sales_manager/app.py
 ```
 
-La primera vez aparece un asistente para elegir el nombre y el tipo de negocio, con la opción de cargar 60 días de
-ventas de ejemplo. Los datos se guardan en `sales_manager/data/ventas.db` (SQLite).
+La primera vez, un asistente de tres pasos pide el negocio (nombre, tipo y zona horaria), los datos fiscales (NIF,
+que se comprueba, dirección e IVA habitual) y deja el negocio listo para vender; las ventas de ejemplo solo se cargan
+si las pides. Los datos se guardan en `sales_manager/data/ventas.db` (SQLite). Dentro de la app, **Ayuda** tiene una
+guía corta para cada rol.
 
 ## Publicar en Streamlit Community Cloud (para usarla desde el móvil)
 
@@ -166,14 +168,14 @@ pero es mejor hacer el repositorio privado.
 | Medida | Detalle |
 |---|---|
 | Cuentas individuales | Cada persona entra escribiendo su usuario y su PIN (mínimo 6 cifras, sin series como 123456) o contraseña; la pantalla de acceso no muestra quién trabaja en el negocio. Los PIN antiguos más cortos se cambian al entrar, y cada persona puede cambiar el suyo. Las contraseñas se guardan cifradas con PBKDF2-SHA256 (600.000 iteraciones y sal aleatoria), nunca en claro. |
-| Roles | **Administrador:** todo. **Encargado:** panel, caja, gestión, inteligencia, facturas, devoluciones y anulaciones. **Empleado:** mesas, vender, agenda y consultar tickets. Cada página comprueba el rol en el servidor, no solo el menú. |
+| Roles | **Administrador:** todo. **Encargado:** panel, caja, gestión, inteligencia, facturas, devoluciones y anulaciones. **Empleado:** mesas, vender, agenda y consultar sus propios tickets de los últimos 7 días. Cada página comprueba el rol en el servidor, no solo el menú. |
 | Fuerza bruta | Quien falla muchas veces desde un mismo dispositivo espera cada vez más (15 min, 30, 1 h… hasta 24 h) sin afectar al resto. La cuenta solo se bloquea 15 minutos tras 10 fallos, para que nadie pueda dejar al negocio fuera de su propia caja. Un usuario inexistente tarda lo mismo que uno real. |
 | Recuperación y dos pasos | El administrador recibe 8 códigos de recuperación de un solo uso (al crear la cuenta y en «Equipo y seguridad»): sirven para entrar si olvida la contraseña, pierde el móvil o le bloquean la cuenta. Puede activar la verificación en dos pasos con Google Authenticator o similar. |
 | Primer acceso | Crear el administrador exige `app_password` de los *Secrets* o, si no existe, un código de un solo uso que solo aparece en el registro del servidor (terminal o «Manage app → Logs»). Así nadie puede apropiarse de la app tras un reinicio. |
-| Sesiones | Se cierran tras un tiempo sin uso (configurable, 12 h por defecto) y al desactivar a una persona. Recargar la página pide de nuevo el PIN. |
+| Sesiones | Recargar la página o reabrir la pestaña no saca de la sesión ni pierde el ticket en curso: el navegador guarda un token aleatorio (cookie `SameSite=Strict`, `Secure` con HTTPS) y la base de datos solo su huella SHA-256. Se cierran tras un tiempo sin uso (configurable, 12 h por defecto), al salir, al cambiar el PIN (en todos los dispositivos) y al desactivar a una persona. |
 | Descuentos | Los empleados pueden dar hasta el descuento máximo fijado en Configuración (10 % por defecto); por encima, un encargado o el administrador lo autoriza con su usuario y PIN y queda firmado en la venta y en el registro. |
 | Stock | Editar el catálogo solo guarda lo que cambias. Los cambios de stock se suman o restan a las existencias reales del momento y quedan en «Ajustes de stock» con quién, cuándo y cuánto. |
-| Registro de actividad | Accesos, intentos fallidos, anulaciones, facturas, cierres y reaperturas de caja, cambios de configuración, restauraciones y cambios en el equipo. |
+| Registro de actividad | Accesos, intentos fallidos, anulaciones, facturas, cierres y reaperturas de caja, cambios de configuración, restauraciones, cambios en el equipo y **cada descarga de datos** (exportaciones, copias y datos de clientes). Se puede filtrar. |
 | Copias de seguridad | No incluyen usuarios ni registro: las credenciales no salen del servidor. Al restaurar solo se aceptan tablas y columnas conocidas (sin inyección SQL por nombres de columna) y se valida el archivo. |
 | Exportaciones | Los CSV neutralizan fórmulas de hoja de cálculo (`=`, `+`, `-`, `@`). Los textos de usuario se escapan en pantallas, tickets y PDF. |
 | Base de datos | Consultas siempre parametrizadas. Conexión a PostgreSQL remoto con TLS obligatorio (`sslmode=require`). Límites de longitud en todos los textos. |
