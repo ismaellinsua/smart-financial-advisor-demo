@@ -1,0 +1,93 @@
+# Daily encrypted backups of every business database, with a restore drill. Set up in README («Copias de
+# seguridad automáticas»). GitHub emails the repository owner if a run fails.
+name: Copias de seguridad
+
+on:
+  schedule:
+    - cron: "17 2 * * *"  # every day at 02:17 UTC (04:17 in Spain in summer)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backups
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      BACKUP_DATABASES: ${{ secrets.BACKUP_DATABASES }}
+      BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+      BACKUP_S3_BUCKET: ${{ secrets.BACKUP_S3_BUCKET }}
+    services:
+      drill:  # throwaway PostgreSQL where every copy is restored and checked
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: drill
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 12
+    steps:
+      - name: Sin configurar todavía
+        if: env.BACKUP_DATABASES == ''
+        run: echo "::notice::Copias desactivadas hasta definir los secretos BACKUP_DATABASES y BACKUP_PASSPHRASE."
+
+      - uses: actions/checkout@v4
+        if: env.BACKUP_DATABASES != ''
+
+      - uses: actions/setup-python@v5
+        if: env.BACKUP_DATABASES != ''
+        with:
+          python-version: "3.12"
+
+      - name: Dependencias
+        if: env.BACKUP_DATABASES != ''
+        run: pip install --quiet -r requirements.txt
+
+      - name: Cliente de PostgreSQL 17 (pg_dump debe ser igual o más nuevo que el servidor)
+        if: env.BACKUP_DATABASES != ''
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+            https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt noble-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list > /dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-17
+          echo /usr/lib/postgresql/17/bin >> "$GITHUB_PATH"
+
+      - name: Copias cifradas
+        if: env.BACKUP_DATABASES != ''
+        run: python ops/backup.py --out backups
+
+      - name: Simulacro de restauración
+        if: env.BACKUP_DATABASES != ''
+        env:
+          RESTORE_URL: postgresql://postgres:drill@localhost:5432/postgres
+        run: python ops/backup.py --verify backups
+
+      - name: Guardar las copias 30 días
+        if: env.BACKUP_DATABASES != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: copias-${{ github.run_number }}
+          path: backups/*.enc
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Copia externa (opcional, S3, Cloudflare R2 o Backblaze B2)
+        if: env.BACKUP_DATABASES != '' && env.BACKUP_S3_BUCKET != ''
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.BACKUP_S3_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_S3_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.BACKUP_S3_REGION || 'auto' }}
+          BACKUP_S3_ENDPOINT: ${{ secrets.BACKUP_S3_ENDPOINT }}
+        run: |
+          endpoint=()
+          if [ -n "$BACKUP_S3_ENDPOINT" ]; then endpoint=(--endpoint-url "$BACKUP_S3_ENDPOINT"); fi
+          aws s3 cp backups/ "s3://$BACKUP_S3_BUCKET/$(date -u +%Y/%m/%d)/" --recursive \
+            --exclude "*" --include "*.enc" "${endpoint[@]}"

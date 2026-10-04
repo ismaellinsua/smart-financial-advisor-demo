@@ -128,6 +128,38 @@ La app usa PostgreSQL cuando encuentra `database_url` en los *Secrets*; si no, u
 El plan gratuito de Neon basta para un negocio pequeño. La base se duerme tras unos minutos sin uso y tarda uno o dos
 segundos en despertar la primera vez; la app se reconecta sola.
 
+## Copias de seguridad automáticas
+
+Cada noche, GitHub Actions (gratis) hace una copia cifrada de la base de datos de cada negocio, la **restaura en una
+base de pruebas y comprueba** que tiene las mismas ventas, facturas y cierres que producción, y la guarda 30 días.
+Si algo falla, GitHub te avisa por email. Solo lee la base de producción: nunca la modifica.
+
+**Activarlas (una vez):** en GitHub, repositorio → **Settings → Secrets and variables → Actions → New repository
+secret**:
+
+| Secreto | Qué poner |
+|---|---|
+| `BACKUP_DATABASES` | Una línea por negocio: `nombre=postgresql://…` (la cadena de conexión de Neon). Ej.: `cafe-aurora=postgresql://usuario:clave@ep-xxxx.eu-central-1.aws.neon.tech/neondb?sslmode=require` |
+| `BACKUP_PASSPHRASE` | Una frase larga (16+ caracteres) para cifrar. **Guárdala en tu gestor de contraseñas: sin ella las copias no se pueden abrir.** |
+| `BACKUP_S3_*` (opcional) | Para guardar además una copia fuera de GitHub (Cloudflare R2, Backblaze B2 o S3): `BACKUP_S3_BUCKET`, `BACKUP_S3_ACCESS_KEY_ID`, `BACKUP_S3_SECRET_ACCESS_KEY`, `BACKUP_S3_ENDPOINT` y `BACKUP_S3_REGION`. |
+
+Después, en **Actions → Copias de seguridad → Run workflow**, lánzala una vez para comprobar que va.
+
+Cada negocio tiene dos archivos cifrados: `…dump.enc` (la base completa, con cuentas y registro de actividad) y
+`…db.enc` (la copia de la app, sin cuentas).
+
+**Recuperar datos:** descarga el artefacto de la ejecución que quieras (Actions → la ejecución → *Artifacts*) y:
+
+```bash
+export BACKUP_PASSPHRASE="tu frase"
+python ops/backup.py --decrypt cafe-aurora-20261004-0217.db.enc     # → Configuración → Restaurar, en un negocio sin ventas
+python ops/backup.py --decrypt cafe-aurora-20261004-0217.dump.enc   # todo, en una base nueva:
+pg_restore --no-owner --no-privileges --dbname="postgresql://…/base_nueva" cafe-aurora-20261004-0217.dump
+```
+
+Mientras el repositorio sea público, cualquiera con cuenta de GitHub puede descargar los artefactos: están cifrados,
+pero es mejor hacer el repositorio privado.
+
 ## Seguridad
 
 | Medida | Detalle |
