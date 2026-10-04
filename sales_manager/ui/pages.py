@@ -1101,24 +1101,38 @@ def products_page() -> None:
                 "active": st.column_config.CheckboxColumn("Activo"),
             },
         )
+        st.caption("Si cambias el stock, la diferencia se suma o resta a las existencias reales de ese momento "
+                   "(aunque se haya vendido mientras editabas) y queda en «Ajustes de stock».")
         if st.button("Guardar cambios", type="primary", icon=":material/save:"):
-            fields = ["sku", "name", "category", "price", "cost", "stock", "min_stock", "track_stock", "active"]
             changed = 0
             try:
                 for (_, before), (_, after) in zip(df.iterrows(), edited.iterrows()):
-                    if any(before[f] != after[f] for f in fields):
-                        data = {f: after[f] for f in fields}
-                        data.update(track_stock=int(after["track_stock"]), active=int(after["active"]),
-                                    stock=int(after["stock"]), min_stock=int(after["min_stock"]))
-                        c.store.upsert_product(data, int(after["id"]))
-                        c.store.audit(c.username, "producto_modificado", f"{data['sku']} · {data['price']}")
-                        changed += 1
+                    pid = int(after["id"])
+                    changes = {f: after[f] for f in c.store.PRODUCT_EDITABLE if before[f] != after[f]}
+                    delta = int(after["stock"]) - int(before["stock"])
+                    if changes:
+                        c.store.update_product(pid, changes)
+                        c.store.audit(c.username, "producto_modificado", f"{after['sku']} · " + ", ".join(
+                            f"{k}: {before[k]} → {after[k]}" for k in changes))
+                    if delta:
+                        c.store.adjust_stock(pid, delta, "Ajuste en el catálogo", user_name=c.who)
+                    changed += bool(changes or delta)
             except (ValueError, TypeError) as exc:
                 st.error(str(exc))
             else:
                 st.session_state["products_flash"] = f"{changed} cambio(s) guardado(s)."
                 _bump("products_editor")
                 st.rerun()
+
+        with st.expander("Ajustes de stock", icon=":material/history:"):
+            moves = c.store.stock_moves()
+            if moves.empty:
+                st.caption("Todavía no hay ajustes manuales de stock.")
+            else:
+                st.dataframe(moves, hide_index=True, use_container_width=True, column_config={
+                    "created_at": st.column_config.DatetimeColumn("Cuándo", format="DD/MM/YYYY HH:mm"),
+                    "sku": "Código", "name": "Artículo", "delta": "Cambio", "stock_after": "Queda",
+                    "reason": "Motivo", "user_name": "Quién"})
 
     with tab_new:
         with st.form("new_product", clear_on_submit=True):
@@ -1368,6 +1382,10 @@ def settings_page() -> None:
         values["reorder_lead_days"] = b.number_input("Días de cobertura al reponer", 1, 120,
                                                      int(s["reorder_lead_days"]))
         st.markdown("##### Seguridad")
+        values["max_discount_staff"] = st.number_input(
+            "Descuento máximo de los empleados sin autorización (%)", 0.0, 100.0,
+            float(s.get("max_discount_staff") or 10), step=5.0,
+            help="Por encima, un encargado o el administrador lo autoriza con su usuario y PIN, y queda registrado.")
         values["session_minutes"] = st.number_input(
             "Cerrar la sesión tras estos minutos sin uso", 5, 1440, int(s.get("session_minutes") or 720), step=15,
             help="En tablets o móviles compartidos conviene un valor bajo, por ejemplo 15.")

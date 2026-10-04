@@ -278,3 +278,17 @@ def test_weak_pin_from_before_must_be_changed_at_login(tmp_path, monkeypatch):
     assert not at.exception, at.exception
     assert "must_change_secret" not in at.session_state
     assert store.authenticate("ana", "771930")["name"] == "Ana"
+
+
+def test_staff_discount_above_the_limit_blocks_the_charge(demo_db):
+    at = AppTest.from_string(SCRIPT.format(root=ROOT, db=demo_db, fn="point_of_sale", role="empleado"),
+                             default_timeout=30).run()
+    at.button(key=next(b.key for b in at.button if b.key and b.key.startswith("add_"))).click().run()
+    at.number_input(key="pos_discount").set_value(50.0).run()
+    assert not at.exception, at.exception
+    charge = next(b for b in at.button if b.label.startswith("Cobrar"))
+    assert charge.disabled
+    assert any("autorización" in w.value for w in at.warning)
+    assert "Usuario del encargado" in [t.label for t in at.text_input]
+    at.number_input(key="pos_discount").set_value(10.0).run()
+    assert not next(b for b in at.button if b.label.startswith("Cobrar")).disabled

@@ -158,6 +158,8 @@ DEFAULT_SETTINGS = {
     "tables_enabled": "auto",
     "opening_float": "150",
     "session_minutes": "720",
+    # Highest manual discount (%) staff may give without a manager's authorisation.
+    "max_discount_staff": "10",
     "loyalty_enabled": "si",
     "points_per_euro": "1",
     "point_value": "0.01",

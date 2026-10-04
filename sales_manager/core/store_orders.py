@@ -224,6 +224,8 @@ class OrdersMixin:
                         cur, cart, checkout.get("payment_method", "Tarjeta"), checkout.get("customer_id"),
                         float(checkout.get("discount_pct") or 0), None, when, checkout.get("user_name", ""),
                         payments=checkout.get("payments"), redeem_points=int(checkout.get("redeem_points") or 0),
+                        max_discount=checkout.get("max_discount"),
+                        discount_approved_by=checkout.get("discount_approved_by", ""),
                     )
                     self._mark_paid(cur, order_id, selection, sale_id)
                     left = cur.execute("SELECT COUNT(*) AS n FROM order_items WHERE order_id = ? AND sale_id IS NULL",

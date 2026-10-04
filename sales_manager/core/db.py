@@ -285,6 +285,16 @@ CREATE INDEX IF NOT EXISTS idx_audit_happened ON audit_log(happened_at);
 CREATE INDEX IF NOT EXISTS idx_sales_created ON sales(created_at);
 CREATE INDEX IF NOT EXISTS idx_items_sale ON sale_items(sale_id);
 CREATE INDEX IF NOT EXISTS idx_appointments_start ON appointments(starts_at);
+CREATE TABLE IF NOT EXISTS stock_moves (
+    id {pk},
+    product_id INTEGER NOT NULL REFERENCES products(id),
+    delta INTEGER NOT NULL,
+    stock_after INTEGER NOT NULL,
+    reason TEXT NOT NULL DEFAULT '',
+    user_name TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_stock_moves_product ON stock_moves(product_id);
 CREATE TABLE IF NOT EXISTS recovery_codes (
     id {pk},
     user_id INTEGER NOT NULL REFERENCES users(id),
@@ -319,6 +329,8 @@ MIGRATIONS = [
     ("sales", "voided_at", "TEXT"),
     # Two-step verification secret (TOTP) of administrators who turn it on.
     ("users", "totp_secret", "TEXT NOT NULL DEFAULT ''"),
+    # Who authorised a manual discount above the staff limit.
+    ("sales", "discount_approved_by", "TEXT NOT NULL DEFAULT ''"),
 ]
 
 # An account locks for a fixed, short time after many failures. A long or growing lock would let anyone who knows a
@@ -328,7 +340,7 @@ MAX_FAILED_LOGINS = 10
 LOCKOUT_MINUTES = 15
 
 # Insertion order respects foreign keys; deletion goes in reverse.
-DATA_TABLES = ["products", "customers", "sales", "sale_items", "invoices", "appointments", "cash_closings",
+DATA_TABLES = ["products", "stock_moves", "customers", "sales", "sale_items", "invoices", "appointments", "cash_closings",
                "sale_payments", "promotions", "loyalty_moves", "refunds", "refund_items", "credit_notes",
                "dining_tables", "orders", "order_items", "suppliers", "recurring_expenses", "purchase_orders",
                "purchase_items", "expenses"]
@@ -624,9 +636,50 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin):
         except self.db.integrity_errors as exc:
             raise ValueError(f"No se pudo guardar: el código '{data['sku']}' ya existe o hay valores inválidos.") from exc
 
-    def adjust_stock(self, product_id: int, delta: int) -> None:
+    PRODUCT_EDITABLE = ("sku", "name", "category", "price", "cost", "min_stock", "track_stock", "active")
+
+    def update_product(self, product_id: int, changes: dict) -> None:
+        """Save only the fields that were edited, so a stale screen never overwrites what others changed (stock
+        sold meanwhile, a price set from another device). Stock goes through `adjust_stock`."""
+        changes = {k: v for k, v in changes.items() if k in self.PRODUCT_EDITABLE}
+        if not changes:
+            return
+        if "sku" in changes or "name" in changes:
+            if not str(changes.get("sku", "x")).strip() or not str(changes.get("name", "x")).strip():
+                raise ValueError("Código y nombre son obligatorios.")
+        cleaners = {"sku": lambda v: clean_text(v, "Código", "short"), "name": lambda v: clean_text(v, "Nombre"),
+                    "category": lambda v: clean_text(v or "General", "Categoría", "short"),
+                    "price": float, "cost": float, "min_stock": int, "track_stock": int, "active": int}
+        values = {k: cleaners[k](v) for k, v in changes.items()}
+        try:
+            with self.db.tx() as cur:
+                cur.execute(f"UPDATE products SET {', '.join(f'{k} = ?' for k in values)} WHERE id = ?",
+                            [*values.values(), int(product_id)])
+        except self.db.integrity_errors as exc:
+            raise ValueError("No se pudo guardar: el código ya existe o hay valores inválidos.") from exc
+
+    def adjust_stock(self, product_id: int, delta: int, reason: str = "Ajuste manual", user_name: str = "") -> int:
+        """Add or remove units on top of the current stock (never a stale absolute value) and record who did it."""
+        delta = int(delta)
+        reason = clean_text(reason, "Motivo", "short")
         with self.db.tx() as cur:
-            cur.execute("UPDATE products SET stock = stock + ? WHERE id = ?", (int(delta), int(product_id)))
+            row = cur.execute("UPDATE products SET stock = stock + ? WHERE id = ? AND stock + ? >= 0 RETURNING stock",
+                              (delta, int(product_id), delta)).fetchone()
+            if row is None:
+                raise ValueError("El stock no puede quedar en negativo.")
+            if delta:
+                cur.execute("INSERT INTO stock_moves(product_id, delta, stock_after, reason, user_name, created_at) "
+                            "VALUES (?, ?, ?, ?, ?, ?)",
+                            (int(product_id), delta, row["stock"], reason, str(user_name)[:120],
+                             clock.now().isoformat(timespec="seconds")))
+            return int(row["stock"])
+
+    def stock_moves(self, limit: int = 100) -> pd.DataFrame:
+        df = self._frame("SELECT m.created_at, p.sku, p.name, m.delta, m.stock_after, m.reason, m.user_name "
+                         "FROM stock_moves m JOIN products p ON p.id = m.product_id ORDER BY m.id DESC LIMIT ?",
+                         (int(limit),))
+        df["created_at"] = pd.to_datetime(df["created_at"])
+        return df
 
     # ----------------------------------------------------------------- customers
     def customers(self) -> pd.DataFrame:
@@ -695,6 +748,8 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin):
         payments: list[dict] | None = None,
         redeem_points: int = 0,
         apply_promos: bool = True,
+        max_discount: float | None = None,
+        discount_approved_by: str = "",
     ) -> dict:
         """Register a sale atomically: prices, promotions and points, stock, payments and receipt number.
 
@@ -712,6 +767,7 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin):
                     sale_id = self._insert_sale(
                         cur, cart, payment_method, customer_id, float(discount_pct), tax_rate, when, user_name,
                         payments=payments, redeem_points=int(redeem_points or 0), apply_promos=apply_promos,
+                        max_discount=max_discount, discount_approved_by=discount_approved_by,
                     )
                 return self.sale(sale_id)
             except self.db.integrity_errors:
@@ -820,7 +876,10 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin):
         return clean
 
     def _insert_sale(self, cur, cart, payment_method, customer_id, discount_pct, tax_rate, when, user_name="",
-                     payments=None, redeem_points=0, apply_promos=True) -> int:
+                     payments=None, redeem_points=0, apply_promos=True, max_discount=None,
+                     discount_approved_by="") -> int:
+        if max_discount is not None and discount_pct > max_discount + 1e-9 and not discount_approved_by:
+            raise SaleError(f"Un descuento de más del {max_discount:g} % necesita la autorización de un encargado.")
         q = self._quote(cur, cart, discount_pct, tax_rate, customer_id, redeem_points, when, apply_promos)
         t = q["totals"]
         pays = self._normalize_payments(payments, payment_method, t["total"])
@@ -829,14 +888,18 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin):
         row = cur.execute(
             "INSERT INTO sales(number, created_at, customer_id, payment_method, discount_pct, tax_rate, "
             "subtotal, discount, tax, total, user_name, promo_discount, loyalty_discount, points_redeemed, "
-            "points_earned) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id",
+            "points_earned, discount_approved_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id",
             (
                 self._next_number(cur, when), when.isoformat(timespec="seconds"), customer_id, label,
                 discount_pct, float(q["tax_rate"]), t["subtotal"], t["discount"], t["tax"], t["total"], user_name,
                 t["promo_discount"], t["loyalty_discount"], q["points_redeemed"], q["points_earned"],
+                str(discount_approved_by)[:120],
             ),
         ).fetchone()
         sale_id = row["id"]
+        if discount_approved_by:
+            self._audit(cur, user_name, "descuento_autorizado",
+                        f"{discount_pct:g} % autorizado por {discount_approved_by}")
         for (p, line), net in zip(q["lines"], t["net_amounts"]):
             cur.execute(
                 "INSERT INTO sale_items(sale_id, product_id, name, quantity, unit_price, unit_cost, line_discount, "
@@ -1339,7 +1402,16 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin):
                         (hash_secret(secret), int(user_id)))
             self._audit(cur, by, "contraseña_cambiada", user["username"])
 
-    def authenticate(self, username: str, secret: str, now: datetime | None = None, otp: str = "") -> dict:
+    def authorize(self, username: str, secret: str, needed: str = "encargado", otp: str = "",
+                  purpose: str = "") -> dict:
+        """A manager confirms an action at someone else's till. Same checks, lockout and log as a login."""
+        user = self.authenticate(username, secret, otp=otp, purpose=purpose or "autorización")
+        if not self.can(user["role"], needed):
+            raise AuthError("Esa persona no puede autorizarlo: hace falta un encargado o el administrador.")
+        return user
+
+    def authenticate(self, username: str, secret: str, now: datetime | None = None, otp: str = "",
+                     purpose: str = "") -> dict:
         """Check a login (and the two-step code when the account has it). Locks the account briefly after many
         failures. The error never says which part was wrong, nor whether the user exists."""
         now = now or clock.now()
@@ -1360,10 +1432,13 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin):
                                 "administrador, puedes entrar con un código de recuperación.")
             elif verify_secret(secret, user["secret_hash"]) and (
                     not user["totp_secret"] or verify_totp(user["totp_secret"], otp)):
-                cur.execute("UPDATE users SET failed_attempts = 0, lockouts = 0, locked_until = '', last_login = ? "
-                            "WHERE id = ?",
-                            (now.isoformat(timespec="seconds"), user["id"]))
-                self._audit(cur, username, "acceso", "")
+                if purpose:  # an authorisation, not a sign-in
+                    cur.execute("UPDATE users SET failed_attempts = 0, locked_until = '' WHERE id = ?", (user["id"],))
+                    self._audit(cur, username, "autorizacion", purpose)
+                else:
+                    cur.execute("UPDATE users SET failed_attempts = 0, lockouts = 0, locked_until = '', last_login = ? "
+                                "WHERE id = ?", (now.isoformat(timespec="seconds"), user["id"]))
+                    self._audit(cur, username, "acceso", "")
                 return {k: user[k] for k in ("id", "username", "name", "role")}
             else:
                 failed = user["failed_attempts"] + 1

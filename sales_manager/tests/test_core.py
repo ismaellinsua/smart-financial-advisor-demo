@@ -1061,3 +1061,42 @@ def test_prefix_with_like_wildcards_is_numbered_exactly(store):
     store.save_settings({"invoice_prefix": "T_1"})
     year = datetime.now().year
     assert [_sell(store)["number"] for _ in range(2)] == [f"T_1-{year}-00001", f"T_1-{year}-00002"]
+
+
+def test_catalog_edit_never_overwrites_stock_sold_meanwhile(store):
+    pid = product_id(store, "CAM-001")
+    store.adjust_stock(pid, 20 - int(store.products().set_index("id").loc[pid, "stock"]))
+    snapshot = store.products().set_index("id").loc[pid]  # a manager opens the catalog: 20 units
+    for _ in range(5):
+        _sell(store)  # the till sells 5 meanwhile
+    store.update_product(pid, {"price": float(snapshot["price"]) + 1})  # the manager only changes the price
+    assert int(store.products().set_index("id").loc[pid, "stock"]) == 15
+    after = store.adjust_stock(pid, -2, "Rotura", user_name="Marta")  # and counts 2 broken: 20 → 18 on screen
+    assert after == 13
+    move = store.stock_moves().iloc[0]
+    assert (move["delta"], move["stock_after"], move["reason"], move["user_name"]) == (-2, 13, "Rotura", "Marta")
+    with pytest.raises(ValueError, match="negativo"):
+        store.adjust_stock(pid, -14)
+    assert int(store.products().set_index("id").loc[pid, "stock"]) == 13
+
+
+def test_staff_discount_needs_a_manager(store):
+    from core.db import AuthError
+    store.create_user("Ismael", "ismael", "admin", "Segura2026")
+    store.create_user("Javier", "javier", "encargado", "582913")
+    store.create_user("Lucía", "lucia", "empleado", "482619")
+    cart = [{"product_id": product_id(store, "CAM-001"), "quantity": 1}]
+    with pytest.raises(SaleError, match="autorización"):
+        store.create_sale(cart, discount_pct=50, max_discount=10, user_name="Lucía")
+    assert store.create_sale(cart, discount_pct=10, max_discount=10, user_name="Lucía")["discount_pct"] == 10
+    with pytest.raises(AuthError, match="no puede autorizarlo"):
+        store.authorize("lucia", "482619")
+    with pytest.raises(AuthError):
+        store.authorize("javier", "000000")
+    who = store.authorize("javier", "582913", purpose="descuento del 50 %")
+    sale = store.create_sale(cart, discount_pct=50, max_discount=10, user_name="Lucía",
+                             discount_approved_by=who["name"])
+    assert sale["discount_approved_by"] == "Javier"
+    log = store.audit_log()
+    assert {"autorizacion", "descuento_autorizado"} <= set(log["action"])
+    assert store.user(who["id"])["last_login"] == ""  # authorising is not signing in

@@ -4,7 +4,7 @@ from html import escape
 
 import streamlit as st
 
-from core.db import SaleError
+from core.db import AuthError, SaleError
 from core.presets import PAYMENT_METHODS
 from core.pricing import split_evenly
 
@@ -101,6 +101,8 @@ def checkout_panel(c, cart: list[dict], prefix: str, *, customer_widget=None, bu
         else:
             st.caption(f"Puntos del cliente: {balance} ({worth}). Se canjean a partir de {loyalty['min_redeem']}.")
     discount = st.number_input("Descuento manual (%)", 0.0, 100.0, 0.0, step=5.0, key=f"{prefix}_discount")
+    limit = discount_limit(c)
+    approver = _discount_approval(c, prefix, discount, limit)
 
     if not cart:
         _totals_table(c, {"subtotal": 0, "promo_discount": 0, "manual_discount": 0, "loyalty_discount": 0,
@@ -124,13 +126,57 @@ def checkout_panel(c, cart: list[dict], prefix: str, *, customer_widget=None, bu
         st.caption(f"Con esta compra el cliente gana {quote['points_earned']} puntos.")
 
     payments, problem = _payments(c, totals["total"], prefix)
+    if discount > limit and not approver:
+        payments, problem = None, f"Un descuento de más del {limit:g} % necesita la autorización de un encargado."
     if problem:
         st.warning(problem, icon=":material/info:")
     if st.button(f"{button_label} {c.money(totals['total'])}", type="primary", use_container_width=True,
                  disabled=payments is None, icon=":material/payments:", key=f"{prefix}_charge"):
         try:
-            return (charge_fn or c.store.create_sale)(cart, customer_id=customer_id, discount_pct=discount,
-                                                      user_name=c.who, payments=payments, redeem_points=redeem)
+            sale = (charge_fn or c.store.create_sale)(
+                cart, customer_id=customer_id, discount_pct=discount, user_name=c.who, payments=payments,
+                redeem_points=redeem, max_discount=limit, discount_approved_by=approver)
+            st.session_state.pop(f"{prefix}_approval", None)
+            return sale
         except SaleError as exc:
             st.error(str(exc))
     return None
+
+
+def discount_limit(c) -> float:
+    """Managers and the administrator give any discount; staff up to the limit set in Configuración."""
+    if c.can("encargado"):
+        return 100.0
+    try:
+        return max(0.0, min(100.0, float(c.settings.get("max_discount_staff") or 0)))
+    except ValueError:
+        return 0.0
+
+
+def _discount_approval(c, prefix: str, discount: float, limit: float) -> str:
+    """Above the staff limit a manager authorises that exact discount with their user and PIN. Returns who did."""
+    key = f"{prefix}_approval"
+    approval = st.session_state.get(key)
+    if discount <= limit:
+        st.session_state.pop(key, None)
+        return ""
+    if approval and approval[1] == discount:
+        st.caption(f"Descuento del {discount:g} % autorizado por {approval[0]}.")
+        return approval[0]
+    with st.container(border=True):
+        st.markdown(f"**Autorización de un encargado** · más del {limit:g} %")
+        with st.form(f"{prefix}_approve", clear_on_submit=True, border=False):
+            a, b = st.columns(2)
+            username = a.text_input("Usuario del encargado", max_chars=30)
+            secret = b.text_input("Su PIN o contraseña", type="password", max_chars=128)
+            otp = st.text_input("Código de verificación (si lo tiene activado)", max_chars=6)
+            if st.form_submit_button("Autorizar descuento"):
+                try:
+                    who = c.store.authorize(username, secret, otp=otp,
+                                            purpose=f"descuento del {discount:g} % en la caja de {c.who}")
+                except AuthError as exc:
+                    st.error(str(exc))
+                else:
+                    st.session_state[key] = (who["name"], discount)
+                    st.rerun()
+    return ""
