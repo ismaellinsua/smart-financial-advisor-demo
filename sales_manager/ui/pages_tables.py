@@ -1,6 +1,5 @@
 """Floor plan with tables, shared orders (comandas) and the kitchen screen."""
 
-from datetime import datetime
 from html import escape
 
 import pandas as pd
@@ -10,6 +9,7 @@ from core.db import SaleError
 from ui.checkout import checkout_panel
 from ui.context import ctx, get_store
 from ui.styles import page_header
+from core import clock
 
 KITCHEN_LABELS = {"pendiente": "En cola", "preparando": "Preparando", "listo": "Listo", "servido": "Servido"}
 
@@ -20,7 +20,7 @@ def tables_enabled(settings: dict, preset: dict) -> bool:
 
 
 def _minutes(since) -> int:
-    return max(0, int((datetime.now() - since.to_pydatetime()).total_seconds() // 60))
+    return max(0, int((clock.now() - since.to_pydatetime()).total_seconds() // 60))
 
 
 def _open_table(table_id: int, who: str) -> None:

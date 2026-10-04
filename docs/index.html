@@ -7,14 +7,31 @@
         content="default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src https://formspree.io; form-action https://formspree.io; base-uri 'none'; object-src 'none'; upgrade-insecure-requests">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <title>NirKanA · Vende, gestiona y decide con datos</title>
-  <meta name="description" content="NirKanA, el gestor de ventas para restaurantes, tiendas, autónomos y tiendas online: cobra, controla tu stock, tu caja y tu equipo, y recibe alertas y un informe cada semana. Desde el móvil, sin instalar nada.">
+  <meta name="description" content="NirKanA, el gestor de ventas para restaurantes, tiendas, autónomos y tiendas online: cobra, controla tu stock, tu caja y tu equipo, con alertas y un informe semanal en el panel. Desde el móvil, sin instalar nada.">
   <meta property="og:title" content="NirKanA · Gestor de ventas inteligente">
   <meta property="og:description" content="Cobra, gestiona y decide con datos. Para restaurantes, tiendas, autónomos y e-commerce.">
   <meta property="og:type" content="website">
+  <meta property="og:image" content="https://ismaellinsua.github.io/smart-financial-advisor-demo/assets/img/panel.webp">
+  <meta property="og:url" content="https://ismaellinsua.github.io/smart-financial-advisor-demo/">
+  <meta name="twitter:card" content="summary_large_image">
   <meta name="theme-color" content="#0B1B33">
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="assets/site.css">
   <script src="assets/site.js" defer></script>
+
+  <link rel="canonical" href="https://ismaellinsua.github.io/smart-financial-advisor-demo/">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "NirKanA",
+    "description": "Gestor de ventas para restaurantes, tiendas, autónomos y tiendas online: cobro, stock, caja, equipo y alertas.",
+    "url": "https://ismaellinsua.github.io/smart-financial-advisor-demo/",
+    "applicationCategory": "BusinessApplication",
+    "operatingSystem": "Web",
+    "inLanguage": "es"
+  }
+  </script>
 </head>
 <body>
   <svg class="sprite" aria-hidden="true" focusable="false">
@@ -45,7 +62,7 @@
   <header class="top">
     <div class="wrap bar">
       <a class="brand" href="#" aria-label="NirKanA, inicio">
-        <span class="logo" aria-hidden="true"><span>N</span></span><span class="name">NirKanA</span>
+        <img class="logo" src="assets/simbolo.svg" alt="" width="34" height="34"><span class="name">NirKanA</span>
       </a>
       <nav aria-label="Principal">
         <a href="#sectores">Sectores</a>
@@ -66,7 +83,7 @@
       <div class="wrap hero-copy">
         <p class="pill"><span class="live"></span>Gestor de ventas para negocios en España</p>
         <h1>De libreta a datos<br><span class="grad">en un día.</span></h1>
-        <p class="lead">Cobra, controla tu stock, tu caja y tu equipo, y recibe alertas antes de que algo vaya mal.
+        <p class="lead">Cobra, controla tu stock, tu caja y tu equipo, y ve en las alertas lo que va mal antes de que vaya a más.
           Todo en una sola app que funciona en el móvil, la tablet o el ordenador.</p>
         <div class="cta">
           <a class="btn magnet" href="#contacto">Pide tu demo gratuita <svg class="ic"><use href="#i-arrow"/></svg></a>
@@ -97,6 +114,7 @@
         <div><b>24 h</b><span>para ponerla en marcha</span></div>
       </div>
     </section>
+
 
     <!-- ============================================================ TRUST STRIP -->
     <div class="trust" aria-label="Lo esencial">
@@ -565,6 +583,7 @@
             </ul>
             <div class="direct">
               <a class="btn ghost" id="whatsapp-link" href="#contacto" hidden rel="noopener noreferrer" target="_blank"><svg class="ic"><use href="#i-chat"/></svg>Hablar por WhatsApp</a>
+              <a class="btn ghost" id="email-link" href="#contacto" hidden><svg class="ic"><use href="#i-chat"/></svg>Escribir por email</a>
             </div>
             <noscript><p class="note">Activa JavaScript para enviar el formulario.</p></noscript>
           </div>
@@ -606,7 +625,7 @@
     <div class="wrap foot-grid">
       <div class="foot-brand">
         <a class="brand" href="#" aria-label="NirKanA, inicio">
-          <span class="logo" aria-hidden="true"><span>N</span></span><span class="name">NirKanA</span>
+          <img class="logo" src="assets/simbolo.svg" alt="" width="34" height="34"><span class="name">NirKanA</span>
         </a>
         <p>El gestor de ventas para restaurantes, tiendas, autónomos y tiendas online. Cobra, gestiona y decide con
           datos.</p>
@@ -643,5 +662,8 @@
     <img alt="">
     <p class="lb-cap"></p>
   </dialog>
+
+  <a class="whatsapp-btn" id="whatsapp-float" href="#contacto" hidden target="_blank" rel="noopener noreferrer"
+     aria-label="Escribir por WhatsApp"><svg class="ic" aria-hidden="true"><use href="#i-chat"/></svg></a>
 </body>
 </html>

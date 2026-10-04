@@ -27,6 +27,7 @@ from .security import (
     DUMMY_HASH, ROLE_RANK, ROLES, USERNAME_RE, check_secret_strength, clean_text, hash_secret, is_safe_identifier,
     verify_secret,
 )
+from . import clock
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS settings (
@@ -283,7 +284,11 @@ CREATE TABLE IF NOT EXISTS audit_log (
 CREATE INDEX IF NOT EXISTS idx_audit_happened ON audit_log(happened_at);
 CREATE INDEX IF NOT EXISTS idx_sales_created ON sales(created_at);
 CREATE INDEX IF NOT EXISTS idx_items_sale ON sale_items(sale_id);
-CREATE INDEX IF NOT EXISTS idx_appointments_start ON appointments(starts_at)
+CREATE INDEX IF NOT EXISTS idx_appointments_start ON appointments(starts_at);
+CREATE TABLE IF NOT EXISTS counters (
+    series TEXT PRIMARY KEY,
+    value INTEGER NOT NULL
+)
 """
 
 # Columns added after the first release, applied to existing databases on start-up.
@@ -327,6 +332,17 @@ DEFAULT_DB_PATH = Path(__file__).resolve().parent.parent / "data" / "ventas.db"
 
 class SaleError(Exception):
     """Raised when a sale cannot be completed (e.g. insufficient stock)."""
+
+
+class FiscalDataError(ValueError):
+    """Raised when an operation would delete or replace real sales, invoices or cash closings."""
+
+
+# Records a business must keep (invoices: 4 years for tax, 6 under the Commercial Code). Once real ones exist,
+# nothing in the app may delete or replace them.
+FISCAL_TABLES = ["sales", "invoices", "refunds", "credit_notes", "cash_closings"]
+FISCAL_DATA_MESSAGE = ("Este negocio ya tiene ventas, facturas o cierres de caja reales y la ley obliga a conservarlos, "
+                       "así que no se pueden borrar ni sustituir desde la app.")
 
 
 class AuthError(Exception):
@@ -509,7 +525,12 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin):
                 if column not in self.db.columns(cur, table):
                     cur.execute(f"ALTER TABLE {table} ADD COLUMN {column} {ddl.format(real=self.db.real)}")
             self._backfill_payments(cur)
+            had_mode = "demo_mode" in self._settings(cur)
             self._insert_default_settings(cur)
+            if not had_mode:
+                # Databases from before this setting: only the demo generator creates purchases signed «Demo».
+                demo = cur.execute("SELECT 1 FROM purchase_orders WHERE created_by = 'Demo' LIMIT 1").fetchone()
+                self._save_settings(cur, {"demo_mode": "si" if demo else "no"})
 
     @property
     def backend_label(self) -> str:
@@ -553,6 +574,8 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin):
             return self._settings(cur)
 
     def save_settings(self, values: dict) -> None:
+        if "timezone" in values:
+            clock.zone(values["timezone"])  # rejects unknown zones
         with self.db.tx() as cur:
             self._save_settings(cur, values)
 
@@ -615,7 +638,7 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin):
                 row = cur.execute(
                     f"INSERT INTO customers({', '.join(fields)}, created_at) "
                     f"VALUES ({', '.join('?' * len(fields))}, ?) RETURNING id",
-                    [*values, datetime.now().isoformat(timespec="seconds")],
+                    [*values, clock.now().isoformat(timespec="seconds")],
                 ).fetchone()
                 return row["id"]
             cur.execute(
@@ -625,14 +648,31 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin):
             return int(customer_id)
 
     # --------------------------------------------------------------------- sales
+    @staticmethod
+    def _take_number(cur: _Cursor, table: str, stem: str, width: int) -> str:
+        """Next correlative number of a series (e.g. `VTA-2026-`), with no gaps, no yearly limit and no clashes.
+
+        One counter row per series is incremented inside the caller's transaction: concurrent sales wait for it
+        instead of colliding, and a sale that fails gives its number back. A missing counter (new series, or data
+        just restored) starts after the highest number already in `table`.
+        """
+        if cur.execute("SELECT value FROM counters WHERE series = ?", (stem,)).fetchone() is None:
+            used = [r["number"][len(stem):] for r in cur.execute(
+                f"SELECT number FROM {table} WHERE substr(number, 1, ?) = ?", (len(stem), stem)
+            ).fetchall()]
+            first = max((int(n) for n in used if n.isdigit()), default=0) + 1
+        else:
+            first = 1  # ignored: the row exists, so the conflict branch increments it
+        row = cur.execute(
+            "INSERT INTO counters(series, value) VALUES (?, ?) "
+            "ON CONFLICT(series) DO UPDATE SET value = counters.value + 1 RETURNING value",
+            (stem, first),
+        ).fetchone()
+        return f"{stem}{int(row['value']):0{width}d}"
+
     def _next_number(self, cur: _Cursor, when: datetime) -> str:
         prefix = self._settings(cur).get("invoice_prefix", "VTA").strip() or "VTA"
-        stem = f"{prefix}-{when.year}-"
-        row = cur.execute(
-            "SELECT number FROM sales WHERE number LIKE ? ORDER BY number DESC LIMIT 1", (stem + "%",)
-        ).fetchone()
-        seq = int(row["number"].rsplit("-", 1)[1]) + 1 if row else 1
-        return f"{stem}{seq:05d}"
+        return self._take_number(cur, "sales", f"{prefix}-{when.year}-", 5)
 
     def create_sale(
         self,
@@ -655,7 +695,7 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin):
         """
         if not cart:
             raise SaleError("El carrito está vacío.")
-        when = when or datetime.now()
+        when = when or clock.now()
         customer_id = None if customer_id is None else int(customer_id)
         for attempt in range(3):
             try:
@@ -676,7 +716,7 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin):
         """Price a cart without saving anything: what the till shows before charging."""
         with self.db.tx() as cur:
             q = self._quote(cur, cart, float(discount_pct), None, None if customer_id is None else int(customer_id),
-                            int(redeem_points or 0), when or datetime.now(), apply_promos)
+                            int(redeem_points or 0), when or clock.now(), apply_promos)
         return {
             "lines": [{"product_id": p["id"], "name": p["name"], **line} for p, line in q["lines"]],
             "totals": q["totals"], "tax_rate": q["tax_rate"], "points_earned": q["points_earned"],
@@ -875,7 +915,7 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin):
     def cancel_sale(self, sale_id: int, by: str = "", when: datetime | None = None) -> None:
         """Void a sale and return its units to stock. Sales are never deleted, to keep numbering intact."""
         sale_id = int(sale_id)
-        stamp = (when or datetime.now()).isoformat(timespec="seconds")
+        stamp = (when or clock.now()).isoformat(timespec="seconds")
         with self.db.tx() as cur:
             sale = cur.execute("SELECT status FROM sales WHERE id = ?", (sale_id,)).fetchone()
             if sale is None or sale["status"] == "anulada":
@@ -979,12 +1019,7 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin):
     # ------------------------------------------------------------------ invoices
     def _next_invoice_number(self, cur: _Cursor, when: datetime) -> str:
         series = (self._settings(cur).get("invoice_series") or "FAC").strip() or "FAC"
-        stem = f"{series}-{when.year}-"
-        row = cur.execute(
-            "SELECT number FROM invoices WHERE number LIKE ? ORDER BY number DESC LIMIT 1", (stem + "%",)
-        ).fetchone()
-        seq = int(row["number"].rsplit("-", 1)[1]) + 1 if row else 1
-        return f"{stem}{seq:04d}"
+        return self._take_number(cur, "invoices", f"{series}-{when.year}-", 4)
 
     def invoice_for_sale(self, sale_id: int) -> dict | None:
         with self.db.tx() as cur:
@@ -998,7 +1033,7 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin):
             raise ValueError("Para emitir una factura hacen falta el nombre y el NIF/CIF del cliente.")
         address = clean_text(customer.get("address"), "Dirección", "address")
         email = clean_text(customer.get("email"), "Email", "email")
-        when = when or datetime.now()
+        when = when or clock.now()
         sale_id = int(sale_id)
         for attempt in range(3):
             try:
@@ -1037,7 +1072,7 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin):
     def invoices(self) -> pd.DataFrame:
         df = self._frame(
             "SELECT i.id, i.number, i.issued_at, i.customer_name, i.customer_tax_id, s.number AS sale_number, "
-            "s.total FROM invoices i JOIN sales s ON s.id = i.sale_id ORDER BY i.number DESC"
+            "s.total FROM invoices i JOIN sales s ON s.id = i.sale_id ORDER BY i.id DESC"
         )
         df["issued_at"] = pd.to_datetime(df["issued_at"])
         df["total"] = df["total"].astype(float)
@@ -1099,7 +1134,7 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin):
                 (starts_at.isoformat(timespec="seconds"), duration_min,
                  None if customer_id is None else int(customer_id), customer_name,
                  None if product_id is None else int(product_id), notes,
-                 datetime.now().isoformat(timespec="seconds"), created_by),
+                 clock.now().isoformat(timespec="seconds"), created_by),
             ).fetchone()
             return row["id"]
 
@@ -1131,7 +1166,7 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin):
                         raise SaleError("La cita no tiene servicio asociado: cóbrala desde Vender.")
                     sale_id = self._insert_sale(
                         cur, [{"product_id": appt["product_id"], "quantity": 1}], payment_method,
-                        appt["customer_id"], float(discount_pct), None, datetime.now(), user_name,
+                        appt["customer_id"], float(discount_pct), None, clock.now(), user_name,
                     )
                     cur.execute(
                         "UPDATE appointments SET status = 'completada', sale_id = ? WHERE id = ?",
@@ -1198,7 +1233,7 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin):
                     (day.isoformat(), float(opening_float), summary["cash"], expected, float(counted_cash),
                      round(float(counted_cash) - expected, 2), summary["total"], summary["count"],
                      json.dumps(summary["breakdown"], ensure_ascii=False), notes,
-                     (when or datetime.now()).isoformat(timespec="seconds"), closed_by),
+                     (when or clock.now()).isoformat(timespec="seconds"), closed_by),
                 )
         except self.db.integrity_errors as exc:
             raise ValueError("La caja de ese día ya está cerrada. Reábrela si necesitas repetir el cierre.") from exc
@@ -1253,7 +1288,7 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin):
                 row = cur.execute(
                     "INSERT INTO users(username, name, role, secret_hash, created_at) VALUES (?, ?, ?, ?, ?) "
                     "RETURNING id",
-                    (username, name, role, hash_secret(secret), datetime.now().isoformat(timespec="seconds")),
+                    (username, name, role, hash_secret(secret), clock.now().isoformat(timespec="seconds")),
                 ).fetchone()
                 self._audit(cur, by or username, "usuario_creado", f"{username} ({ROLES[role]})")
                 return row["id"]
@@ -1296,7 +1331,7 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin):
 
     def authenticate(self, username: str, secret: str, now: datetime | None = None) -> dict:
         """Check a login. Locks the account for a few minutes after repeated failures."""
-        now = now or datetime.now()
+        now = now or clock.now()
         username = str(username or "").strip().lower()
         generic = AuthError("Usuario o contraseña incorrectos.")
         locked = ""
@@ -1335,7 +1370,7 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin):
     @staticmethod
     def _audit(cur, username: str, action: str, detail: str = "") -> None:
         cur.execute("INSERT INTO audit_log(happened_at, username, action, detail) VALUES (?, ?, ?, ?)",
-                    (datetime.now().isoformat(timespec="seconds"), str(username)[:60], action, str(detail)[:500]))
+                    (clock.now().isoformat(timespec="seconds"), str(username)[:60], action, str(detail)[:500]))
 
     def audit(self, username: str, action: str, detail: str = "") -> None:
         with self.db.tx() as cur:
@@ -1364,6 +1399,7 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin):
         tables = [t for t in ALL_TABLES if t in data]
         for table in reversed(tables):
             cur.execute(f"DELETE FROM {table}")
+        cur.execute("DELETE FROM counters")  # numbering restarts from the data that is loaded
         self.db.before_reload(cur, tables)
         for table in tables:
             rows = data[table]
@@ -1394,7 +1430,12 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin):
             return path.read_bytes()
 
     def restore(self, data: bytes) -> None:
-        """Replace all data with a backup produced by `backup_bytes`. Validates it before touching anything."""
+        """Replace all data with a backup produced by `backup_bytes`. Validates it before touching anything.
+
+        Only into a demonstration or a business without sales yet (e.g. moving to a new database): restoring
+        over real records would destroy everything issued after the copy was made.
+        """
+        self._guard_replace()
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "restore.db"
             path.write_bytes(data)
@@ -1423,9 +1464,28 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin):
         with self.db.tx() as cur:
             return cur.execute("SELECT COUNT(*) AS n FROM products").fetchone()["n"] == 0
 
+    # ------------------------------------------------- demonstration vs real data
+    def is_demo(self) -> bool:
+        return self.settings().get("demo_mode") == "si"
+
+    def has_fiscal_records(self) -> bool:
+        with self.db.tx() as cur:
+            return any(cur.execute(f"SELECT 1 FROM {t} LIMIT 1").fetchone() for t in FISCAL_TABLES)
+
+    def can_replace_data(self) -> bool:
+        """Demonstration data, or a business with no sales yet, may be wiped; real fiscal records never."""
+        return self.is_demo() or not self.has_fiscal_records()
+
+    def _guard_replace(self) -> None:
+        if not self.can_replace_data():
+            raise FiscalDataError(FISCAL_DATA_MESSAGE)
+
     def reset(self) -> None:
+        """Delete all data (to start for real after a demonstration). Refused once there are real records."""
+        self._guard_replace()
         with self.db.tx() as cur:
             self._replace(cur, {t: [] for t in DATA_TABLES})
+            self._save_settings(cur, {"demo_mode": "no"})
 
     def load_preset(self, business_type: str, with_demo_sales: bool = True, seed: int = 7) -> None:
         """Replace all data with a preset catalog and, optionally, ~60 days of realistic demo activity.
@@ -1433,8 +1493,10 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin):
         The data is built in a scratch in-memory database and copied over in one transaction, which keeps
         this fast on a remote server and leaves the current data untouched if anything fails.
         """
+        self._guard_replace()
         preset = PRESETS[business_type]
-        new_settings = {"business_type": business_type, "tax_rate": preset["tax_rate"]}
+        new_settings = {"business_type": business_type, "tax_rate": preset["tax_rate"],
+                        "demo_mode": "si" if with_demo_sales else "no"}
         scratch = Store(":memory:")
         try:
             scratch.save_settings({**self.settings(), **new_settings})
@@ -1488,7 +1550,7 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin):
         ]
         customer_ids = [self.upsert_customer({"name": n, "email": e}) for n, e in names]
         products = self.products()
-        now = datetime.now().replace(second=0, microsecond=0)
+        now = clock.now().replace(second=0, microsecond=0)
         for days_ago in range(60, -1, -1):
             day = now - timedelta(days=days_ago)
             weekend_boost = 1.5 if day.weekday() >= 4 else 1.0

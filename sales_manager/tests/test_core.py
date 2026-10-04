@@ -161,6 +161,7 @@ def test_restore_rejects_invalid_files(store):
 
 def test_ids_continue_after_reload(store):
     """After a reset or restore, new rows get fresh ids instead of colliding with copied ones."""
+    store.save_settings({"demo_mode": "si"})  # only demonstration data may be replaced
     pid = product_id(store, "CAM-001")
     first = store.create_sale([{"product_id": pid, "quantity": 1}], "Tarjeta")
     store.restore(store.backup_bytes())
@@ -841,3 +842,116 @@ def test_weekly_report_and_pdf(store):
     assert report["profit"]["net"] == pytest.approx(n["cur"]["margin"] - 120)
     pdf = weekly_report_pdf(report, store.settings())
     assert pdf.startswith(b"%PDF") and len(pdf) > 2000
+
+
+@pytest.fixture
+def madrid():
+    from core import clock
+    clock.set_timezone("Europe/Madrid")
+    yield clock
+    clock.set_timezone(clock.DEFAULT_TIMEZONE)
+
+
+def test_clock_follows_business_timezone_not_server(madrid):
+    from zoneinfo import ZoneInfo
+    expected = datetime.now(ZoneInfo("Europe/Madrid")).replace(tzinfo=None)
+    assert abs((madrid.now() - expected).total_seconds()) < 5
+    canary = datetime.now(ZoneInfo("Atlantic/Canary")).replace(tzinfo=None)
+    madrid.set_timezone("Atlantic/Canary")
+    assert abs((madrid.now() - canary).total_seconds()) < 5
+    assert madrid.timezone_name() == "Atlantic/Canary"
+
+
+def test_sale_is_stamped_with_business_local_time(store, madrid):
+    from zoneinfo import ZoneInfo
+    sale = store.create_sale([{"product_id": product_id(store, "CAM-001"), "quantity": 1}], "Tarjeta")
+    local = datetime.now(ZoneInfo("Europe/Madrid")).replace(tzinfo=None)
+    assert abs((datetime.fromisoformat(sale["created_at"]) - local).total_seconds()) < 60
+
+
+def test_invalid_timezone_is_rejected_and_never_breaks_the_clock(store, madrid):
+    with pytest.raises(ValueError):
+        store.save_settings({"timezone": "Marte/Olympus"})
+    madrid.set_timezone("Marte/Olympus")
+    assert madrid.timezone_name() == madrid.DEFAULT_TIMEZONE
+    store.save_settings({"timezone": "Atlantic/Canary"})
+    assert store.settings()["timezone"] == "Atlantic/Canary"
+
+
+
+def _sell(store, n=1):
+    return store.create_sale([{"product_id": product_id(store, "CAM-001"), "quantity": n}], "Tarjeta")
+
+
+def test_real_fiscal_records_cannot_be_wiped_or_replaced(store, make_store):
+    from core.db import FiscalDataError
+    sale = _sell(store)
+    store.create_invoice(sale["id"], {"name": "Cliente SL", "tax_id": "B12345678"})
+    backup = make_store()
+    backup.load_preset("services", with_demo_sales=False)
+    assert not store.is_demo() and store.has_fiscal_records() and not store.can_replace_data()
+    with pytest.raises(FiscalDataError):
+        store.reset()
+    with pytest.raises(FiscalDataError):
+        store.load_preset("restaurant")
+    with pytest.raises(FiscalDataError):
+        store.restore(backup.backup_bytes())
+    assert len(store.sales()) == 1 and len(store.invoices()) == 1
+
+
+def test_business_without_sales_can_still_load_a_template(store):
+    assert store.can_replace_data()
+    store.load_preset("restaurant", with_demo_sales=False)
+    assert not store.is_demo()
+
+
+def test_demo_data_is_disposable_and_real_numbering_starts_at_one(make_store):
+    s = make_store()
+    s.load_preset("services")
+    assert s.is_demo() and not s.sales().empty and s.can_replace_data()
+    s.reset()
+    assert not s.is_demo() and s.is_empty()
+    s.load_preset("retail", with_demo_sales=False)
+    year = datetime.now().year
+    assert _sell(s)["number"] == f"VTA-{year}-00001"
+
+
+def test_numbering_has_no_yearly_limit(store):
+    year = datetime.now().year
+    first = _sell(store)
+    with store.db.tx() as cur:  # an existing series that already reached 99,999 tickets
+        cur.execute("UPDATE sales SET number = ? WHERE id = ?", (f"VTA-{year}-99999", first["id"]))
+        cur.execute("DELETE FROM counters")
+    assert [_sell(store)["number"] for _ in range(2)] == [f"VTA-{year}-100000", f"VTA-{year}-100001"]
+    invoice_for = lambda: store.create_invoice(_sell(store)["id"], {"name": "Cliente SL", "tax_id": "B1"})["number"]
+    first_invoice = invoice_for()
+    with store.db.tx() as cur:
+        cur.execute("UPDATE invoices SET number = ? WHERE number = ?", (f"FAC-{year}-9999", first_invoice))
+        cur.execute("DELETE FROM counters WHERE series LIKE 'FAC-%'")
+    assert [invoice_for() for _ in range(2)] == [f"FAC-{year}-10000", f"FAC-{year}-10001"]
+
+
+def test_simultaneous_charges_all_succeed_with_unique_numbers(store):
+    import threading
+    pid = product_id(store, "CAM-001")
+    store.adjust_stock(pid, 100)
+    barrier, numbers, errors = threading.Barrier(8), [], []
+
+    def charge():
+        barrier.wait()
+        try:
+            numbers.append(store.create_sale([{"product_id": pid, "quantity": 1}], "Tarjeta")["number"])
+        except Exception as exc:  # noqa: BLE001 - the test reports any failure
+            errors.append(exc)
+
+    threads = [threading.Thread(target=charge) for _ in range(8)]
+    [t.start() for t in threads]
+    [t.join() for t in threads]
+    assert not errors and len(set(numbers)) == 8
+    assert sorted(int(n.rsplit("-", 1)[1]) for n in numbers) == list(range(1, 9))
+
+
+def test_prefix_with_like_wildcards_is_numbered_exactly(store):
+    store.save_settings({"invoice_prefix": "T_1"})
+    year = datetime.now().year
+    assert [_sell(store)["number"] for _ in range(2)] == [f"T_1-{year}-00001", f"T_1-{year}-00002"]

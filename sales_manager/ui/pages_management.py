@@ -12,6 +12,7 @@ from core.security import csv_safe
 from core.store_purchases import EXPENSE_CATEGORIES, PURCHASE_STATUSES, PURCHASES_CATEGORY
 from ui.context import ctx
 from ui.styles import page_header, style_figure
+from core import clock
 
 MONTHS = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre",
           "noviembre", "diciembre"]
@@ -199,12 +200,12 @@ def expenses_page() -> None:
         return
     page_header("Gastos y beneficio", "Lo que de verdad ganas: ventas netas, menos lo que te cuesta lo vendido, "
                 "menos los gastos del negocio.", eyebrow="Gestión")
-    created = c.store.apply_recurring(since=date.today() - timedelta(days=62))
+    created = c.store.apply_recurring(since=clock.today() - timedelta(days=62))
     if created:
         st.toast(f"Se han apuntado {created} gastos fijos del mes.", icon=":material/autorenew:")
     _flash("expense_flash")
 
-    today = date.today()
+    today = clock.today()
     months = [date(today.year + (today.month - 1 - i) // 12, (today.month - 1 - i) % 12 + 1, 1) for i in range(12)]
     month = st.selectbox("Mes", months, format_func=lambda d: f"{MONTHS[d.month - 1].capitalize()} {d.year}",
                          key="exp_month")
@@ -268,7 +269,7 @@ def expenses_page() -> None:
                 st.rerun()
     with add_tab, st.form("new_expense", clear_on_submit=True, border=False):
         a, b = st.columns(2)
-        day = a.date_input("Día", date.today(), format="DD/MM/YYYY")
+        day = a.date_input("Día", clock.today(), format="DD/MM/YYYY")
         category = b.selectbox("Categoría", [x for x in EXPENSE_CATEGORIES if x != PURCHASES_CATEGORY] +
                                [PURCHASES_CATEGORY])
         description = st.text_input("Concepto", max_chars=120, placeholder="Ej.: Factura de la luz de septiembre")

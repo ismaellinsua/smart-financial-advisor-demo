@@ -9,7 +9,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from core import automation
-from core.db import SaleError
+from core.db import FISCAL_DATA_MESSAGE, FiscalDataError, SaleError
 from core.presets import CURRENCIES, PAYMENT_METHODS, PRESETS
 from core.security import ROLES, csv_safe
 from core.pdfs import cash_closing_pdf, credit_note_pdf, invoice_pdf
@@ -18,13 +18,14 @@ from ui import pages_intel
 from ui.checkout import checkout_panel
 from ui.context import PAGES, ctx, get_store
 from ui.styles import insight, page_header, style_figure
+from core import clock
 
 MONTHS = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto",
           "septiembre", "octubre", "noviembre", "diciembre"]
 
 
 def _today_label() -> str:
-    d = date.today()
+    d = clock.today()
     return f"{automation.WEEKDAYS[d.weekday()].capitalize()}, {d.day} de {MONTHS[d.month - 1]} de {d.year}"
 
 
@@ -65,8 +66,9 @@ def onboarding() -> None:
                 "Tipo de negocio", list(PRESETS), format_func=lambda k: PRESETS[k]["label"]
             )
             currency = st.selectbox("Moneda", list(CURRENCIES))
-            demo = st.toggle("Cargar datos de ejemplo (60 días de ventas)", value=True,
-                             help="Ideal para explorar el panel y las automatizaciones. Puedes borrarlos luego.")
+            demo = st.toggle("Cargar datos de ejemplo (solo para probar)", value=False,
+                             help="60 días de ventas inventadas para explorar la app. Déjalo apagado si vas a "
+                                  "vender de verdad: los datos de ejemplo se borran al empezar.")
             if st.form_submit_button("Crear mi espacio", type="primary", use_container_width=True):
                 store.save_settings({"business_name": name.strip() or "Mi Negocio", "currency": currency})
                 with st.spinner("Preparando tu catálogo…"):
@@ -87,11 +89,11 @@ def switch_business_dialog() -> None:
     default_name = (c.settings["business_name"] if business_type == c.settings["business_type"]
                     else PRESETS[business_type]["demo_name"])
     name = st.text_input("Nombre del negocio", default_name, key=f"switch_name_{business_type}")
-    demo = st.toggle("Cargar datos de ejemplo para probar", value=True, key="switch_demo")
+    demo = st.toggle("Cargar datos de ejemplo para probar", value=c.store.is_demo(), key="switch_demo")
     st.warning("Se reemplazarán el catálogo, los clientes y las ventas actuales por los del nuevo negocio.",
                icon=":material/warning:")
     st.download_button(
-        "Antes, descargar una copia de mis datos", c.store.backup_bytes(), f"ventas-{date.today():%Y-%m-%d}.db",
+        "Antes, descargar una copia de mis datos", c.store.backup_bytes(), f"ventas-{clock.today():%Y-%m-%d}.db",
         "application/octet-stream", icon=":material/download:", use_container_width=True,
     )
     if st.button(f"Cambiar a «{PRESETS[business_type]['label']}»", type="primary", use_container_width=True,
@@ -99,10 +101,41 @@ def switch_business_dialog() -> None:
         if not c.can("admin"):
             st.error("Solo el administrador puede cambiar de negocio.")
             return
+        try:
+            with st.spinner("Preparando el nuevo negocio…"):
+                c.store.load_preset(business_type, with_demo_sales=demo)
+        except FiscalDataError as exc:
+            st.error(str(exc))
+            return
         c.store.save_settings({"business_name": name.strip() or c.settings["business_name"]})
-        with st.spinner("Preparando el nuevo negocio…"):
-            c.store.load_preset(business_type, with_demo_sales=demo)
         c.store.audit(c.username, "negocio_cambiado", f"{PRESETS[business_type]['label']} · {name}")
+        st.session_state.pop("cart", None)
+        st.rerun()
+
+
+def demo_banner(c) -> None:
+    """Demonstration data is disposable: say so on every page and let the administrator start for real."""
+    text, action = st.columns([5, 2], vertical_alignment="center")
+    text.warning("**Modo demostración.** Los datos son de ejemplo y todo lo que vendas aquí se borrará al empezar "
+                 "de verdad.", icon=":material/science:")
+    if c.can("admin") and action.button("Empezar a vender de verdad", type="primary", use_container_width=True,
+                                        icon=":material/rocket_launch:"):
+        _start_for_real_dialog()
+
+
+@st.dialog("Empezar a vender de verdad")
+def _start_for_real_dialog() -> None:
+    st.write("Se borrarán los datos de ejemplo (productos, clientes, ventas, facturas y cierres) y configurarás tu "
+             "negocio desde cero. A partir de ahí, las ventas y facturas reales **no se podrán borrar**: la ley obliga "
+             "a conservarlas.")
+    if st.checkbox("Entiendo que se borrarán los datos de ejemplo", key="start_real_confirm") and st.button(
+            "Borrar ejemplos y empezar", type="primary", use_container_width=True):
+        c = ctx()
+        if not c.can("admin"):
+            st.error("Solo el administrador puede hacerlo.")
+            return
+        c.store.reset()
+        c.store.audit(c.username, "datos_de_ejemplo_borrados")
         st.session_state.pop("cart", None)
         st.rerun()
 
@@ -139,7 +172,7 @@ def dashboard() -> None:
     left, right = st.columns([3, 2], gap="large")
     with left, st.container(border=True):
         st.markdown("**Facturación diaria**")
-        days = pd.date_range(start.date(), date.today(), freq="D")
+        days = pd.date_range(start.date(), clock.today(), freq="D")
         daily = cur_sales.groupby(cur_sales["created_at"].dt.normalize())["total"].sum().reindex(days, fill_value=0)
         if not refunds.empty:  # returns lower the day they were made
             back = refunds.groupby(refunds["created_at"].dt.normalize())["total"].sum()
@@ -425,7 +458,7 @@ def history() -> None:
 
 def _history_sales(c) -> None:
     f1, f2, f3 = st.columns([2, 1, 2])
-    rng = f1.date_input("Fechas", (date.today() - timedelta(days=30), date.today()), format="DD/MM/YYYY")
+    rng = f1.date_input("Fechas", (clock.today() - timedelta(days=30), clock.today()), format="DD/MM/YYYY")
     status = f2.selectbox("Estado", ["Todas", "Completadas", "Anuladas"])
     query = f3.text_input("Buscar", placeholder="Nº de ticket o cliente…")
     if not isinstance(rng, tuple) or len(rng) != 2:
@@ -625,7 +658,7 @@ def cash_page() -> None:
                 eyebrow="Caja")
     if "cash_flash" in st.session_state:
         st.success(st.session_state.pop("cash_flash"))
-    day = st.date_input("Día", date.today(), max_value=date.today(), format="DD/MM/YYYY", key="cash_day")
+    day = st.date_input("Día", clock.today(), max_value=clock.today(), format="DD/MM/YYYY", key="cash_day")
     summary = c.store.day_summary(day)
     closing = c.store.cash_closing(day)
 
@@ -743,8 +776,8 @@ def agenda_config(preset: dict) -> dict:
 
 
 def _shift_agenda_day(days: int | None) -> None:
-    current = st.session_state.get("agenda_day", date.today())
-    st.session_state["agenda_day"] = date.today() if days is None else current + timedelta(days=days)
+    current = st.session_state.get("agenda_day", clock.today())
+    st.session_state["agenda_day"] = clock.today() if days is None else current + timedelta(days=days)
 
 
 def _set_appointment_status(appointment_id: int, status: str) -> None:
@@ -766,7 +799,7 @@ def agenda_page() -> None:
 
     if "agenda_goto" in st.session_state:
         st.session_state["agenda_day"] = st.session_state.pop("agenda_goto")
-    st.session_state.setdefault("agenda_day", date.today())
+    st.session_state.setdefault("agenda_day", clock.today())
     b1, b2, b3, b4 = st.columns([1, 4, 1, 1.4], vertical_alignment="bottom")
     b1.button("", icon=":material/chevron_left:", on_click=_shift_agenda_day, args=(-1,), help="Día anterior",
               use_container_width=True)
@@ -1136,7 +1169,7 @@ def automations_page() -> None:
         eyebrow="Inteligencia",
     )
     products = c.store.products()
-    lines = c.store.sale_lines(start=datetime.now() - timedelta(days=120))
+    lines = c.store.sale_lines(start=clock.now() - timedelta(days=120))
     sales = c.store.sales()
     t1, t2, t3, t4 = st.tabs(["Reposición inteligente", "Alertas de stock", "Seguimiento de clientes", "Informes"])
 
@@ -1199,7 +1232,7 @@ def automations_page() -> None:
                     st.caption("Este cliente no tiene email registrado.")
 
     with t4:
-        rng = st.date_input("Periodo del informe", (date.today().replace(day=1), date.today()), format="DD/MM/YYYY")
+        rng = st.date_input("Periodo del informe", (clock.today().replace(day=1), clock.today()), format="DD/MM/YYYY")
         if isinstance(rng, tuple) and len(rng) == 2:
             start = datetime.combine(rng[0], time.min)
             end = datetime.combine(rng[1] + timedelta(days=1), time.min)
@@ -1242,6 +1275,11 @@ def settings_page() -> None:
         a, b, d = st.columns(3)
         currencies = list(CURRENCIES)
         values["currency"] = a.selectbox("Moneda", currencies, currencies.index(s["currency"]))
+        zones = list(clock.TIMEZONES)
+        current_zone = s.get("timezone") if s.get("timezone") in zones else clock.DEFAULT_TIMEZONE
+        values["timezone"] = st.selectbox(
+            "Zona horaria", zones, zones.index(current_zone), format_func=lambda z: f"{clock.TIMEZONES[z]} ({z})",
+            help="Hora de tickets, facturas, caja, agenda y promociones por franja horaria.")
         values["tax_rate"] = b.number_input("Impuesto por defecto (%)", 0.0, 100.0, float(s["tax_rate"]), step=0.5)
         values["invoice_prefix"] = d.text_input("Prefijo de tickets", s["invoice_prefix"], max_chars=8)
         values["receipt_footer"] = st.text_input("Pie del ticket", s["receipt_footer"])
@@ -1281,32 +1319,46 @@ def settings_page() -> None:
                 st.session_state["settings_flash"] = "Configuración guardada."
                 st.rerun()
 
+    replaceable = c.store.can_replace_data()
     st.markdown("##### Tipo de negocio y plantillas")
     with st.container(border=True):
         types = list(PRESETS)
         business_type = st.selectbox("Tipo de negocio", types, types.index(s["business_type"]),
                                      format_func=lambda k: PRESETS[k]["label"])
-        st.caption("Cambiar solo el tipo adapta el vocabulario de la aplicación. Cargar la plantilla reemplaza "
-                   "catálogo, clientes y ventas por los de ejemplo.")
-        demo = st.toggle("Incluir 60 días de ventas de ejemplo", value=True)
-        confirm = st.checkbox("Entiendo que se borrarán los datos actuales")
-        if not confirm:
-            st.caption("Marca la casilla de arriba para activar «Cargar plantilla» y «Empezar desde cero».")
+        if replaceable:
+            st.caption("Cambiar solo el tipo adapta el vocabulario de la aplicación. Cargar la plantilla reemplaza "
+                       "catálogo, clientes y ventas por los de ejemplo.")
+            demo = st.toggle("Incluir 60 días de ventas de ejemplo", value=c.store.is_demo())
+            confirm = st.checkbox("Entiendo que se borrarán los datos actuales")
+            if not confirm:
+                st.caption("Marca la casilla de arriba para activar «Cargar plantilla» y «Empezar desde cero».")
+        else:
+            st.caption("Cambiar el tipo adapta el vocabulario de la aplicación. " + FISCAL_DATA_MESSAGE)
+            demo = confirm = False
         a, b, d = st.columns(3)
         if a.button("Cambiar solo el tipo", use_container_width=True):
             c.store.save_settings({"business_type": business_type})
             c.store.audit(c.username, "tipo_negocio_cambiado", PRESETS[business_type]["label"])
             st.session_state["settings_flash"] = f"Tipo cambiado a «{PRESETS[business_type]['label']}»."
             st.rerun()
-        if b.button("Cargar plantilla", type="primary", disabled=not confirm, use_container_width=True):
-            with st.spinner("Cargando plantilla…"):
-                c.store.load_preset(business_type, with_demo_sales=demo)
+        if replaceable and b.button("Cargar plantilla", type="primary", disabled=not confirm,
+                                    use_container_width=True):
+            try:
+                with st.spinner("Cargando plantilla…"):
+                    c.store.load_preset(business_type, with_demo_sales=demo)
+            except FiscalDataError as exc:
+                st.error(str(exc))
+                return
             c.store.audit(c.username, "plantilla_cargada", PRESETS[business_type]["label"])
             st.session_state.pop("cart", None)
             st.session_state["settings_flash"] = "Plantilla cargada."
             st.rerun()
-        if d.button("Empezar desde cero", disabled=not confirm, use_container_width=True):
-            c.store.reset()
+        if replaceable and d.button("Empezar desde cero", disabled=not confirm, use_container_width=True):
+            try:
+                c.store.reset()
+            except FiscalDataError as exc:
+                st.error(str(exc))
+                return
             c.store.audit(c.username, "datos_borrados")
             st.session_state.pop("cart", None)
             st.rerun()
@@ -1323,9 +1375,13 @@ def settings_page() -> None:
                        "Cloud se pierden cuando la app se reinicia o se actualiza: descarga copias a menudo o "
                        "conecta una base de datos gratuita (ver README).", icon=":material/warning:")
         st.download_button(
-            "Descargar copia de seguridad", c.store.backup_bytes(), f"ventas-{date.today():%Y-%m-%d}.db",
+            "Descargar copia de seguridad", c.store.backup_bytes(), f"ventas-{clock.today():%Y-%m-%d}.db",
             "application/octet-stream", icon=":material/download:", type="primary",
         )
+        if not replaceable:
+            st.caption("Restaurar una copia solo es posible en un negocio sin ventas (por ejemplo, al pasar a una base "
+                       "de datos nueva): sobre datos reales borraría todo lo emitido después de la copia.")
+            return
         upload = st.file_uploader("Restaurar desde una copia", type=["db"])
         confirm_restore = st.checkbox("Entiendo que se reemplazarán los datos actuales por los de la copia")
         if st.button("Restaurar copia", disabled=not (upload and confirm_restore), icon=":material/restore:"):

@@ -1,7 +1,7 @@
 # NirKanA · Gestor de ventas
 
 Gestor de ventas para restaurantes, tiendas, autónomos y tiendas online: cobra, controla el stock, la caja y el equipo,
-y recibe alertas y un informe cada semana. Funciona en el navegador del móvil, la tablet o el ordenador.
+con alertas y un informe semanal en el panel. Funciona en el navegador del móvil, la tablet o el ordenador.
 
 **Web:** https://ismaellinsua.github.io/smart-financial-advisor-demo/
 

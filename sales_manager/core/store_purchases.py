@@ -7,6 +7,7 @@ import pandas as pd
 
 from .presets import PAYMENT_METHODS
 from .security import clean_text
+from . import clock
 
 EXPENSE_CATEGORIES = [
     "Alquiler", "Nóminas", "Suministros", "Compras a proveedores", "Marketing", "Seguros",
@@ -46,10 +47,7 @@ class PurchasesMixin:
 
     # ----------------------------------------------------------------- purchases
     def _next_purchase_number(self, cur, when: datetime) -> str:
-        stem = f"PED-{when.year}-"
-        row = cur.execute("SELECT number FROM purchase_orders WHERE number LIKE ? ORDER BY number DESC LIMIT 1",
-                          (stem + "%",)).fetchone()
-        return f"{stem}{(int(row['number'].rsplit('-', 1)[1]) + 1 if row else 1):04d}"
+        return self._take_number(cur, "purchase_orders", f"PED-{when.year}-", 4)
 
     def create_purchase(self, supplier_id: int | None, items: list[dict], notes: str = "", created_by: str = "",
                         when: datetime | None = None) -> int:
@@ -60,7 +58,7 @@ class PurchasesMixin:
         if any(cost < 0 for _, _, cost in lines):
             raise ValueError("El coste no puede ser negativo.")
         notes = clean_text(notes, "Notas", "notes")
-        when = when or datetime.now()
+        when = when or clock.now()
         for attempt in range(3):
             try:
                 with self.db.tx() as cur:
@@ -116,7 +114,7 @@ class PurchasesMixin:
                          when: datetime | None = None) -> dict:
         """Receive goods: stock goes up and the product cost becomes the weighted average of old and new units.
         Optionally records the purchase as an expense. `received` maps item id to units (default: all)."""
-        when = when or datetime.now()
+        when = when or clock.now()
         if method not in PAYMENT_METHODS:
             raise ValueError("Forma de pago no válida.")
         with self.db.tx() as cur:
@@ -182,7 +180,7 @@ class PurchasesMixin:
                 "INSERT INTO expenses(day, category, description, amount, method, supplier_id, recurring_id, "
                 "created_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id",
                 (day.isoformat(), category, description, amount, method, None if not supplier_id else int(supplier_id),
-                 recurring_id, created_by, datetime.now().isoformat(timespec="seconds")),
+                 recurring_id, created_by, clock.now().isoformat(timespec="seconds")),
             ).fetchone()["id"]
 
     def delete_expense(self, expense_id: int) -> None:
@@ -227,7 +225,7 @@ class PurchasesMixin:
 
     def apply_recurring(self, until: date | None = None, since: date | None = None) -> int:
         """Create the monthly fixed expenses that are due and not yet recorded. Safe to call any time."""
-        until = until or date.today()
+        until = until or clock.today()
         since = since or until.replace(day=1)
         created = 0
         month = since.replace(day=1)

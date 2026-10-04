@@ -5,7 +5,7 @@ Ejecutar desde la raíz del repositorio:  streamlit run sales_manager/app.py
 Copyright (c) 2025-2026 Ismael Linsua. Todos los derechos reservados. Software propietario: ver LICENSE.
 """
 
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 import streamlit as st
 
@@ -15,6 +15,7 @@ from ui import pages, pages_intel, pages_management, pages_promos, pages_tables
 from ui.auth import logout_button, require_user
 from ui.context import PAGES, ctx
 from ui.styles import inject_css, sidebar_brand, sidebar_copyright, topbar
+from core import clock
 
 st.set_page_config(page_title="Gestor de Ventas", page_icon=":material/storefront:", layout="wide")
 
@@ -86,14 +87,14 @@ if c.can("admin"):
     sections["Ajustes"] = [P["settings"], P["team"]]
 
 sidebar_brand(c.settings["business_name"], PRESETS[c.settings["business_type"]]["label"])
-if c.can("admin") and st.sidebar.button("Cambiar de negocio", icon=":material/swap_horiz:",
-                                        use_container_width=True):
+if c.can("admin") and c.store.can_replace_data() and st.sidebar.button(
+        "Cambiar de negocio", icon=":material/swap_horiz:", use_container_width=True):
     pages.switch_business_dialog()
 nav = st.navigation(sections, expanded=True)
 logout_button(c.store, user)
 sidebar_copyright()
 
-now = datetime.now()
+now = clock.now()
 today = c.store.sales(start=now.replace(hour=0, minute=0, second=0, microsecond=0), include_cancelled=False)
 if not c.can("encargado"):
     today = today[today["user_name"] == c.who]  # staff see their own figures
@@ -109,4 +110,6 @@ if show_agenda:
 topbar(c.settings["business_name"], c.money_short(today["total"].sum()), len(today), next_up,
        person=f"{c.who} · {ROLES[c.role]}", own=not c.can("encargado"),
        alerts=pages_intel.alert_counts(c) if c.can("encargado") else None)
+if c.settings.get("demo_mode") == "si":
+    pages.demo_banner(c)
 nav.run()

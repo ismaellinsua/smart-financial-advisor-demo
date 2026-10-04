@@ -7,6 +7,7 @@ import pandas as pd
 from . import automation, intelligence
 from .pricing import format_money
 from .presets import CURRENCIES, PRESETS
+from . import clock
 
 
 def week_start(day: date) -> datetime:
@@ -52,7 +53,7 @@ class IntelligenceMixin:
         return lambda v: format_money(v, symbol)
 
     def alerts(self, now: datetime | None = None) -> list[dict]:
-        now = now or datetime.now()
+        now = now or clock.now()
         this_month = now.date().replace(day=1)
         last_month = (this_month - timedelta(days=1)).replace(day=1)
         data = {
@@ -83,7 +84,7 @@ class IntelligenceMixin:
 
     def weekly_report(self, start: datetime, now: datetime | None = None) -> dict:
         """Everything the weekly PDF shows for the week that starts on Monday `start`."""
-        now = now or datetime.now()
+        now = now or clock.now()
         end = start + timedelta(days=7)
         settings = self.settings()
         preset = PRESETS[settings.get("business_type", "retail")]
