@@ -245,7 +245,18 @@ def dashboard() -> None:
 
 # ---------------------------------------------------------------- point of sale
 def _cart() -> dict:
-    return st.session_state.setdefault("cart", {})
+    """The ticket being rung up. It is also kept in the database, so a reload or a lost tab does not lose it."""
+    if "cart" not in st.session_state:
+        c = ctx()
+        saved = c.store.saved_cart(c.user["id"]) if c.user else {}
+        st.session_state["cart"], st.session_state["cart_saved"] = saved, dict(saved)
+    return st.session_state["cart"]
+
+
+def _persist_cart(c, cart: dict) -> None:
+    if c.user and st.session_state.get("cart_saved") != cart:
+        c.store.save_cart(c.user["id"], cart)
+        st.session_state["cart_saved"] = dict(cart)
 
 
 def _add_to_cart(pid: int) -> None:
@@ -303,6 +314,7 @@ def point_of_sale() -> None:
     # Drop items that were deactivated since they were added.
     for pid in [p for p in cart if p not in set(products["id"])]:
         cart.pop(pid)
+    _persist_cart(c, cart)
     by_id = products.set_index("id")
 
     view = st.session_state.setdefault("pos_view", "catalogo")
@@ -393,11 +405,13 @@ def point_of_sale() -> None:
                               customer_widget=customer_picker)
         if sale:
             cart.clear()
+            _persist_cart(c, cart)
             st.session_state["last_sale"] = sale["id"]
             st.session_state["pos_view"] = "catalogo"
             st.rerun()
         if cart and st.button("Vaciar ticket", use_container_width=True, icon=":material/delete:"):
             cart.clear()
+            _persist_cart(c, cart)
             st.rerun()
 
 

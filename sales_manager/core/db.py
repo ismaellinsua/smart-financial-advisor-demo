@@ -24,6 +24,7 @@ from .store_purchases import PurchasesMixin
 from .store_intel import IntelligenceMixin
 from .store_refunds import RefundsMixin
 from .store_billing import BillingMixin
+from .store_sessions import SessionsMixin
 from .security import (
     DUMMY_HASH, RECOVERY_CODE_COUNT, RECOVERY_ITERATIONS, ROLE_RANK, ROLES, USERNAME_RE, check_secret_strength,
     clean_text, hash_secret, is_safe_identifier, new_recovery_code, normalize_recovery_code, verify_secret, verify_totp,
@@ -306,6 +307,20 @@ CREATE TABLE IF NOT EXISTS recovery_codes (
 CREATE TABLE IF NOT EXISTS counters (
     series TEXT PRIMARY KEY,
     value INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS sessions (
+    id {pk},
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    token_hash TEXT UNIQUE NOT NULL,
+    created_at TEXT NOT NULL,
+    last_seen TEXT NOT NULL,
+    ended_at TEXT NOT NULL DEFAULT '',
+    user_agent TEXT NOT NULL DEFAULT ''
+);
+CREATE TABLE IF NOT EXISTS pos_carts (
+    user_id INTEGER PRIMARY KEY,
+    cart TEXT NOT NULL DEFAULT '{{}}',
+    updated_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS billing_records (
     id {pk},
@@ -595,7 +610,7 @@ def _is_postgres(target) -> bool:
 
 
 # ----------------------------------------------------------------------------- store
-class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin, BillingMixin):
+class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin, BillingMixin, SessionsMixin):
     SaleError = SaleError
     def __init__(self, path=DEFAULT_DB_PATH):
         self.db = _Postgres(str(path)) if _is_postgres(path) else _SQLite(str(path))
@@ -1497,6 +1512,8 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin, Billin
             new_name = clean_text(name, "Nombre", required=True) if name is not None else user["name"]
             cur.execute("UPDATE users SET name = ?, role = ?, active = ? WHERE id = ?",
                         (new_name, new_role, new_active, user_id))
+            if not new_active:
+                self._end_user_sessions(cur, user_id)
             self._audit(cur, by, "usuario_modificado",
                         f"{user['username']}: rol {ROLES[new_role]}, {'activo' if new_active else 'desactivado'}")
 
@@ -1509,6 +1526,7 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin, Billin
             cur.execute("UPDATE users SET secret_hash = ?, failed_attempts = 0, lockouts = 0, locked_until = '' "
                         "WHERE id = ?",
                         (hash_secret(secret), int(user_id)))
+            self._end_user_sessions(cur, user_id)
             self._audit(cur, by, "contraseña_cambiada", user["username"])
 
     def authorize(self, username: str, secret: str, needed: str = "encargado", otp: str = "",
@@ -1572,6 +1590,7 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin, Billin
                 raise ValueError("El nuevo PIN o contraseña debe ser distinto del actual.")
             check_secret_strength(new, user["role"])
             cur.execute("UPDATE users SET secret_hash = ? WHERE id = ?", (hash_secret(new), int(user_id)))
+            self._end_user_sessions(cur, user_id)  # other devices must sign in again with the new one
             self._audit(cur, user["username"], "contraseña_cambiada", "por la propia persona")
 
     # ------------------------------------------------- administrator recovery codes
@@ -1616,6 +1635,7 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin, Billin
                             (clock.now().isoformat(timespec="seconds"), match["id"]))
                 cur.execute("UPDATE users SET secret_hash = ?, totp_secret = '', failed_attempts = 0, lockouts = 0, "
                             "locked_until = '' WHERE id = ?", (hash_secret(new_secret), user["id"]))
+                self._end_user_sessions(cur, user["id"])
                 self._audit(cur, username, "acceso_recuperado", "con código de recuperación")
                 return {k: user[k] for k in ("id", "username", "name", "role")}
         raise generic
@@ -1670,6 +1690,7 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin, Billin
         for table in reversed(tables):
             cur.execute(f"DELETE FROM {table}")
         cur.execute("DELETE FROM counters")  # numbering restarts from the data that is loaded
+        cur.execute("DELETE FROM pos_carts")  # tickets in progress point to products that are being replaced
         self.db.before_reload(cur, tables)
         for table in tables:
             rows = data[table]

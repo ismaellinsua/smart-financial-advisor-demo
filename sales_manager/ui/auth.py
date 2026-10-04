@@ -14,6 +14,12 @@ from ui.styles import page_header
 
 SESSION_USER = "user"
 SESSION_SEEN = "last_seen"
+SESSION_TOKEN = "session_token"
+# The browser remembers the sign-in in a cookie (only a random token), so reloading or reopening the tab keeps
+# staff signed in until the business's idle time runs out. The server decides; the cookie only identifies.
+COOKIE = "nk_sesion"
+COOKIE_DAYS = 7
+_COOKIE_SET, _COOKIE_CLEAR = "cookie_to_set", "cookie_to_clear"
 MUST_CHANGE = "must_change_secret"
 NEW_CODES = "new_recovery_codes"
 
@@ -85,6 +91,43 @@ def current_user() -> dict | None:
     return st.session_state.get(SESSION_USER)
 
 
+def _cookie_token() -> str:
+    try:
+        value = st.context.cookies.get(COOKIE)
+    except Exception:  # no request context (tests, bare mode)
+        return ""
+    return value if isinstance(value, str) else ""
+
+
+def _user_agent() -> str:
+    try:
+        return st.context.headers.get("User-Agent") or ""
+    except Exception:
+        return ""
+
+
+def _write_cookie() -> None:
+    """Send the pending cookie change to the browser (the token only travels to this person's own page)."""
+    token = st.session_state.pop(_COOKIE_SET, None)
+    clear = st.session_state.pop(_COOKIE_CLEAR, False)
+    if token is None and not clear:
+        return
+    value, age = (token, COOKIE_DAYS * 86400) if token else ("", 0)
+    st.html(f"""<script>
+document.cookie = "{COOKIE}={value}; Path=/; Max-Age={age}; SameSite=Strict"
+  + (location.protocol === "https:" ? "; Secure" : "");
+</script>""", unsafe_allow_javascript=True)
+
+
+def _remember(store: Store, user: dict) -> None:
+    st.session_state[SESSION_TOKEN] = st.session_state[_COOKIE_SET] = store.create_session(user["id"], _user_agent())
+
+
+def _forget(store: Store) -> None:
+    store.end_session(st.session_state.pop(SESSION_TOKEN, "") or _cookie_token())
+    st.session_state[_COOKIE_CLEAR] = True
+
+
 def _setup_blocked() -> bool:
     with _SETUP_LOCK:
         while _SETUP_FAILURES and _SETUP_FAILURES[0] < _time.time() - SETUP_WINDOW_SECONDS:
@@ -100,6 +143,7 @@ def _setup_failed() -> None:
 def _sign_in(store: Store, user: dict, secret: str | None = None) -> None:
     st.session_state[SESSION_USER] = user
     st.session_state[SESSION_SEEN] = _time.time()
+    _remember(store, user)
     if secret is not None:
         try:
             check_secret_strength(secret, user["role"])
@@ -270,6 +314,7 @@ def change_secret_form(store: Store, user: dict, key: str) -> bool:
             except ValueError as exc:
                 st.error(str(exc))
                 return False
+            _remember(store, user)  # the change signs out every device; this one stays in
             return True
     return False
 
@@ -285,16 +330,28 @@ def require_user(store: Store, settings: dict) -> dict | None:
     if not store.has_users():
         _bootstrap(store)
         return None
+    idle_minutes = max(5, int(settings.get("session_minutes") or 720))
     user = current_user()
+    if user is None and not st.session_state.get(_COOKIE_CLEAR):
+        token = _cookie_token()
+        resumed = store.resume_session(token, idle_minutes) if token else None
+        if resumed is not None:  # a reload or a reopened tab: carry on where they were
+            user = st.session_state[SESSION_USER] = resumed
+            st.session_state[SESSION_SEEN] = _time.time()
+            st.session_state[SESSION_TOKEN] = token
     if user is not None:
         fresh = store.user(user["id"])  # role or access changes apply on the next click
-        idle_limit = max(5, int(settings.get("session_minutes") or 720)) * 60
-        expired = _time.time() - st.session_state.get(SESSION_SEEN, 0) > idle_limit
-        if fresh is None or not fresh["active"] or expired:
+        expired = _time.time() - st.session_state.get(SESSION_SEEN, 0) > idle_minutes * 60
+        token = st.session_state.get(SESSION_TOKEN)
+        ended = token is not None and store.resume_session(token, idle_minutes) is None  # PIN changed elsewhere
+        if fresh is None or not fresh["active"] or expired or ended:
             st.session_state.pop(SESSION_USER, None)
+            st.session_state.pop("cart", None)
+            _forget(store)
             if expired:
                 st.info("Tu sesión se cerró por inactividad. Vuelve a entrar.")
         else:
+            _write_cookie()
             st.session_state[SESSION_SEEN] = _time.time()
             user = {k: fresh[k] for k in ("id", "username", "name", "role")}
             st.session_state[SESSION_USER] = user
@@ -307,6 +364,7 @@ def require_user(store: Store, settings: dict) -> dict | None:
             if flash := st.session_state.pop("recovery_flash", None):
                 st.success(flash)
             return user
+    _write_cookie()
     _login(store, settings.get("business_name") or "Gestor de Ventas")
     return None
 
@@ -316,6 +374,7 @@ def logout_button(store: Store, user: dict) -> None:
         change_own_secret_dialog(store, user)
     if st.sidebar.button(f"Cerrar sesión · {user['name']}", icon=":material/logout:", use_container_width=True):
         store.audit(user["username"], "salida")
+        _forget(store)
         for key in (SESSION_USER, "cart", MUST_CHANGE, NEW_CODES):
             st.session_state.pop(key, None)
         st.rerun()
