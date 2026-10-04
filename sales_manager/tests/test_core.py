@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from core import automation
+from core import automation, clock
 from core.db import SaleError, Store
 from core.presets import PRESETS
 from core.pricing import compute_totals, format_money, format_money_short
@@ -60,7 +60,7 @@ def test_sale_decrements_stock_and_numbers_sequentially(store):
     before = int(store.products().set_index("id").loc[pid, "stock"])
     first = store.create_sale([{"product_id": pid, "quantity": 2}], "Tarjeta")
     second = store.create_sale([{"product_id": pid, "quantity": 1}], "Efectivo")
-    year = datetime.now().year
+    year = clock.now().year
     assert first["number"] == f"VTA-{year}-00001"
     assert second["number"] == f"VTA-{year}-00002"
     assert int(store.products().set_index("id").loc[pid, "stock"]) == before - 3
@@ -105,7 +105,7 @@ def test_every_preset_generates_demo_activity(make_store, business_type):
 
 def test_reorder_suggestions_cover_lead_time(store):
     pid = product_id(store, "VEL-006")
-    now = datetime.now()
+    now = clock.now()
     for d in range(10):
         store.create_sale([{"product_id": pid, "quantity": 3}], "Tarjeta", when=now - timedelta(days=d))
     products = store.products()
@@ -119,7 +119,7 @@ def test_low_stock_and_inactive_customers(store):
     pid = product_id(store, "BOL-004")
     cid = store.upsert_customer({"name": "Ana López", "email": "ana@example.com"})
     store.create_sale([{"product_id": pid, "quantity": 1}], "Tarjeta", customer_id=cid,
-                      when=datetime.now() - timedelta(days=90))
+                      when=clock.now() - timedelta(days=90))
     assert "BOL-004" in set(automation.low_stock(store.products())["sku"])
     inactive = automation.inactive_customers(store.customers(), store.sales(), days=60)
     assert list(inactive["name"]) == ["Ana López"]
@@ -128,7 +128,7 @@ def test_low_stock_and_inactive_customers(store):
 
 def test_kpis_compare_periods(store):
     pid = product_id(store, "CAM-001")
-    now = datetime.now()
+    now = clock.now()
     store.create_sale([{"product_id": pid, "quantity": 1}], "Tarjeta", when=now - timedelta(days=10))
     store.create_sale([{"product_id": pid, "quantity": 2}], "Tarjeta", when=now)
     start, end, prev_start = automation.period_bounds(7, now)
@@ -228,7 +228,7 @@ def _completed_sale(store, sku="CAM-001", **kwargs):
 
 
 def test_invoice_numbering_and_rules(store):
-    year = datetime.now().year
+    year = clock.now().year
     cid = store.upsert_customer({"name": "Norte S.L."})
     first = _completed_sale(store, customer_id=cid)
     second = _completed_sale(store)
@@ -258,7 +258,7 @@ def test_pdfs_are_generated(store):
     sale = _completed_sale(store)
     invoice = store.create_invoice(sale["id"], {"name": "Cliente <b>", "tax_id": "X"})
     assert invoice_pdf(invoice, store.settings()).startswith(b"%PDF")
-    closing = store.close_cash(datetime.now().date(), 100, 100)
+    closing = store.close_cash(clock.now().date(), 100, 100)
     assert cash_closing_pdf(closing, store.settings()).startswith(b"%PDF")
 
 
@@ -267,7 +267,7 @@ def test_appointments_overlap_charge_and_status(make_store):
     s = make_store()
     s.load_preset("services", with_demo_sales=False)
     pid = int(s.products()["id"].iloc[0])
-    day = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
+    day = clock.now().replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
     a1 = s.create_appointment(day.replace(hour=10), 60, product_id=pid, customer_name="Laura")
     with pytest.raises(ValueError, match="solapa"):
         s.create_appointment(day.replace(hour=10, minute=30), 60, product_id=pid, customer_name="Pablo")
@@ -293,7 +293,7 @@ def test_appointments_overlap_charge_and_status(make_store):
 
 
 def test_demo_agenda_only_for_agenda_businesses(make_store):
-    now = datetime.now()
+    now = clock.now()
     for business_type, expected in [("services", True), ("retail", False)]:
         s = make_store()
         s.load_preset(business_type)
@@ -303,7 +303,7 @@ def test_demo_agenda_only_for_agenda_businesses(make_store):
 
 # --------------------------------------------------------------- cash closing
 def test_cash_closing(store):
-    today = datetime.now().date()
+    today = clock.now().date()
     pid = product_id(store, "CAM-001")
     store.create_sale([{"product_id": pid, "quantity": 1}], "Efectivo")
     store.create_sale([{"product_id": pid, "quantity": 2}], "Tarjeta")
@@ -353,14 +353,14 @@ def test_old_database_is_upgraded(tmp_path):
 def test_backup_carries_new_tables(store, make_store):
     sale = _completed_sale(store)
     store.create_invoice(sale["id"], {"name": "Ana", "tax_id": "1Z"})
-    store.close_cash(datetime.now().date(), 50, 50)
+    store.close_cash(clock.now().date(), 50, 50)
     pid = product_id(store, "CAM-001")
-    store.create_appointment(datetime.now() + timedelta(days=1), 30, product_id=pid, customer_name="Eva")
+    store.create_appointment(clock.now() + timedelta(days=1), 30, product_id=pid, customer_name="Eva")
     other = make_store()
     other.restore(store.backup_bytes())
     assert len(other.invoices()) == 1 and len(other.cash_closings()) == 1
-    nxt = datetime.now() + timedelta(days=2)
-    assert len(other.appointments(datetime.now(), nxt)) == 1
+    nxt = clock.now() + timedelta(days=2)
+    assert len(other.appointments(clock.now(), nxt)) == 1
     # Numbering keeps going after a restore.
     again = other.create_invoice(_completed_sale(other)["id"], {"name": "Ana", "tax_id": "1Z"})
     assert again["number"].endswith("0002")
@@ -387,7 +387,7 @@ def test_users_and_login_lockout(make_store):
     assert s.authenticate("Ana ", "482619")["role"] == "empleado"
     with pytest.raises(AuthError, match="incorrectos"):
         s.authenticate("nadie", "482619")
-    now = datetime.now()
+    now = clock.now()
     for _ in range(MAX_FAILED_LOGINS - 1):
         with pytest.raises(AuthError, match="incorrectos"):
             s.authenticate("ana", "000000", now=now)
@@ -583,7 +583,7 @@ def test_text_limits(store):
     with pytest.raises(ValueError, match="demasiado largo"):
         store.upsert_customer({"name": "x" * 500})
     with pytest.raises(ValueError, match="demasiado largo"):
-        store.create_appointment(datetime.now() + timedelta(days=1), 30, customer_name="Eva", notes="n" * 600)
+        store.create_appointment(clock.now() + timedelta(days=1), 30, customer_name="Eva", notes="n" * 600)
 
 
 def test_csv_safe_and_secure_url():
@@ -655,7 +655,7 @@ def test_sale_with_promotion_points_and_mixed_payment(store):
     )
     assert sale["payment_method"] == "Mixto" and len(sale["payments"]) == 2
     assert sale["points_earned"] == int(total) and store.customer_points(cid) == int(total)
-    summary = store.day_summary(datetime.now().date())
+    summary = store.day_summary(clock.now().date())
     assert summary["breakdown"]["Efectivo"]["total"] == 20 and summary["cash"] == 20
     lines = store.sale_lines()
     assert lines["revenue"].sum() == pytest.approx(total - sale["tax"], abs=0.01)
@@ -721,7 +721,7 @@ def test_partial_refunds_add_up_exactly(store):
     assert int(store.products().set_index("id").loc[cam, "stock"]) == stock_before - 3 + 1
     assert store.customer_points(cid) < points_before
     assert [i["remaining"] for i in store.returnable(sale["id"])] == [2, 1]
-    assert store.day_summary(datetime.now().date())["cash"] == pytest.approx(sale["total"] - first["total"])
+    assert store.day_summary(clock.now().date())["cash"] == pytest.approx(sale["total"] - first["total"])
 
     with pytest.raises(SaleError, match="devoluciones"):
         store.cancel_sale(sale["id"])
@@ -738,7 +738,7 @@ def test_refund_of_invoiced_sale_issues_corrective_invoice(store):
     sale = store.create_sale([{"product_id": product_id(store, "BOL-004"), "quantity": 1}], "Tarjeta")
     store.create_invoice(sale["id"], {"name": "Norte S.L.", "tax_id": "B12345678"})
     refund = store.create_refund(sale["id"], {sale["items"][0]["id"]: 1}, "Tarjeta", "Defecto de fábrica")
-    assert refund["credit_note"]["number"] == f"FACR-{datetime.now().year}-0001"
+    assert refund["credit_note"]["number"] == f"FACR-{clock.now().year}-0001"
     note = store.credit_note(refund["id"])
     assert note["invoice"]["number"].startswith("FAC-")
     assert credit_note_pdf(note, store.settings()).startswith(b"%PDF")
@@ -816,7 +816,7 @@ def test_purchase_receive_updates_stock_cost_and_expenses(store):
     pid = product_id(store, "CAM-001")  # cost 16, stock 25
     po = store.create_purchase(supplier, [{"product_id": pid, "quantity": 25, "unit_cost": 20}], created_by="Ana")
     order = store.purchase(po)
-    assert order["number"] == f"PED-{datetime.now().year}-0001" and order["total"] == 500
+    assert order["number"] == f"PED-{clock.now().year}-0001" and order["total"] == 500
     assert purchase_order_pdf(order, store.settings()).startswith(b"%PDF")
     store.set_purchase_status(po, "enviado")
     item = order["items"][0]
@@ -870,7 +870,7 @@ def test_recurring_expenses_and_profit(store):
 # ------------------------------------------------------------------ intelligence
 def test_abc_classifies_by_margin(store):
     from core import intelligence
-    now = datetime.now()
+    now = clock.now()
     for sku, qty in [("ZAP-003", 10), ("CAM-001", 3), ("CIN-005", 1)]:
         store.create_sale([{"product_id": product_id(store, sku), "quantity": qty}], "Tarjeta",
                           when=now - timedelta(days=1))
@@ -904,7 +904,7 @@ def test_price_suggestions_and_apply(store):
 
 
 def test_smart_alerts(store):
-    now = datetime.now()
+    now = clock.now()
     shirt, bag = product_id(store, "CAM-001"), product_id(store, "BOL-004")
     # Busy week two weeks ago, quiet this week: sales drop.
     for d in range(8, 14):
@@ -950,7 +950,7 @@ def test_no_alerts_without_activity(store):
 def test_weekly_report_and_pdf(store):
     from core.pdfs import weekly_report_pdf
     from core.store_intel import week_start
-    start = week_start(datetime.now().date()) - timedelta(days=7)
+    start = week_start(clock.now().date()) - timedelta(days=7)
     shirt = product_id(store, "CAM-001")
     store.create_sale([{"product_id": shirt, "quantity": 2}], "Tarjeta", when=start + timedelta(days=1, hours=10),
                       user_name="Ana")
@@ -1037,12 +1037,12 @@ def test_demo_data_is_disposable_and_real_numbering_starts_at_one(make_store):
     s.reset()
     assert not s.is_demo() and s.is_empty()
     s.load_preset("retail", with_demo_sales=False)
-    year = datetime.now().year
+    year = clock.now().year
     assert _sell(s)["number"] == f"VTA-{year}-00001"
 
 
 def test_numbering_has_no_yearly_limit(store):
-    year = datetime.now().year
+    year = clock.now().year
     first = _sell(store)
     with store.db.tx() as cur:  # an existing series that already reached 99,999 tickets
         cur.execute("UPDATE sales SET number = ? WHERE id = ?", (f"VTA-{year}-99999", first["id"]))
@@ -1078,7 +1078,7 @@ def test_simultaneous_charges_all_succeed_with_unique_numbers(store):
 
 def test_prefix_with_like_wildcards_is_numbered_exactly(store):
     store.save_settings({"invoice_prefix": "T_1"})
-    year = datetime.now().year
+    year = clock.now().year
     assert [_sell(store)["number"] for _ in range(2)] == [f"T_1-{year}-00001", f"T_1-{year}-00002"]
 
 

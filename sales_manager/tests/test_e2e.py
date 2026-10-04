@@ -98,4 +98,5 @@ def test_staff_sells_from_a_phone_and_a_reload_keeps_the_ticket(server, phone):
     assert box["height"] >= 44
     charge.click()
     phone.get_by_text("Venta registrada").wait_for()
-    assert phone.get_by_role("button", name="Nueva venta").is_visible()
+    # The dialog fills in progressively (ticket preview first): wait for its last button instead of checking at once.
+    phone.get_by_role("button", name="Nueva venta").wait_for(state="visible")
