@@ -5,7 +5,6 @@ from html import escape
 import pandas as pd
 import streamlit as st
 
-from core.db import SaleError
 from ui.checkout import checkout_panel
 from ui.context import ctx, get_store
 from ui.styles import page_header

@@ -2,7 +2,6 @@
 
 from datetime import time
 
-import pandas as pd
 import streamlit as st
 
 from core.pricing import PROMO_KINDS, PROMO_SCOPES
