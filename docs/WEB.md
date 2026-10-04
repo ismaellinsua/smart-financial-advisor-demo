@@ -17,16 +17,17 @@ Todo está al principio de `assets/site.js`:
 
 ```js
 const CONTACT = {
+  email: "nirkana.oficial@gmail.com",  // botón «Escribir por email» y respaldo del formulario
   whatsapp: "",      // tu número con prefijo y solo cifras, p. ej. "34600111222"
   formspreeId: "",   // el código de tu formulario de Formspree
 };
 ```
 
-La web no publica ningún email. Hace falta al menos uno de los dos para recibir clientes:
+Con solo el email, el formulario abre el programa de correo del visitante con el mensaje ya escrito. Mejor aún:
 
 - **WhatsApp:** pon tu número y aparece el botón «Hablar por WhatsApp» con un mensaje preparado.
 - **Formulario:** con `formspreeId`, los mensajes te llegan a tu correo sin que tu dirección aparezca en la web.
-  Sin él, el formulario prepara el mensaje en WhatsApp (si hay número). Para activarlo:
+  Sin él, el formulario prepara el mensaje en WhatsApp (si hay número) o en el correo. Para activarlo:
   1. Crea una cuenta gratuita en [formspree.io](https://formspree.io) con tu email.
   2. Crea un formulario (**New form**) y copia el código que aparece en la dirección `https://formspree.io/f/XXXXXXX`.
   3. Pega solo `XXXXXXX` en `formspreeId`.
@@ -46,5 +47,5 @@ También puedes subir la carpeta `docs/` tal cual a Netlify, Cloudflare Pages o 
 - Política de seguridad de contenidos (CSP): solo se ejecuta el código propio de la web y el formulario solo puede
   enviar a Formspree.
 - Formulario con límites de longitud, validación, casilla de consentimiento y un campo trampa contra robots.
-- No se publica ningún email: los mensajes llegan por Formspree o WhatsApp.
+- El único dato de contacto publicado es el email de contacto; los mensajes llegan por Formspree, WhatsApp o email.
 - Los enlaces externos se abren sin pasar datos de la página (`noopener`, `noreferrer`).

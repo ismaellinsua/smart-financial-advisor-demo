@@ -1,8 +1,10 @@
 /* NirKanA — contact links, contact form and 3D effects. No third-party code. */
 
 // ---------------------------------------------------------------- your contact details (edit here)
-// No email address is published: messages arrive through Formspree (which forwards them privately) or WhatsApp.
+// Requests arrive through Formspree (if configured), WhatsApp (if there is a number) or, failing both, email.
 const CONTACT = {
+  // Contact email: shown as a button, used by the form when there is no Formspree id or WhatsApp number.
+  email: "nirkana.oficial@gmail.com",
   // WhatsApp number with country code and digits only, e.g. "34600111222". Empty hides the button.
   whatsapp: "",
   // Formspree form id (the part after https://formspree.io/f/). Empty: the form sends the request by WhatsApp.
@@ -18,6 +20,14 @@ const MESSAGE = "Hola, me interesa NirKanA para mi negocio. ¿Podemos ver una de
 
   // ------------------------------------------------------------ direct contact buttons
   const phone = String(CONTACT.whatsapp).replace(/\D/g, "");
+  const email = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(CONTACT.email || "") ? CONTACT.email : "";
+  const mailto = (subject, body) =>
+    `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  const mailLink = document.getElementById("email-link");
+  if (mailLink && email) {
+    mailLink.href = mailto("Demo de NirKanA", MESSAGE);
+    mailLink.hidden = false;
+  }
   if (phone.length >= 8) {
     for (const wa of document.querySelectorAll("#whatsapp-link, #whatsapp-float")) {
       wa.href = `https://wa.me/${phone}?text=${encodeURIComponent(MESSAGE)}`;
@@ -51,13 +61,19 @@ const MESSAGE = "Hola, me interesa NirKanA para mi negocio. ¿Podemos ver una de
       };
       const button = form.querySelector("button[type=submit]");
 
-      if (!CONTACT.formspreeId) { // no form service configured: send the request by WhatsApp instead
+      if (!CONTACT.formspreeId) { // no form service configured: send the request by WhatsApp or email instead
+        const text = `${MESSAGE}\n\nNombre: ${fields.nombre}\nNegocio: ${fields.negocio} (${fields.tipo})\n` +
+          `Email: ${fields.email}\nTeléfono: ${fields.telefono || "-"}\n\n${fields.mensaje}`;
+        if (phone.length < 8 && email) {
+          window.location.href = mailto(`Demo de NirKanA · ${fields.negocio}`, text);
+          say(`Se ha abierto tu correo con el mensaje preparado. Si no se abre, escríbenos a ${email}.`, "ok");
+          lastSent = Date.now();
+          return;
+        }
         if (phone.length < 8) {
           say("El formulario todavía no está disponible. Inténtalo de nuevo en unos días.", "err");
           return;
         }
-        const text = `${MESSAGE}\n\nNombre: ${fields.nombre}\nNegocio: ${fields.negocio} (${fields.tipo})\n` +
-          `Email: ${fields.email}\nTeléfono: ${fields.telefono || "-"}\n\n${fields.mensaje}`;
         window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`, "_blank", "noopener,noreferrer");
         say("Se ha abierto WhatsApp con tu mensaje preparado. Solo tienes que enviarlo.", "ok");
         lastSent = Date.now();
@@ -78,7 +94,7 @@ const MESSAGE = "Hola, me interesa NirKanA para mi negocio. ¿Podemos ver una de
         lastSent = Date.now();
         say("¡Gracias! Te responderé en menos de 24 horas laborables.", "ok");
       } catch {
-        say("No se pudo enviar. Inténtalo de nuevo en unos minutos.", "err");
+        say(email ? `No se pudo enviar. Inténtalo de nuevo o escríbenos a ${email}.` : "No se pudo enviar. Inténtalo de nuevo en unos minutos.", "err");
       } finally {
         button.disabled = false;
       }
