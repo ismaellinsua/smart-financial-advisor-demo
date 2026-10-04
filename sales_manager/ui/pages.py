@@ -7,13 +7,15 @@ from urllib.parse import quote
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+import streamlit.components.v1 as components
 
 from core import automation
 from core.db import FISCAL_DATA_MESSAGE, FiscalDataError, SaleError
 from core.presets import CURRENCIES, PAYMENT_METHODS, PRESETS
 from core.security import ROLES, csv_safe, new_totp_secret, totp_uri
 from core.pdfs import cash_closing_pdf, credit_note_pdf, invoice_pdf
-from core.receipts import receipt_html, refund_receipt_html
+from core.receipts import (RECEIPT_PAPERS, receipt_html, receipt_text, refund_receipt_html, whatsapp_number,
+                           with_print_button)
 from ui import pages_intel
 from ui.checkout import checkout_panel
 from ui.context import PAGES, ctx, get_store
@@ -285,17 +287,30 @@ def _create_customer_from_pos() -> None:
     st.session_state["pos_flash"] = ("success", f"Cliente «{name}» creado y seleccionado.")
 
 
+def _ticket_actions(c, sale: dict, preview_height: int = 420) -> None:
+    """Print the ticket from the browser (A4 or thermal roll, as set in Configuración) or send it to the customer."""
+    components.html(with_print_button(receipt_html(sale, c.settings)), height=preview_height, scrolling=True)
+    text = receipt_text(sale, c.settings)
+    a, b, d = st.columns(3)
+    number = whatsapp_number(sale.get("customer_phone") or "")
+    a.link_button("WhatsApp", f"https://wa.me/{number}?text={quote(text)}", icon=":material/chat:",
+                  use_container_width=True, help="Abre WhatsApp con el ticket escrito, listo para enviar.")
+    email = sale.get("customer_email") or ""
+    subject = f"Ticket {sale['number']} · {c.settings.get('business_name', '')}"
+    b.link_button("Email", f"mailto:{quote(email)}?subject={quote(subject)}&body={quote(text)}",
+                  icon=":material/mail:", use_container_width=True, help="Abre tu correo con el ticket escrito.")
+    d.download_button("Archivo", receipt_html(sale, c.settings), file_name=f"{sale['number']}.html",
+                      mime="text/html", icon=":material/download:", use_container_width=True,
+                      help="Descarga el ticket para guardarlo o imprimirlo más tarde.")
+
+
 @st.dialog("Venta registrada")
 def _sale_dialog(sale_id: int) -> None:
     c = ctx()
     sale = c.store.sale(sale_id)
     st.success(f"Ticket **{sale['number']}** · {c.money(sale['total'])} · {sale['payment_method']}")
-    st.caption("El stock se ha actualizado automáticamente.")
-    st.download_button(
-        "Descargar ticket (HTML imprimible)", receipt_html(sale, c.settings), file_name=f"{sale['number']}.html",
-        mime="text/html", icon=":material/receipt_long:", use_container_width=True, type="primary",
-    )
-    if st.button("Nueva venta", use_container_width=True):
+    _ticket_actions(c, sale, preview_height=360)
+    if st.button("Nueva venta", type="primary", use_container_width=True):
         st.rerun()
 
 
@@ -555,6 +570,8 @@ def _history_sales(c) -> None:
         invoice = c.store.invoice_for_sale(sale["id"])
         if invoice:
             st.caption(f"Facturada con el número **{invoice['number']}**.")
+        with st.expander("Imprimir o enviar el ticket", icon=":material/print:"):
+            _ticket_actions(c, sale)
         a, b, d = st.columns(3)
         a.download_button("Descargar ticket", receipt_html(sale, c.settings), f"{sale['number']}.html",
                           "text/html", icon=":material/receipt_long:", use_container_width=True)
@@ -1451,7 +1468,13 @@ def settings_page() -> None:
         values["tax_rate"] = b.number_input("IVA por defecto (%)", 0.0, 100.0, float(s["tax_rate"]), step=0.5,
                                             help="El de los productos que no tengan un IVA propio.")
         values["invoice_prefix"] = d.text_input("Prefijo de tickets", s["invoice_prefix"], max_chars=8)
-        values["receipt_footer"] = st.text_input("Pie del ticket", s["receipt_footer"])
+        f, g = st.columns([3, 2])
+        values["receipt_footer"] = f.text_input("Pie del ticket", s["receipt_footer"])
+        papers = list(RECEIPT_PAPERS)
+        values["receipt_paper"] = g.selectbox(
+            "Papel del ticket", papers, papers.index(s.get("receipt_paper", "a4")) if s.get("receipt_paper") in papers
+            else 0, format_func=RECEIPT_PAPERS.get,
+            help="Térmico: impresoras de tickets de 80 o 58 mm (conectadas por USB, red o Bluetooth al equipo).")
         a, b = st.columns(2)
         values["invoice_series"] = a.text_input("Serie de facturas", s["invoice_series"], max_chars=8,
                                                 help="Las facturas se numeran aparte: SERIE-AÑO-0001.")

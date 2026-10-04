@@ -1120,7 +1120,8 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin, Billin
         sale_id = int(sale_id)
         with self.db.tx() as cur:
             row = cur.execute(
-                "SELECT s.*, c.name AS customer_name, c.email AS customer_email, c.tax_id AS customer_tax_id "
+                "SELECT s.*, c.name AS customer_name, c.email AS customer_email, c.tax_id AS customer_tax_id, "
+                "c.phone AS customer_phone "
                 "FROM sales s LEFT JOIN customers c ON c.id = s.customer_id WHERE s.id = ?",
                 (sale_id,),
             ).fetchone()

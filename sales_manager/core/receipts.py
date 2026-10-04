@@ -7,6 +7,60 @@ from html import escape
 from .presets import CURRENCIES
 from .pricing import format_money
 
+RECEIPT_PAPERS = {"a4": "Hoja A4 (cualquier impresora)", "80": "Ticket térmico de 80 mm", "58": "Ticket térmico de 58 mm"}
+
+
+def _paper_css(paper: str) -> str:
+    """Thermal rolls: one narrow column, no shadows or margins, printed at the roll's width."""
+    if paper not in ("80", "58"):
+        return ""
+    width = int(paper) - 6  # printable width of the roll
+    return f"""
+  @page {{ size: {paper}mm auto; margin: 2mm 3mm; }}
+  body {{ background: #fff; font-size: 12px; }}
+  .sheet {{ width: {width}mm; max-width: {width}mm; margin: 0 auto; padding: 0; box-shadow: none; border-radius: 0; }}
+  header {{ display: block; text-align: center; padding-bottom: 8px; border-bottom-width: 1px; }}
+  header .doc {{ text-align: center; margin-top: 6px; }}
+  h1 {{ font-size: 16px; }} .doc strong {{ font-size: 14px; }}
+  .meta {{ display: block; margin: 10px 0; font-size: 12px; }} .meta > div {{ text-align: left !important; }}
+  table {{ font-size: 11px; }} th, td {{ padding: 4px 0; }}
+  .totals {{ width: 100%; }} .grand td {{ font-size: 15px; }}
+  .qr {{ text-align: center; }} .qr img {{ margin: 0 auto; }}
+  footer {{ margin-top: 14px; }}"""
+
+
+def whatsapp_number(phone: str) -> str:
+    """wa.me needs the number with its country code and digits only; Spanish numbers may come without it."""
+    digits = re.sub(r"\D", "", phone or "")
+    if digits.startswith("00"):
+        digits = digits[2:]
+    return "34" + digits if len(digits) == 9 and digits[0] in "6789" else digits
+
+
+def receipt_text(sale: dict, settings: dict) -> str:
+    """Short plain-text ticket to send by WhatsApp or email."""
+    symbol = CURRENCIES.get(settings.get("currency", "EUR"), "€")
+    money = lambda v: format_money(v, symbol)  # noqa: E731
+    when = datetime.fromisoformat(sale["created_at"]).strftime("%d/%m/%Y %H:%M")
+    lines = [settings.get("business_name", ""), f"Ticket {sale['number']} · {when}", ""]
+    lines += [f"{i['quantity']} x {i['name']}  {money(i['quantity'] * i['unit_price'])}" for i in sale["items"]]
+    lines += ["", f"Total: {money(sale['total'])} ({sale['payment_method']})"]
+    if settings.get("tax_id"):
+        lines.append(f"NIF {settings['tax_id']}")
+    if settings.get("receipt_footer"):
+        lines += ["", settings["receipt_footer"]]
+    return "\n".join(lines)
+
+
+def with_print_button(html: str) -> str:
+    """The ticket preview with a button that opens the browser's print dialog (hidden on paper)."""
+    button = ("<div class='no-print' style='position:sticky;top:0;z-index:2;background:#f5f7fa;padding:8px;"
+              "text-align:center'><button onclick='window.print()' style='font:600 15px Inter,Arial,sans-serif;"
+              "padding:12px 28px;min-height:44px;border:0;border-radius:10px;background:#1F4E79;color:#fff;"
+              "cursor:pointer'>Imprimir ticket</button></div>")
+    return (html.replace("</style>", "@media print { .no-print { display: none !important; } }</style>", 1)
+                .replace("<body>", "<body>" + button, 1))
+
 
 def sale_adjustments(sale: dict) -> list[tuple[str, float]]:
     """Discount lines of a sale, in the order they were applied: promotions, manual discount, points."""
@@ -55,7 +109,8 @@ def qr_block(record: dict | None) -> str:
             "<div style='font-size:11px;color:#667085'>QR tributario</div></div>")
 
 
-def receipt_html(sale: dict, settings: dict) -> str:
+def receipt_html(sale: dict, settings: dict, paper: str | None = None) -> str:
+    paper = paper or settings.get("receipt_paper", "a4")
     symbol = CURRENCIES.get(settings.get("currency", "EUR"), "€")
     money = lambda v: format_money(v, symbol)  # noqa: E731
     accent = settings.get("accent_color", "")
@@ -115,7 +170,7 @@ def receipt_html(sale: dict, settings: dict) -> str:
   footer {{ margin-top: 40px; text-align: center; }}
   .void {{ position: absolute; top: 40%; left: 0; right: 0; text-align: center; font-size: 72px; font-weight: 800;
            color: rgba(217,45,32,.18); transform: rotate(-18deg); pointer-events: none; }}
-  @media print {{ body {{ background: #fff; }} .sheet {{ box-shadow: none; margin: 0; }} }}
+  @media print {{ body {{ background: #fff; }} .sheet {{ box-shadow: none; margin: 0; }} }}{_paper_css(paper)}
 </style></head>
 <body><div class="sheet">{void}{qr_block(sale.get("billing"))}
 <header>

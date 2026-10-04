@@ -156,6 +156,8 @@ DEFAULT_SETTINGS = {
     "inactive_days": "30",
     "reorder_lead_days": "14",
     "receipt_footer": "Gracias por su compra.",
+    # Paper the till prints tickets on: a4 (any printer), 80 or 58 (thermal ticket printers, roll width in mm).
+    "receipt_paper": "a4",
     "invoice_series": "FAC",
     "refund_prefix": "DEV",
     "agenda_enabled": "auto",

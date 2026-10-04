@@ -1187,3 +1187,21 @@ def test_returns_of_sales_from_before_vat_per_product_still_add_up(store):
     first = store.create_refund(sale["id"], {item["id"]: 1}, "Efectivo", "Talla")
     second = store.create_refund(sale["id"], {item["id"]: 1}, "Efectivo", "Talla")
     assert first["total"] + second["total"] == pytest.approx(sale["total"], abs=0.001)
+
+
+def test_tickets_print_on_thermal_rolls_and_can_be_sent(store):
+    from core.receipts import receipt_html, receipt_text, whatsapp_number, with_print_button
+
+    sale = store.sale(_completed_sale(store)["id"])
+    a4 = receipt_html(sale, store.settings())
+    roll = receipt_html(sale, store.settings(), paper="80")
+    assert "@page" not in a4 and "size: 80mm auto" in roll and "width: 74mm" in roll
+    store.save_settings({"receipt_paper": "58"})
+    assert "size: 58mm auto" in receipt_html(sale, store.settings())
+    printable = with_print_button(roll)
+    assert "window.print()" in printable and ".no-print { display: none !important; }" in printable
+    text = receipt_text(sale, store.settings())
+    assert sale["number"] in text and "Total:" in text and "<" not in text
+    assert whatsapp_number("612 345 678") == "34612345678"
+    assert whatsapp_number("+44 7700 900123") == "447700900123"
+    assert whatsapp_number("") == ""
