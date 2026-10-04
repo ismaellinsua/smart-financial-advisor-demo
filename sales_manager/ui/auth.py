@@ -189,7 +189,7 @@ def _bootstrap(store: Store) -> None:
             secret = st.text_input("Contraseña", type="password", max_chars=128,
                                    help="Al menos 8 caracteres, con letras y números o símbolos.")
             repeat = st.text_input("Repite la contraseña", type="password", max_chars=128)
-            if st.form_submit_button("Crear administrador", type="primary", use_container_width=True):
+            if st.form_submit_button("Crear administrador", type="primary", width="stretch"):
                 if _setup_blocked():
                     st.error("Demasiados intentos. Espera unos minutos.")
                     return
@@ -223,7 +223,7 @@ def _login(store: Store, business_name: str) -> None:
             otp = st.text_input("Código de verificación", max_chars=6, autocomplete="one-time-code",
                                 help="Solo si tienes activada la verificación en dos pasos: el código de 6 cifras de "
                                      "tu app de autenticación.")
-            if st.form_submit_button("Entrar", type="primary", use_container_width=True):
+            if st.form_submit_button("Entrar", type="primary", width="stretch"):
                 if minutes := client_blocked_minutes(key):
                     st.error(f"Demasiados intentos desde este dispositivo. Espera {minutes} min.")
                     return
@@ -250,7 +250,7 @@ def _recover(store: Store, key: str) -> None:
         new = st.text_input("Nueva contraseña", type="password", max_chars=128,
                             help="Al menos 8 caracteres, con letras y números o símbolos.")
         repeat = st.text_input("Repite la nueva contraseña", type="password", max_chars=128)
-        if st.form_submit_button("Cambiar contraseña y entrar", use_container_width=True):
+        if st.form_submit_button("Cambiar contraseña y entrar", width="stretch"):
             if minutes := client_blocked_minutes(key):
                 st.error(f"Demasiados intentos desde este dispositivo. Espera {minutes} min.")
                 return
@@ -283,7 +283,7 @@ def _show_new_codes() -> None:
         st.code("\n".join(st.session_state[NEW_CODES]), language=None)
         st.caption("Cópialos o haz una foto y guárdalos fuera de este dispositivo (en papel, o en tu gestor de "
                    "contraseñas).")
-        if st.button("Ya los he guardado", type="primary", use_container_width=True):
+        if st.button("Ya los he guardado", type="primary", width="stretch"):
             st.session_state.pop(NEW_CODES, None)
             st.rerun()
 
@@ -305,7 +305,7 @@ def change_secret_form(store: Store, user: dict, key: str) -> bool:
         current = st.text_input("PIN o contraseña actual", type="password", max_chars=128)
         new = st.text_input("Nuevo PIN o contraseña", type="password", max_chars=128)
         repeat = st.text_input("Repítelo", type="password", max_chars=128)
-        if st.form_submit_button("Guardar", type="primary", use_container_width=True):
+        if st.form_submit_button("Guardar", type="primary", width="stretch"):
             if new != repeat:
                 st.error("No coinciden.")
                 return False
@@ -370,9 +370,9 @@ def require_user(store: Store, settings: dict) -> dict | None:
 
 
 def logout_button(store: Store, user: dict) -> None:
-    if st.sidebar.button("Cambiar mi PIN", icon=":material/password:", use_container_width=True):
+    if st.sidebar.button("Cambiar mi PIN", icon=":material/password:", width="stretch"):
         change_own_secret_dialog(store, user)
-    if st.sidebar.button(f"Cerrar sesión · {user['name']}", icon=":material/logout:", use_container_width=True):
+    if st.sidebar.button(f"Cerrar sesión · {user['name']}", icon=":material/logout:", width="stretch"):
         store.audit(user["username"], "salida")
         _forget(store)
         for key in (SESSION_USER, "cart", MUST_CHANGE, NEW_CODES):

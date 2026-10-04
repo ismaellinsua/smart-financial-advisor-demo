@@ -135,7 +135,7 @@ def _loyalty(c) -> None:
             return
         table = customers.merge(points, left_on="id", right_on="customer_id").sort_values("points", ascending=False)
         table["value"] = table["points"] * loyalty["value"]
-        st.dataframe(table[["name", "email", "points", "value"]], hide_index=True, use_container_width=True,
+        st.dataframe(table[["name", "email", "points", "value"]], hide_index=True, width="stretch",
                      column_config={"name": "Cliente", "email": "Email", "points": "Puntos",
                                     "value": st.column_config.NumberColumn("Valen", format=f"%.2f {c.symbol}")})
 

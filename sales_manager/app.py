@@ -88,7 +88,7 @@ if c.can("admin"):
 
 sidebar_brand(c.settings["business_name"], PRESETS[c.settings["business_type"]]["label"])
 if c.can("admin") and c.store.can_replace_data() and st.sidebar.button(
-        "Cambiar de negocio", icon=":material/swap_horiz:", use_container_width=True):
+        "Cambiar de negocio", icon=":material/swap_horiz:", width="stretch"):
     pages.switch_business_dialog()
 nav = st.navigation(sections, expanded=True)
 # On phones the menu covers the screen: close it as soon as a page is chosen (Streamlit leaves it open).

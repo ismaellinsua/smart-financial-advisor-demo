@@ -108,7 +108,7 @@ def checkout_panel(c, cart: list[dict], prefix: str, *, customer_widget=None, bu
     if not cart:
         _totals_table(c, {"subtotal": 0, "promo_discount": 0, "manual_discount": 0, "loyalty_discount": 0,
                           "tax": 0, "total": 0})
-        st.button(f"{button_label} {c.money(0)}", type="primary", use_container_width=True, disabled=True,
+        st.button(f"{button_label} {c.money(0)}", type="primary", width="stretch", disabled=True,
                   icon=":material/payments:", key=f"{prefix}_charge")
         return None
     try:
@@ -131,7 +131,7 @@ def checkout_panel(c, cart: list[dict], prefix: str, *, customer_widget=None, bu
         payments, problem = None, f"Un descuento de más del {limit:g} % necesita la autorización de un encargado."
     if problem:
         st.warning(problem, icon=":material/info:")
-    if st.button(f"{button_label} {c.money(totals['total'])}", type="primary", use_container_width=True,
+    if st.button(f"{button_label} {c.money(totals['total'])}", type="primary", width="stretch",
                  disabled=payments is None, icon=":material/payments:", key=f"{prefix}_charge"):
         try:
             sale = (charge_fn or c.store.create_sale)(

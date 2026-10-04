@@ -57,7 +57,7 @@ def _orders(c) -> None:
     m1.metric("Pedidos abiertos", len(pending))
     m2.metric("Importe pendiente de recibir", c.money_short(pending["total"].sum()))
     event = st.dataframe(
-        df.assign(status=df["status"].map(PURCHASE_STATUSES)), hide_index=True, use_container_width=True,
+        df.assign(status=df["status"].map(PURCHASE_STATUSES)), hide_index=True, width="stretch",
         on_select="rerun", selection_mode="single-row", key="po_table",
         column_order=["number", "created_at", "supplier", "status", "total", "created_by"],
         column_config={"number": "Pedido", "created_at": st.column_config.DatetimeColumn("Fecha", format="DD/MM/YYYY"),
@@ -75,7 +75,7 @@ def _orders(c) -> None:
                            "application/pdf", icon=":material/picture_as_pdf:")
         if po["status"] not in ("borrador", "enviado"):
             st.dataframe(pd.DataFrame(po["items"])[["name", "quantity", "received", "unit_cost"]], hide_index=True,
-                         use_container_width=True, column_config={
+                         width="stretch", column_config={
                              "name": "Producto", "quantity": "Pedido", "received": "Recibido",
                              "unit_cost": st.column_config.NumberColumn("Coste", format=f"%.2f {c.symbol}")})
             return
@@ -91,7 +91,7 @@ def _orders(c) -> None:
                              key=f"rcv_m_{po['id']}")
         x, y, z = st.columns(3)
         if x.button("Recibir y actualizar stock", type="primary", icon=":material/inventory:",
-                    key=f"rcv_btn_{po['id']}", use_container_width=True):
+                    key=f"rcv_btn_{po['id']}", width="stretch"):
             try:
                 c.store.receive_purchase(po["id"], received, received_by=c.who, register_expense=expense,
                                          method=method)
@@ -102,10 +102,10 @@ def _orders(c) -> None:
                 st.session_state["purchase_flash"] = f"{po['number']} recibido: stock y costes actualizados."
                 st.rerun()
         if po["status"] == "borrador" and y.button("Marcar como enviado", key=f"po_sent_{po['id']}",
-                                                   use_container_width=True):
+                                                   width="stretch"):
             c.store.set_purchase_status(po["id"], "enviado")
             st.rerun()
-        if z.button("Cancelar pedido", key=f"po_cancel_{po['id']}", use_container_width=True):
+        if z.button("Cancelar pedido", key=f"po_cancel_{po['id']}", width="stretch"):
             c.store.set_purchase_status(po["id"], "cancelado")
             c.store.audit(c.username, "pedido_cancelado", po["number"])
             st.rerun()
@@ -122,7 +122,7 @@ def _new_order(c) -> None:
     lines = pd.DataFrame({"producto": products["name"], "cantidad": 0, "coste": products["cost"].astype(float),
                           "stock": products["stock"], "product_id": products["id"]})
     edited = st.data_editor(
-        lines, hide_index=True, use_container_width=True, key=f"po_lines_{supplier}",
+        lines, hide_index=True, width="stretch", key=f"po_lines_{supplier}",
         disabled=["producto", "stock", "product_id"], column_order=["producto", "stock", "cantidad", "coste"],
         column_config={"producto": "Producto", "stock": "Stock actual",
                        "cantidad": st.column_config.NumberColumn("Pedir", min_value=0, step=1),
@@ -152,7 +152,7 @@ def _suppliers(c) -> None:
         if suppliers.empty:
             st.info("Sin proveedores todavía.")
         else:
-            st.dataframe(suppliers, hide_index=True, use_container_width=True,
+            st.dataframe(suppliers, hide_index=True, width="stretch",
                          column_order=["name", "tax_id", "email", "phone", "notes"],
                          column_config={"name": "Proveedor", "tax_id": "NIF/CIF", "email": "Email",
                                         "phone": "Teléfono", "notes": "Notas"})
@@ -161,7 +161,7 @@ def _suppliers(c) -> None:
             names = {0: "—", **dict(zip(suppliers["id"].astype(int), suppliers["name"]))}
             table = pd.DataFrame({"id": products["id"], "producto": products["name"],
                                   "proveedor": products["supplier_id"].fillna(0).astype(int).map(names)})
-            edited = st.data_editor(table, hide_index=True, use_container_width=True, key="product_suppliers",
+            edited = st.data_editor(table, hide_index=True, width="stretch", key="product_suppliers",
                                     disabled=["id", "producto"], column_order=["producto", "proveedor"],
                                     column_config={"producto": "Producto", "proveedor": st.column_config.SelectboxColumn(
                                         "Proveedor", options=list(names.values()), required=True)})
@@ -232,7 +232,7 @@ def expenses_page() -> None:
             marker_color=[accent if y >= 0 else "#D92D20" for _, y in series],
             text=[c.money_short(y) for _, y in series], textposition="outside",
             hovertemplate="%{x}<br><b>%{y:,.2f} " + c.symbol + "</b><extra></extra>"))
-        st.plotly_chart(style_figure(fig, 300), use_container_width=True, config={"displayModeBar": False})
+        st.plotly_chart(style_figure(fig, 300), width="stretch", config={"displayModeBar": False})
     with right, st.container(border=True):
         st.markdown("**Gastos del mes por categoría**")
         if p["by_category"].empty:
@@ -250,7 +250,7 @@ def expenses_page() -> None:
         if df.empty:
             st.caption("No hay gastos este mes.")
         else:
-            event = st.dataframe(df, hide_index=True, use_container_width=True, on_select="rerun",
+            event = st.dataframe(df, hide_index=True, width="stretch", on_select="rerun",
                                  selection_mode="single-row", key="exp_table",
                                  column_order=["day", "category", "description", "supplier", "method", "amount",
                                                "created_by"],

@@ -74,7 +74,7 @@ def report_card(c) -> None:
         store, settings = c.store, c.settings
         b.download_button("Descargar informe (PDF)", lambda: weekly_report_pdf(store.weekly_report(start), settings),
                           f"informe_semanal_{start:%Y-%m-%d}.pdf", "application/pdf", icon=":material/summarize:",
-                          use_container_width=True, type="primary" if monday else "secondary", key="dash_report")
+                          width="stretch", type="primary" if monday else "secondary", key="dash_report")
 
 
 def intelligence_page() -> None:
@@ -99,7 +99,7 @@ def intelligence_page() -> None:
 def _alerts_tab(c) -> None:
     a, b = st.columns([4, 1], vertical_alignment="bottom")
     a.caption("Se revisan solas: ventas, caja, stock, clientes, mesas, equipo, gastos y márgenes.")
-    refresh = b.button("Actualizar", icon=":material/refresh:", use_container_width=True)
+    refresh = b.button("Actualizar", icon=":material/refresh:", width="stretch")
     alerts = cached_alerts(c, refresh=refresh)
     counts = {lvl: sum(x["level"] == lvl for x in alerts) for lvl in intelligence.LEVELS}
     m1, m2, m3 = st.columns(3)
@@ -137,10 +137,10 @@ def _abc_tab(c, products: pd.DataFrame) -> pd.DataFrame:
                                   ticktext=["0 %", "25 %", "50 %", "80 %", "95 %"], showgrid=False))
     with st.container(border=True):
         st.markdown("**Margen por producto y acumulado**")
-        st.plotly_chart(style_figure(fig, 320), use_container_width=True, config={"displayModeBar": False})
+        st.plotly_chart(style_figure(fig, 320), width="stretch", config={"displayModeBar": False})
 
     view = abc[["abc", "name", "category", "units", "revenue", "margin", "margin_pct", "share"]]
-    st.dataframe(view, hide_index=True, use_container_width=True, column_config={
+    st.dataframe(view, hide_index=True, width="stretch", column_config={
         "abc": st.column_config.TextColumn("Clase", width="small"), "name": "Producto", "category": "Categoría",
         "units": st.column_config.NumberColumn("Unidades", format="%d"),
         "revenue": st.column_config.NumberColumn("Ventas netas", format=f"%.2f {c.symbol}"),
@@ -170,7 +170,7 @@ def _prices_tab(c, products: pd.DataFrame, abc: pd.DataFrame) -> None:
     editor = sug.assign(apply=False)[["apply", "abc", "name", "cost", "price", "unit_margin_pct", "suggested",
                                       "new_margin_pct", "increase_pct", "id"]]
     edited = st.data_editor(
-        editor, hide_index=True, use_container_width=True, key=f"price_editor_{target}",
+        editor, hide_index=True, width="stretch", key=f"price_editor_{target}",
         disabled=["abc", "name", "cost", "price", "unit_margin_pct", "new_margin_pct", "increase_pct", "id"],
         column_order=["apply", "abc", "name", "cost", "price", "unit_margin_pct", "suggested", "new_margin_pct",
                       "increase_pct"],
@@ -225,7 +225,7 @@ def _report_tab(c) -> None:
         fig = go.Figure(go.Bar(x=[f"{name[:3]} {d:%d}" for name, d, _, _ in n["by_day"]],
                                y=[total for *_, total in n["by_day"]], marker_color=c.settings["accent_color"],
                                hovertemplate="%{x}<br><b>%{y:,.2f} " + c.symbol + "</b><extra></extra>"))
-        st.plotly_chart(style_figure(fig, 260), use_container_width=True, config={"displayModeBar": False})
+        st.plotly_chart(style_figure(fig, 260), width="stretch", config={"displayModeBar": False})
     with right, st.container(border=True):
         st.markdown("**Recomendaciones**")
         for i, rec in enumerate(report["recommendations"], 1):
