@@ -1205,3 +1205,45 @@ def test_tickets_print_on_thermal_rolls_and_can_be_sent(store):
     assert whatsapp_number("612 345 678") == "34612345678"
     assert whatsapp_number("+44 7700 900123") == "447700900123"
     assert whatsapp_number("") == ""
+
+
+def _together(n, fn):
+    """Run fn(i) in n threads released at the same instant; return (results, errors)."""
+    import threading
+    barrier, results, errors = threading.Barrier(n), [], []
+
+    def run(i):
+        barrier.wait()
+        try:
+            results.append(fn(i))
+        except Exception as exc:  # noqa: BLE001 - the test inspects every failure
+            errors.append(exc)
+
+    threads = [threading.Thread(target=run, args=(i,)) for i in range(n)]
+    [t.start() for t in threads]
+    [t.join() for t in threads]
+    return results, errors
+
+
+def test_last_unit_sold_at_two_tills_at_once_is_sold_only_once(store):
+    pid = product_id(store, "CAM-001")
+    store.adjust_stock(pid, 1 - int(store.products().set_index("id").loc[pid, "stock"]))
+    results, errors = _together(2, lambda i: store.create_sale([{"product_id": pid, "quantity": 1}], "Tarjeta"))
+    assert len(results) == 1 and len(errors) == 1 and isinstance(errors[0], SaleError)
+    assert int(store.products().set_index("id").loc[pid, "stock"]) == 0
+
+
+def test_simultaneous_invoices_and_returns_keep_numbers_and_the_billing_chain_intact(store):
+    pid = product_id(store, "CAM-001")
+    store.adjust_stock(pid, 100)
+    store.enable_billing_register()
+    sales = [store.create_sale([{"product_id": pid, "quantity": 2}], "Tarjeta") for _ in range(6)]
+    invoices, errors = _together(6, lambda i: store.create_invoice(
+        sales[i]["id"], {"name": f"Cliente {i}", "tax_id": "B12345678", "address": "C/ 1"})["number"])
+    assert not errors and len(set(invoices)) == 6
+    assert sorted(int(n.rsplit("-", 1)[1]) for n in invoices) == list(range(1, 7))
+    refunds, errors = _together(6, lambda i: store.create_refund(
+        sales[i]["id"], {store.sale(sales[i]["id"])["items"][0]["id"]: 1}, "Efectivo", "Prueba")["number"])
+    assert not errors and len(set(refunds)) == 6
+    chain = store.verify_billing_chain()
+    assert chain["ok"] and chain["checked"] == 6 + 6 + 6  # tickets, invoices, corrective invoices: no fork

@@ -1,5 +1,5 @@
 # Runs the whole test suite on every push and pull request, against SQLite and a real PostgreSQL, with the server
-# clock in UTC like the cloud. A red check means the change must not be merged.
+# clock in UTC like the cloud, plus a real-browser sale at phone size. A red check means the change must not be merged.
 name: Tests
 
 on:
@@ -40,7 +40,10 @@ jobs:
           cache: pip
 
       - name: Dependencias
-        run: pip install --quiet -r requirements.txt pytest pyflakes
+        run: pip install --quiet -r requirements.txt pytest pyflakes playwright==1.63.0
+
+      - name: Navegador para la prueba en móvil
+        run: python -m playwright install --with-deps chromium
 
       - name: Cliente de PostgreSQL 16 (para el test de copias)
         run: command -v pg_dump || { sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client-16; }

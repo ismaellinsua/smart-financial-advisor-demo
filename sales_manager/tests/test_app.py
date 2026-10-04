@@ -341,3 +341,29 @@ def test_staff_history_shows_only_their_own_recent_sales(module_targets):
     at = AppTest.from_string(SCRIPT.format(root=ROOT, db=target, fn="history", role="encargado"),
                              default_timeout=30).run()
     assert {mine["number"], theirs["number"]} <= set(at.dataframe[0].value["number"])
+
+
+# Who may open each page. The menu hides the rest, and each page checks again on its own (an address typed by hand
+# must not open it either).
+PAGE_ROLES = {
+    "point_of_sale": "empleado", "history": "empleado", "agenda_page": "empleado", "tables_page": "empleado",
+    "kitchen_page": "empleado",
+    "dashboard": "encargado", "cash_page": "encargado", "products_page": "encargado", "customers_page": "encargado",
+    "automations_page": "encargado", "intelligence_page": "encargado", "promotions_page": "encargado",
+    "purchases_page": "encargado", "expenses_page": "encargado",
+    "team_page": "admin", "settings_page": "admin",
+}
+RANK = {"empleado": 0, "encargado": 1, "admin": 2}
+
+
+def test_every_page_is_listed_in_the_role_matrix():
+    assert set(PAGE_ROLES) == set(PAGES)
+
+
+@pytest.mark.parametrize("role", list(RANK))
+@pytest.mark.parametrize("fn", list(PAGE_ROLES))
+def test_each_page_checks_the_role_itself(demo_db, fn, role):
+    at = AppTest.from_string(SCRIPT.format(root=ROOT, db=demo_db, fn=fn, role=role), default_timeout=30).run()
+    assert not at.exception, at.exception
+    refused = any("No tienes permiso" in str(e.value) for e in at.error)
+    assert refused == (RANK[role] < RANK[PAGE_ROLES[fn]]), f"{fn} as {role}"
