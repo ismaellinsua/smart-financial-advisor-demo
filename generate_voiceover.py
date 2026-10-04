@@ -69,18 +69,19 @@ for segment_id, config in voiceovers.items():
     print(f"   Texto: {config['text'][:50]}...")
 
     try:
-        # Generar audio
-        audio = client.generate(
+        # Generar audio usando text_to_speech
+        audio = client.text_to_speech.convert(
+            voice_id=VOICE_ID,
             text=config["text"],
-            voice=VOICE_ID,
-            model="eleven_multilingual_v2",  # Soporta múltiples idiomas
+            model_id="eleven_multilingual_v2",  # Soporta múltiples idiomas
             language_code="es",  # Español
         )
 
         # Guardar archivo
         output_file = OUTPUT_DIR / f"{segment_id}.mp3"
         with open(output_file, "wb") as f:
-            f.write(audio)
+            for chunk in audio:
+                f.write(chunk)
 
         print(f"   ✓ Guardado: {output_file}\n")
 
