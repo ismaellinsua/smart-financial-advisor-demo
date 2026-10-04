@@ -8,7 +8,7 @@ const CONTACT = {
   // WhatsApp number with country code and digits only, e.g. "34600111222". Empty hides the button.
   whatsapp: "",
   // Formspree form id (the part after https://formspree.io/f/). Empty: the form sends the request by WhatsApp.
-  formspreeId: "",
+  formspreeId: "mbgdrbyg",
 };
 const MESSAGE = "Hola, me interesa NirKanA para mi negocio. ¿Podemos ver una demo?";
 
