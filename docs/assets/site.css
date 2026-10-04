@@ -106,9 +106,8 @@ section { padding: clamp(72px, 10vw, 136px) 0; }
 .bar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; min-height: 68px; }
 .brand { display: inline-flex; align-items: center; gap: .6rem; text-decoration: none; font-weight: 800; font-size: 1.2rem; letter-spacing: -.01em; }
 .logo {
-  width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; color: #fff; font-weight: 900;
-  background: var(--grad); box-shadow: 0 8px 18px -8px rgba(59, 91, 253, .9), inset 0 1px 0 rgba(255, 255, 255, .35);
-  transform: perspective(200px) rotateX(12deg) rotateY(-14deg);
+  width: 34px; height: 34px; display: block; flex: none; border-radius: 9px;
+  box-shadow: 0 8px 18px -8px rgba(59, 91, 253, .9);
 }
 .top nav { display: flex; gap: 2rem; }
 .top nav a { text-decoration: none; color: var(--muted); font-weight: 600; font-size: .95rem; position: relative; }
