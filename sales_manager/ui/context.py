@@ -76,3 +76,13 @@ def ctx() -> Ctx:
         symbol=CURRENCIES.get(settings["currency"], "€"),
         user=st.session_state.get("user"),
     )
+
+
+def _log_export(file_name: str) -> None:
+    c = ctx()
+    c.store.audit(c.username, "exportacion", file_name)
+
+
+def logged_download(where, label: str, data, file_name: str, *args, **kwargs):
+    """A download of business data that leaves a line in the activity log (who took what, and when)."""
+    return where.download_button(label, data, file_name, *args, on_click=_log_export, args=(file_name,), **kwargs)

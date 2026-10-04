@@ -18,7 +18,7 @@ from core.receipts import (RECEIPT_PAPERS, receipt_html, receipt_text, refund_re
                            with_print_button)
 from ui import pages_intel
 from ui.checkout import checkout_panel
-from ui.context import PAGES, ctx, get_store
+from ui.context import PAGES, ctx, get_store, logged_download
 from ui.styles import insight, page_header, pos_mobile_css, style_figure
 from core import clock
 
@@ -94,8 +94,8 @@ def switch_business_dialog() -> None:
     demo = st.toggle("Cargar datos de ejemplo para probar", value=c.store.is_demo(), key="switch_demo")
     st.warning("Se reemplazarán el catálogo, los clientes y las ventas actuales por los del nuevo negocio.",
                icon=":material/warning:")
-    st.download_button(
-        "Antes, descargar una copia de mis datos", c.store.backup_bytes, f"ventas-{clock.today():%Y-%m-%d}.db",
+    logged_download(
+        st, "Antes, descargar una copia de mis datos", c.store.backup_bytes, f"ventas-{clock.today():%Y-%m-%d}.db",
         "application/octet-stream", icon=":material/download:", use_container_width=True,
     )
     if st.button(f"Cambiar a «{PRESETS[business_type]['label']}»", type="primary", use_container_width=True,
@@ -506,9 +506,15 @@ def history() -> None:
         _history_refunds(c)
 
 
+STAFF_HISTORY_DAYS = 7  # staff see their own tickets of the last week; the business's figures are for managers
+
+
 def _history_sales(c) -> None:
+    staff = not c.can("encargado")
     f1, f2, f3 = st.columns([2, 1, 2])
-    rng = f1.date_input("Fechas", (clock.today() - timedelta(days=30), clock.today()), format="DD/MM/YYYY")
+    earliest = clock.today() - timedelta(days=STAFF_HISTORY_DAYS - 1) if staff else None
+    rng = f1.date_input("Fechas", (earliest or clock.today() - timedelta(days=30), clock.today()), format="DD/MM/YYYY",
+                        min_value=earliest)
     status = f2.selectbox("Estado", ["Todas", "Completadas", "Anuladas"])
     query = f3.text_input("Buscar", placeholder="Nº de ticket o cliente…")
     if not isinstance(rng, tuple) or len(rng) != 2:
@@ -517,6 +523,9 @@ def _history_sales(c) -> None:
     start = datetime.combine(rng[0], time.min)
     end = datetime.combine(rng[1] + timedelta(days=1), time.min)
     df = c.store.sales(start, end)
+    if staff:
+        df = df[df["user_name"] == c.who]
+        st.caption(f"Ves tus propias ventas de los últimos {STAFF_HISTORY_DAYS} días.")
     if status == "Completadas":
         df = df[df["status"] == "completada"]
     elif status == "Anuladas":
@@ -547,7 +556,7 @@ def _history_sales(c) -> None:
         },
     )
     if c.can("encargado"):
-        st.download_button("Exportar a CSV", _csv(df.drop(columns=["id"])), "ventas.csv", "text/csv",
+        logged_download(st, "Exportar a CSV", _csv(df.drop(columns=["id"])), "ventas.csv", "text/csv",
                            icon=":material/download:")
 
     rows = event.selection.rows
@@ -659,7 +668,7 @@ def _history_refunds(c) -> None:
             "credit_note": "Rectificativa", "user_name": "Registró",
         },
     )
-    st.download_button("Exportar devoluciones a CSV", _csv(df.drop(columns=["id"])), "devoluciones.csv", "text/csv",
+    logged_download(st, "Exportar devoluciones a CSV", _csv(df.drop(columns=["id"])), "devoluciones.csv", "text/csv",
                        icon=":material/download:")
     if event.selection.rows:
         refund = c.store.refund(int(df.iloc[event.selection.rows[0]]["id"]))
@@ -689,7 +698,7 @@ def _history_invoices(c) -> None:
             "total": st.column_config.NumberColumn("Total", format=f"%.2f {c.symbol}"),
         },
     )
-    st.download_button("Exportar facturas a CSV", _csv(df.drop(columns=["id"])), "facturas.csv", "text/csv",
+    logged_download(st, "Exportar facturas a CSV", _csv(df.drop(columns=["id"])), "facturas.csv", "text/csv",
                        icon=":material/download:")
     rows = event.selection.rows
     if rows:
@@ -759,7 +768,7 @@ def cash_page() -> None:
                          "counted_cash": st.column_config.NumberColumn("Contado", format=f"%.2f {c.symbol}"),
                          "difference": st.column_config.NumberColumn("Diferencia", format=f"%+.2f {c.symbol}"),
                      })
-        st.download_button("Exportar cierres a CSV", _csv(history), "cierres_de_caja.csv", "text/csv",
+        logged_download(st, "Exportar cierres a CSV", _csv(history), "cierres_de_caja.csv", "text/csv",
                            icon=":material/download:")
 
 
@@ -1015,16 +1024,20 @@ def team_page() -> None:
     _own_account_security(c)
 
     st.markdown("#### Registro de actividad")
-    st.caption("Accesos, intentos fallidos, anulaciones, facturas, cierres de caja y cambios de configuración.")
+    st.caption("Accesos, intentos fallidos, anulaciones, facturas, cierres de caja, cambios de configuración y "
+               "cada descarga de datos (exportaciones, copias y datos de clientes).")
     log = c.store.audit_log()
-    only_failed = st.toggle("Ver solo accesos fallidos", key="audit_failed")
-    if only_failed:
-        log = log[log["action"] == "acceso_fallido"]
+    views = {"Todo": None, "Accesos fallidos": {"acceso_fallido"},
+             "Descargas de datos": {"exportacion", "datos_exportados"},
+             "Clientes (RGPD)": {"datos_exportados", "cliente_suprimido", "consentimiento_publicidad"}}
+    shown = st.segmented_control("Mostrar", list(views), default="Todo", key="audit_view") or "Todo"
+    if views[shown]:
+        log = log[log["action"].isin(views[shown])]
     st.dataframe(log, hide_index=True, use_container_width=True, column_config={
         "happened_at": st.column_config.DatetimeColumn("Cuándo", format="DD/MM/YYYY HH:mm:ss"),
         "username": "Usuario", "action": "Acción", "detail": "Detalle",
     })
-    st.download_button("Exportar registro a CSV", _csv(log), "registro_actividad.csv", "text/csv",
+    logged_download(st, "Exportar registro a CSV", _csv(log), "registro_actividad.csv", "text/csv",
                        icon=":material/download:")
 
 
@@ -1400,7 +1413,7 @@ def automations_page() -> None:
                 numbers = c.store.draft_purchases(sug, created_by=c.who)
                 c.store.audit(c.username, "pedidos_generados", ", ".join(numbers))
                 st.success(f"Pedidos en borrador: {', '.join(numbers)}. Revísalos y envíalos en Gestión → Compras.")
-            b.download_button("Descargar sugerencias (CSV)", _csv(sug), "orden_de_compra.csv", "text/csv",
+            logged_download(b, "Descargar sugerencias (CSV)", _csv(sug), "orden_de_compra.csv", "text/csv",
                               icon=":material/download:", use_container_width=True)
 
     with t2:
@@ -1449,9 +1462,9 @@ def automations_page() -> None:
             )
             st.dataframe(summary, hide_index=True, use_container_width=True)
             a, b = st.columns(2)
-            a.download_button("Resumen por artículo (CSV)", _csv(summary), "resumen_articulos.csv", "text/csv",
+            logged_download(a, "Resumen por artículo (CSV)", _csv(summary), "resumen_articulos.csv", "text/csv",
                               icon=":material/download:", use_container_width=True)
-            b.download_button("Detalle de ventas (CSV)", lambda: _csv(c.store.sales(start, end)), "ventas_detalle.csv",
+            logged_download(b, "Detalle de ventas (CSV)", lambda: _csv(c.store.sales(start, end)), "ventas_detalle.csv",
                               "text/csv", icon=":material/download:", use_container_width=True)
 
 
@@ -1489,7 +1502,7 @@ def _billing_register_section(c, s: dict) -> None:
                 st.success(f"Cadena correcta: {check['checked']} registros comprobados.")
             else:
                 st.error(f"Problema en el registro nº {check['broken_at']}: {check['reason']}.")
-        b.download_button("Descargar registros (CSV)", _csv(records), f"registro-facturacion-{clock.today():%Y-%m-%d}.csv",
+        logged_download(b, "Descargar registros (CSV)", _csv(records), f"registro-facturacion-{clock.today():%Y-%m-%d}.csv",
                           "text/csv", use_container_width=True, icon=":material/download:", disabled=records.empty)
 
 
@@ -1629,8 +1642,8 @@ def settings_page() -> None:
             st.warning(f"Tus datos se guardan en un **{c.store.backend_label}**. En Streamlit Community "
                        "Cloud se pierden cuando la app se reinicia o se actualiza: descarga copias a menudo o "
                        "conecta una base de datos gratuita (ver README).", icon=":material/warning:")
-        st.download_button(
-            "Descargar copia de seguridad", c.store.backup_bytes, f"ventas-{clock.today():%Y-%m-%d}.db",
+        logged_download(
+            st, "Descargar copia de seguridad", c.store.backup_bytes, f"ventas-{clock.today():%Y-%m-%d}.db",
             "application/octet-stream", icon=":material/download:", type="primary",
         )
         if not replaceable:

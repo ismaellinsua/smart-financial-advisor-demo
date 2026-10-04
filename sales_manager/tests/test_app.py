@@ -316,3 +316,28 @@ def test_staff_discount_above_the_limit_blocks_the_charge(demo_db):
     assert "Usuario del encargado" in [t.label for t in at.text_input]
     at.number_input(key="pos_discount").set_value(10.0).run()
     assert not next(b for b in at.button if b.label.startswith("Cobrar")).disabled
+
+
+def test_staff_history_shows_only_their_own_recent_sales(module_targets):
+    from datetime import timedelta
+
+    from core import clock
+
+    target = module_targets.new()
+    store = Store(target)
+    store.load_preset("retail", with_demo_sales=False)
+    df = store.products()
+    pid = int(df.loc[df["sku"] == "CAM-001", "id"].iloc[0])
+    mine = store.create_sale([{"product_id": pid, "quantity": 1}], "Tarjeta", user_name="Tester")
+    theirs = store.create_sale([{"product_id": pid, "quantity": 1}], "Tarjeta", user_name="Otra persona")
+    old = store.create_sale([{"product_id": pid, "quantity": 1}], "Tarjeta", user_name="Tester",
+                            when=clock.now() - timedelta(days=20))
+    store.close()
+    at = AppTest.from_string(SCRIPT.format(root=ROOT, db=target, fn="history", role="empleado"),
+                             default_timeout=30).run()
+    assert not at.exception, at.exception
+    shown = set(at.dataframe[0].value["number"])
+    assert mine["number"] in shown and theirs["number"] not in shown and old["number"] not in shown
+    at = AppTest.from_string(SCRIPT.format(root=ROOT, db=target, fn="history", role="encargado"),
+                             default_timeout=30).run()
+    assert {mine["number"], theirs["number"]} <= set(at.dataframe[0].value["number"])

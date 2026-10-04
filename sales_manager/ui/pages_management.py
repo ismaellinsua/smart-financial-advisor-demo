@@ -10,7 +10,7 @@ from core.pdfs import purchase_order_pdf
 from core.presets import PAYMENT_METHODS
 from core.security import csv_safe
 from core.store_purchases import EXPENSE_CATEGORIES, PURCHASE_STATUSES, PURCHASES_CATEGORY
-from ui.context import ctx
+from ui.context import ctx, logged_download
 from ui.styles import page_header, style_figure
 from core import clock
 
@@ -259,7 +259,7 @@ def expenses_page() -> None:
                                                 "supplier": "Proveedor", "method": "Pago",
                                                 "amount": st.column_config.NumberColumn("Importe", format=f"%.2f {c.symbol}"),
                                                 "created_by": "Apuntado por"})
-            st.download_button("Exportar a CSV", csv_safe(df.drop(columns=["id"])).to_csv(
+            logged_download(st, "Exportar a CSV", csv_safe(df.drop(columns=["id"])).to_csv(
                 index=False, sep=";", decimal=",").encode("utf-8-sig"), "gastos.csv", "text/csv",
                 icon=":material/download:")
             if event.selection.rows and st.button("Eliminar el gasto seleccionado", icon=":material/delete:"):

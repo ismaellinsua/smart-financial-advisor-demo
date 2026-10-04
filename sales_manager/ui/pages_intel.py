@@ -10,7 +10,7 @@ from core import intelligence
 from core.pdfs import weekly_report_pdf
 from core.security import csv_safe
 from core.store_intel import week_start
-from ui.context import PAGES, ctx
+from ui.context import PAGES, ctx, logged_download
 from ui.styles import alert_card, page_header, style_figure
 from core import clock
 
@@ -148,7 +148,7 @@ def _abc_tab(c, products: pd.DataFrame) -> pd.DataFrame:
         "margin_pct": st.column_config.NumberColumn("Margen %", format="%.1f %%"),
         "share": st.column_config.ProgressColumn("Peso en el margen", format="%.1f %%", min_value=0, max_value=100),
     })
-    st.download_button("Descargar análisis (CSV)",
+    logged_download(st, "Descargar análisis (CSV)",
                        csv_safe(abc).to_csv(index=False, sep=";", decimal=",").encode("utf-8-sig"),
                        "analisis_abc.csv", "text/csv", icon=":material/download:")
     return abc
