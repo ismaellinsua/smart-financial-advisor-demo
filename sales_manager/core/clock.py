@@ -51,3 +51,8 @@ def now() -> datetime:
 
 def today() -> date:
     return now().date()
+
+
+def now_aware() -> datetime:
+    """Now with the business's UTC offset, e.g. 2026-10-04T20:30:12+02:00 (VERI*FACTU records need it)."""
+    return datetime.now(_zone).replace(microsecond=0)

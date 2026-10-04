@@ -148,6 +148,8 @@ DEFAULT_SETTINGS = {
     "prices_include_tax": "si",
     # "si" while the data is a demonstration: it may be wiped. Real data is kept by law.
     "demo_mode": "no",
+    # "si" once the administrator turns on the chained billing register (VERI*FACTU); it is never turned off.
+    "verifactu": "no",
     "tax_rate": "21.0",
     "invoice_prefix": "VTA",
     "accent_color": "#1F4E79",

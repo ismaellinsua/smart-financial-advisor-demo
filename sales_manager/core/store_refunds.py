@@ -145,12 +145,28 @@ class RefundsMixin:
                 cur.execute("INSERT INTO loyalty_moves(customer_id, sale_id, points, reason, created_at) "
                             "VALUES (?, ?, ?, 'devolución', ?)", (sale["customer_id"], sale_id, -take, stamp))
 
+        rates: dict[float, list] = {}
+        for item, qty, net, vat in lines:
+            rate = float(item["tax_rate"] if item["tax_rate"] is not None else sale["tax_rate"])
+            share = rates.setdefault(rate, [Decimal("0"), Decimal("0")])
+            share[0] += net
+            share[1] += vat if vat is not None else _d(net * Decimal(str(rate)) / 100)
+        breakdown = [{"rate": r, "base": -float(b), "tax": -float(v)} for r, (b, v) in sorted(rates.items())]
+
         invoice = cur.execute("SELECT id FROM invoices WHERE sale_id = ?", (sale_id,)).fetchone()
         if invoice:
-            cur.execute(
-                "INSERT INTO credit_notes(number, invoice_id, refund_id, issued_at, issued_by) VALUES (?, ?, ?, ?, ?)",
-                (self._next_credit_note_number(cur, when), invoice["id"], refund_id, stamp, user_name),
-            )
+            note_number = self._next_credit_note_number(cur, when)
+            note_id = cur.execute(
+                "INSERT INTO credit_notes(number, invoice_id, refund_id, issued_at, issued_by) "
+                "VALUES (?, ?, ?, ?, ?) RETURNING id",
+                (note_number, invoice["id"], refund_id, stamp, user_name),
+            ).fetchone()["id"]
+            # Corrective invoice of a full invoice (R1), by differences: negative amounts.
+            self._register_issue(cur, "R1", note_number, when, -tax, -total, breakdown, "credit_note", note_id)
+        else:
+            # A return of a ticket corrects a simplified invoice (R5).
+            refund_number = cur.execute("SELECT number FROM refunds WHERE id = ?", (refund_id,)).fetchone()["number"]
+            self._register_issue(cur, "R5", refund_number, when, -tax, -total, breakdown, "refund", refund_id)
         return refund_id
 
     def refund(self, refund_id: int) -> dict:

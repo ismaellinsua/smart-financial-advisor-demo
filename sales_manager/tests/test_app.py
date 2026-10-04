@@ -248,6 +248,30 @@ def test_settings_hide_destructive_actions_once_there_are_real_sales(module_targ
     assert not labels & {"Cargar plantilla", "Empezar desde cero", "Restaurar copia"}
 
 
+def test_settings_turn_on_the_billing_register_and_check_it(module_targets):
+    target = module_targets.new()
+    store = Store(target)
+    store.load_preset("retail", with_demo_sales=False)
+    store.save_settings({"tax_id": "B12345678"})
+    store.close()
+    at = AppTest.from_string(SCRIPT.format(root=ROOT, db=target, fn="settings_page", role="admin"),
+                             default_timeout=30).run()
+    assert not at.exception, at.exception
+    enable = next(b for b in at.button if b.label == "Activar el registro de facturación")
+    assert enable.disabled
+    next(c for c in at.checkbox if "no se puede desactivar" in c.label).check().run()
+    next(b for b in at.button if b.label == "Activar el registro de facturación").click().run()
+    assert not at.exception, at.exception
+    store = Store(target)
+    df = store.products()
+    store.create_sale([{"product_id": int(df.loc[df["sku"] == "CAM-001", "id"].iloc[0]), "quantity": 1}], "Tarjeta")
+    store.close()
+    at.run()
+    next(b for b in at.button if b.label == "Comprobar la cadena").click().run()
+    assert not at.exception, at.exception
+    assert any("Cadena correcta: 1 registros" in str(m.value) for m in at.success)
+
+
 def test_settings_offer_templates_in_demo_mode(demo_db):
     assert Store(demo_db).is_demo()
     at = AppTest.from_string(SCRIPT.format(root=ROOT, db=demo_db, fn="settings_page", role="admin"),

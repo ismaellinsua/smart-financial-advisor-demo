@@ -1351,6 +1351,43 @@ def automations_page() -> None:
 
 
 # ------------------------------------------------------------------ settings
+def _billing_register_section(c, s: dict) -> None:
+    st.markdown("##### Registro de facturación (VERI*FACTU, en preparación)")
+    with st.container(border=True):
+        st.caption("Cada ticket, factura, rectificativa y anulación queda en un registro encadenado con la huella "
+                   "SHA-256 que exige la AEAT: no se puede modificar ni borrar. **Todavía no se envía a Hacienda** "
+                   "ni se imprime el código QR: esa parte llega en una próxima versión, así que NirKanA aún no es "
+                   "un sistema VERI*FACTU completo.")
+        if s.get("verifactu") != "si":
+            ready = s.get("demo_mode") != "si" and bool((s.get("tax_id") or "").strip())
+            if not ready:
+                st.info("Para activarlo hace falta vender de verdad (sin datos de ejemplo) y tener el NIF del "
+                        "negocio en «Datos del negocio».", icon=":material/info:")
+            confirm = st.checkbox("Entiendo que, una vez activado, el registro no se puede desactivar",
+                                  disabled=not ready)
+            if st.button("Activar el registro de facturación", disabled=not (ready and confirm),
+                         icon=":material/verified:"):
+                try:
+                    c.store.enable_billing_register(c.username)
+                except ValueError as exc:
+                    st.error(str(exc))
+                else:
+                    st.session_state["settings_flash"] = "Registro de facturación activado."
+                    st.rerun()
+            return
+        records = c.store.billing_records()
+        st.success(f"Registro activo: {len(records)} registros encadenados.", icon=":material/link:")
+        a, b = st.columns(2)
+        if a.button("Comprobar la cadena", use_container_width=True, icon=":material/fact_check:"):
+            check = c.store.verify_billing_chain()
+            if check["ok"]:
+                st.success(f"Cadena correcta: {check['checked']} registros comprobados.")
+            else:
+                st.error(f"Problema en el registro nº {check['broken_at']}: {check['reason']}.")
+        b.download_button("Descargar registros (CSV)", _csv(records), f"registro-facturacion-{clock.today():%Y-%m-%d}.csv",
+                          "text/csv", use_container_width=True, icon=":material/download:", disabled=records.empty)
+
+
 def settings_page() -> None:
     c = ctx()
     if not _require(c, "admin"):
@@ -1467,6 +1504,8 @@ def settings_page() -> None:
             c.store.audit(c.username, "datos_borrados")
             st.session_state.pop("cart", None)
             st.rerun()
+
+    _billing_register_section(c, s)
 
     st.markdown("##### Copia de seguridad")
     with st.container(border=True):

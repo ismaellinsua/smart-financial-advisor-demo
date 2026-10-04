@@ -23,6 +23,7 @@ from .store_orders import OrdersMixin
 from .store_purchases import PurchasesMixin
 from .store_intel import IntelligenceMixin
 from .store_refunds import RefundsMixin
+from .store_billing import BillingMixin
 from .security import (
     DUMMY_HASH, RECOVERY_CODE_COUNT, RECOVERY_ITERATIONS, ROLE_RANK, ROLES, USERNAME_RE, check_secret_strength,
     clean_text, hash_secret, is_safe_identifier, new_recovery_code, normalize_recovery_code, verify_secret, verify_totp,
@@ -305,6 +306,22 @@ CREATE TABLE IF NOT EXISTS recovery_codes (
 CREATE TABLE IF NOT EXISTS counters (
     series TEXT PRIMARY KEY,
     value INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS billing_records (
+    id {pk},
+    kind TEXT NOT NULL,
+    invoice_type TEXT NOT NULL DEFAULT '',
+    number TEXT NOT NULL,
+    issued_on TEXT NOT NULL,
+    issuer_tax_id TEXT NOT NULL,
+    tax_total TEXT NOT NULL DEFAULT '',
+    amount_total TEXT NOT NULL DEFAULT '',
+    breakdown TEXT NOT NULL DEFAULT '[]',
+    previous_hash TEXT NOT NULL,
+    generated_at TEXT NOT NULL,
+    hash TEXT UNIQUE NOT NULL,
+    source TEXT,
+    source_id INTEGER
 )
 """
 
@@ -354,7 +371,7 @@ LOCKOUT_MINUTES = 15
 DATA_TABLES = ["products", "stock_moves", "customers", "sales", "sale_items", "invoices", "appointments", "cash_closings",
                "sale_payments", "promotions", "loyalty_moves", "refunds", "refund_items", "credit_notes",
                "dining_tables", "orders", "order_items", "suppliers", "recurring_expenses", "purchase_orders",
-               "purchase_items", "expenses"]
+               "purchase_items", "expenses", "billing_records"]
 ALL_TABLES = ["settings", *DATA_TABLES]
 # Tables any backup must have; newer ones are created when an older backup is opened.
 CORE_TABLES = {"settings", "products", "customers", "sales", "sale_items"}
@@ -382,9 +399,13 @@ class FiscalDataError(ValueError):
 
 # Records a business must keep (invoices: 4 years for tax, 6 under the Commercial Code). Once real ones exist,
 # nothing in the app may delete or replace them.
-FISCAL_TABLES = ["sales", "invoices", "refunds", "credit_notes", "cash_closings"]
+FISCAL_TABLES = ["sales", "invoices", "refunds", "credit_notes", "cash_closings", "billing_records"]
 FISCAL_DATA_MESSAGE = ("Este negocio ya tiene ventas, facturas o cierres de caja reales y la ley obliga a conservarlos, "
                        "así que no se pueden borrar ni sustituir desde la app.")
+
+
+# Billing records (VERI*FACTU) are append-only: the database itself refuses to change or delete them.
+APPEND_ONLY_MESSAGE = "Los registros de facturación no se pueden modificar ni borrar"
 
 
 class AuthError(Exception):
@@ -464,6 +485,12 @@ class _SQLite:
     def columns(self, cur: _Cursor, table: str) -> set[str]:
         return {r["name"] for r in cur.execute(f"PRAGMA table_info({table})").fetchall()}
 
+    def make_append_only(self, cur: _Cursor, table: str) -> None:
+        """Rows of `table` can be added but never changed or deleted, not even with direct SQL."""
+        for event in ("UPDATE", "DELETE"):
+            cur.execute(f"CREATE TRIGGER IF NOT EXISTS {table}_no_{event.lower()} BEFORE {event} ON {table} "
+                        f"BEGIN SELECT RAISE(ABORT, '{APPEND_ONLY_MESSAGE}'); END")
+
     def before_reload(self, cur: _Cursor, tables: list[str]) -> None:
         # Restart id counters; explicit ids inserted afterwards move them forward again.
         cur.execute(
@@ -523,6 +550,18 @@ class _Postgres:
         ).fetchall()
         return {r["name"] for r in rows}
 
+    def make_append_only(self, cur: _Cursor, table: str) -> None:
+        """Rows of `table` can be added but never changed or deleted (nor truncated), not even with direct SQL."""
+        if cur.execute("SELECT 1 FROM pg_trigger WHERE tgname = ? AND tgrelid = to_regclass(?)",
+                       (f"{table}_no_truncate", table)).fetchone():
+            return  # already in place; skip the DDL (and its table lock) on every start
+        cur.execute("CREATE OR REPLACE FUNCTION append_only_guard() RETURNS trigger LANGUAGE plpgsql AS "
+                    f"$$ BEGIN RAISE EXCEPTION '{APPEND_ONLY_MESSAGE}'; END $$")
+        cur.execute(f"CREATE OR REPLACE TRIGGER {table}_no_change BEFORE UPDATE OR DELETE ON {table} "
+                    "FOR EACH ROW EXECUTE FUNCTION append_only_guard()")
+        cur.execute(f"CREATE OR REPLACE TRIGGER {table}_no_truncate BEFORE TRUNCATE ON {table} "
+                    "FOR EACH STATEMENT EXECUTE FUNCTION append_only_guard()")
+
     def before_reload(self, cur: _Cursor, tables: list[str]) -> None:
         pass
 
@@ -556,7 +595,7 @@ def _is_postgres(target) -> bool:
 
 
 # ----------------------------------------------------------------------------- store
-class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin):
+class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin, BillingMixin):
     SaleError = SaleError
     def __init__(self, path=DEFAULT_DB_PATH):
         self.db = _Postgres(str(path)) if _is_postgres(path) else _SQLite(str(path))
@@ -566,6 +605,7 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin):
             for table, column, ddl in MIGRATIONS:
                 if column not in self.db.columns(cur, table):
                     cur.execute(f"ALTER TABLE {table} ADD COLUMN {column} {ddl.format(real=self.db.real)}")
+            self.db.make_append_only(cur, "billing_records")
             self._backfill_payments(cur)
             had_mode = "demo_mode" in self._settings(cur)
             had_gross = "prices_include_tax" in self._settings(cur)
@@ -926,12 +966,13 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin):
         pays = self._normalize_payments(payments, payment_method, t["total"])
         methods = {p["method"] for p in pays}
         label = methods.pop() if len(methods) == 1 else ("Mixto" if pays else payment_method)
+        number = self._next_number(cur, when)
         row = cur.execute(
             "INSERT INTO sales(number, created_at, customer_id, payment_method, discount_pct, tax_rate, "
             "subtotal, discount, tax, total, user_name, promo_discount, loyalty_discount, points_redeemed, "
             "points_earned, discount_approved_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id",
             (
-                self._next_number(cur, when), when.isoformat(timespec="seconds"), customer_id, label,
+                number, when.isoformat(timespec="seconds"), customer_id, label,
                 discount_pct, float(q["tax_rate"]), t["subtotal"], t["discount"], t["tax"], t["total"], user_name,
                 t["promo_discount"], t["loyalty_discount"], q["points_redeemed"], q["points_earned"],
                 str(discount_approved_by)[:120],
@@ -958,6 +999,7 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin):
                     raise SaleError(f"Stock insuficiente de «{p['name']}».")
         cur.executemany("INSERT INTO sale_payments(sale_id, method, amount, tendered) VALUES (?, ?, ?, ?)",
                         [(sale_id, p["method"], p["amount"], p["tendered"]) for p in pays])
+        self._register_issue(cur, "F2", number, when, t["tax"], t["total"], t["taxes"], "sale", sale_id)
         stamp = when.isoformat(timespec="seconds")
         if q["points_redeemed"]:
             cur.execute("INSERT INTO loyalty_moves(customer_id, sale_id, points, reason, created_at) "
@@ -1049,6 +1091,7 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin):
                 )
             cur.execute("UPDATE sales SET status = 'anulada', voided_by = ?, voided_at = ? WHERE id = ?",
                         (by, stamp, sale_id))
+            self._register_cancellation(cur, "sale", sale_id)
             # Undo the points this sale earned or spent.
             moves = cur.execute("SELECT customer_id, SUM(points) AS n FROM loyalty_moves WHERE sale_id = ? "
                                 "GROUP BY customer_id", (sale_id,)).fetchall()
@@ -1164,7 +1207,8 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin):
         for attempt in range(3):
             try:
                 with self.db.tx() as cur:
-                    sale = cur.execute("SELECT status, customer_id FROM sales WHERE id = ?", (sale_id,)).fetchone()
+                    sale = cur.execute("SELECT status, customer_id, tax, total FROM sales WHERE id = ?",
+                                       (sale_id,)).fetchone()
                     if sale is None or sale["status"] != "completada":
                         raise SaleError("Solo se pueden facturar ventas completadas.")
                     if cur.execute("SELECT id FROM invoices WHERE sale_id = ?", (sale_id,)).fetchone():
@@ -1172,13 +1216,17 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin):
                     base = cur.execute("SELECT COALESCE(SUM(net_amount), 0) AS b FROM sale_items WHERE sale_id = ?",
                                        (sale_id,)).fetchone()["b"]
                     irpf_amount = round(float(base) * irpf_rate / 100 + 1e-9, 2)
+                    number = self._next_invoice_number(cur, when)
                     row = cur.execute(
                         "INSERT INTO invoices(number, sale_id, issued_at, customer_name, customer_tax_id, "
                         "customer_address, customer_email, issued_by, irpf_rate, irpf_amount) "
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id",
-                        (self._next_invoice_number(cur, when), sale_id, when.isoformat(timespec="seconds"),
+                        (number, sale_id, when.isoformat(timespec="seconds"),
                          name, tax_id, address, email, issued_by, irpf_rate, irpf_amount),
                     ).fetchone()
+                    # The full invoice replaces the simplified one (ticket) the customer already had.
+                    self._register_issue(cur, "F3", number, when, sale["tax"], sale["total"],
+                                         self._sale_breakdown(cur, sale_id), "invoice", row["id"])
                     if sale["customer_id"] is not None:
                         # Remember the fiscal data on the customer, without overwriting what is already there.
                         cur.execute(
@@ -1693,6 +1741,9 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin):
 
     def can_replace_data(self) -> bool:
         """Demonstration data, or a business with no sales yet, may be wiped; real fiscal records never."""
+        with self.db.tx() as cur:
+            if cur.execute("SELECT 1 FROM billing_records LIMIT 1").fetchone():
+                return False  # chained billing records are never wiped, whatever the mode says
         return self.is_demo() or not self.has_fiscal_records()
 
     def _guard_replace(self) -> None:

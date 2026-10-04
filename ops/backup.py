@@ -30,7 +30,7 @@ from urllib.parse import urlsplit, urlunsplit
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "sales_manager"))
 
-COUNTED = ["products", "customers", "sales", "invoices", "refunds", "credit_notes", "cash_closings"]
+COUNTED = ["products", "customers", "sales", "invoices", "refunds", "credit_notes", "cash_closings", "billing_records"]
 NAME_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,40}$")
 
 
