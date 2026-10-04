@@ -358,34 +358,35 @@ def test_users_and_login_lockout(make_store):
     with pytest.raises(ValueError):
         s.create_user("Ana", "ana", "admin", "corta")  # admin needs 8+ chars
     with pytest.raises(ValueError):
-        s.create_user("Ana", "Ana López", "empleado", "4826")  # bad username
-    with pytest.raises(ValueError):
-        s.create_user("Ana", "ana", "empleado", "1234")  # too easy
+        s.create_user("Ana", "Ana López", "empleado", "482619")  # bad username
+    for weak in ("4826", "123456", "654321", "111111"):  # too short or too easy
+        with pytest.raises(ValueError):
+            s.create_user("Ana", "ana", "empleado", weak)
     admin = s.create_user("Ismael", "ismael", "admin", "Segura2026")
-    s.create_user("Ana", "ANA", "empleado", "4826")
+    s.create_user("Ana", "ANA", "empleado", "482619")
     with pytest.raises(ValueError, match="Ya existe"):
-        s.create_user("Otra", "ana", "empleado", "4826")
-    assert "secret_hash" not in s.users().columns
+        s.create_user("Otra", "ana", "empleado", "482619")
+    assert "secret_hash" not in s.users().columns and "totp_secret" not in s.users().columns
 
-    assert s.authenticate("Ana ", "4826")["role"] == "empleado"
+    assert s.authenticate("Ana ", "482619")["role"] == "empleado"
     with pytest.raises(AuthError, match="incorrectos"):
-        s.authenticate("nadie", "4826")
+        s.authenticate("nadie", "482619")
     now = datetime.now()
     for _ in range(MAX_FAILED_LOGINS - 1):
         with pytest.raises(AuthError, match="incorrectos"):
-            s.authenticate("ana", "0000", now=now)
+            s.authenticate("ana", "000000", now=now)
     with pytest.raises(AuthError, match="bloqueada"):
-        s.authenticate("ana", "0000", now=now)
+        s.authenticate("ana", "000000", now=now)
     with pytest.raises(AuthError, match="Demasiados"):
-        s.authenticate("ana", "4826", now=now)  # even the right PIN waits
+        s.authenticate("ana", "482619", now=now)  # even the right PIN waits
     later = now + timedelta(minutes=LOCKOUT_MINUTES + 1)
     for _ in range(MAX_FAILED_LOGINS - 1):
         with pytest.raises(AuthError, match="incorrectos"):
-            s.authenticate("ana", "0000", now=later)
-    with pytest.raises(AuthError, match=f"bloqueada {2 * LOCKOUT_MINUTES} minutos"):
-        s.authenticate("ana", "0000", now=later)  # second lock lasts twice as long
-    after = later + timedelta(minutes=2 * LOCKOUT_MINUTES + 1)
-    assert s.authenticate("ana", "4826", now=after)["name"] == "Ana"
+            s.authenticate("ana", "000000", now=later)
+    with pytest.raises(AuthError, match=f"bloqueada {LOCKOUT_MINUTES} minutos"):
+        s.authenticate("ana", "000000", now=later)  # never longer: nobody can keep the team out for a day
+    after = later + timedelta(minutes=LOCKOUT_MINUTES + 1)
+    assert s.authenticate("ana", "482619", now=after)["name"] == "Ana"
 
     actions = list(s.audit_log()["action"])
     assert actions.count("acceso_fallido") == 2 * MAX_FAILED_LOGINS + 1 and "acceso" in actions
@@ -397,7 +398,112 @@ def test_users_and_login_lockout(make_store):
     ana = int(s.users().query("username == 'ana'").iloc[0]["id"])
     s.update_user(ana, active=False)
     with pytest.raises(AuthError, match="incorrectos"):
-        s.authenticate("ana", "4826")
+        s.authenticate("ana", "482619")
+
+
+def test_recovery_code_lets_a_locked_out_admin_back_in(make_store):
+    from core.db import AuthError, MAX_FAILED_LOGINS
+
+    s = make_store()
+    admin = s.create_user("Ismael", "ismael", "admin", "Segura2026")
+    codes = s.create_recovery_codes(admin)
+    assert len(codes) == 8 and len(set(codes)) == 8 and s.recovery_codes_left(admin) == 8
+    for _ in range(MAX_FAILED_LOGINS):  # someone locks the owner out
+        with pytest.raises(AuthError):
+            s.authenticate("ismael", "adivinando1")
+    with pytest.raises(AuthError, match="Demasiados"):
+        s.authenticate("ismael", "Segura2026")
+    with pytest.raises(AuthError):
+        s.recover_with_code("ismael", "AAAA-BBBB-CCCC", "Nueva2026!")
+    user = s.recover_with_code("ismael", codes[0].lower().replace("-", " "), "Nueva2026!")  # typed loosely
+    assert user["role"] == "admin" and s.recovery_codes_left(admin) == 7
+    assert s.authenticate("ismael", "Nueva2026!")["id"] == admin
+    with pytest.raises(AuthError):
+        s.recover_with_code("ismael", codes[0], "Otra2026!")  # each code works once
+    s.create_recovery_codes(admin)
+    with pytest.raises(AuthError):
+        s.recover_with_code("ismael", codes[1], "Otra2026!")  # new codes replace the unused old ones
+
+
+def test_recovery_codes_are_only_for_administrators(make_store):
+    from core.db import AuthError
+
+    s = make_store()
+    s.create_user("Ismael", "ismael", "admin", "Segura2026")
+    staff = s.create_user("Ana", "ana", "empleado", "482619")
+    with pytest.raises(ValueError):
+        s.create_recovery_codes(staff)
+    with pytest.raises(AuthError):
+        s.recover_with_code("ana", "AAAA-BBBB-CCCC", "Nueva2026!")
+
+
+def test_two_factor_login(make_store):
+    import time
+
+    from core.db import AuthError
+    from core.security import new_totp_secret, totp_code
+
+    s = make_store()
+    admin = s.create_user("Ismael", "ismael", "admin", "Segura2026")
+    secret = new_totp_secret()
+    with pytest.raises(ValueError):
+        s.enable_two_factor(admin, secret, "000000" if totp_code(secret) != "000000" else "111111")
+    s.enable_two_factor(admin, secret, totp_code(secret))
+    assert bool(s.user(admin)["two_factor"])
+    with pytest.raises(AuthError, match="incorrectos"):
+        s.authenticate("ismael", "Segura2026")  # password alone is not enough
+    with pytest.raises(AuthError, match="incorrectos"):
+        s.authenticate("ismael", "mala2026", otp=totp_code(secret))
+    assert s.authenticate("ismael", "Segura2026", otp=totp_code(secret, time.time() - 30))["id"] == admin
+    codes = s.create_recovery_codes(admin)
+    s.recover_with_code("ismael", codes[0], "Nueva2026!")  # lost phone: recovery turns it off
+    assert not s.user(admin)["two_factor"] and s.authenticate("ismael", "Nueva2026!")["id"] == admin
+
+
+def test_totp_matches_rfc_6238():
+    import base64
+
+    from core.security import totp_code, verify_totp
+
+    secret = base64.b32encode(b"12345678901234567890").decode()
+    assert totp_code(secret, 59, digits=8) == "94287082"
+    assert totp_code(secret, 1111111109, digits=8) == "07081804"
+    assert verify_totp(secret, totp_code(secret, 1000), at=1000 + 25)
+    assert not verify_totp(secret, totp_code(secret, 1000), at=1000 + 95)
+
+
+def test_change_own_secret(make_store):
+    from core.db import AuthError
+
+    s = make_store()
+    s.create_user("Ismael", "ismael", "admin", "Segura2026")
+    ana = s.create_user("Ana", "ana", "empleado", "482619")
+    with pytest.raises(ValueError, match="actual"):
+        s.change_own_secret(ana, "000000", "771930")
+    with pytest.raises(ValueError):
+        s.change_own_secret(ana, "482619", "1234")
+    s.change_own_secret(ana, "482619", "771930")
+    with pytest.raises(AuthError):
+        s.authenticate("ana", "482619")
+    assert s.authenticate("ana", "771930")["id"] == ana
+
+
+def test_device_throttle_blocks_the_guesser_not_the_account():
+    from ui import auth
+
+    auth._CLIENTS.clear()
+    t0 = 1_000_000.0
+    for i in range(auth.CLIENT_MAX_FAILURES):
+        auth.client_failed("1.2.3.4", now=t0 + i)
+    assert auth.client_blocked_minutes("1.2.3.4", now=t0 + 10) == auth.CLIENT_FIRST_BLOCK_MINUTES
+    assert auth.client_blocked_minutes("5.6.7.8", now=t0 + 10) == 0  # the owner's device is unaffected
+    later = t0 + auth.CLIENT_FIRST_BLOCK_MINUTES * 60 + 20
+    for i in range(auth.CLIENT_MAX_FAILURES):
+        auth.client_failed("1.2.3.4", now=later + i)
+    assert auth.client_blocked_minutes("1.2.3.4", now=later + 10) == 2 * auth.CLIENT_FIRST_BLOCK_MINUTES
+    auth.client_succeeded("1.2.3.4")
+    assert auth.client_blocked_minutes("1.2.3.4", now=later + 10) == 0
+    auth._CLIENTS.clear()
 
 
 def test_secret_hashing():

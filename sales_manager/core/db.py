@@ -24,8 +24,8 @@ from .store_purchases import PurchasesMixin
 from .store_intel import IntelligenceMixin
 from .store_refunds import RefundsMixin
 from .security import (
-    DUMMY_HASH, ROLE_RANK, ROLES, USERNAME_RE, check_secret_strength, clean_text, hash_secret, is_safe_identifier,
-    verify_secret,
+    DUMMY_HASH, RECOVERY_CODE_COUNT, RECOVERY_ITERATIONS, ROLE_RANK, ROLES, USERNAME_RE, check_secret_strength,
+    clean_text, hash_secret, is_safe_identifier, new_recovery_code, normalize_recovery_code, verify_secret, verify_totp,
 )
 from . import clock
 
@@ -285,6 +285,13 @@ CREATE INDEX IF NOT EXISTS idx_audit_happened ON audit_log(happened_at);
 CREATE INDEX IF NOT EXISTS idx_sales_created ON sales(created_at);
 CREATE INDEX IF NOT EXISTS idx_items_sale ON sale_items(sale_id);
 CREATE INDEX IF NOT EXISTS idx_appointments_start ON appointments(starts_at);
+CREATE TABLE IF NOT EXISTS recovery_codes (
+    id {pk},
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    code_hash TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    used_at TEXT NOT NULL DEFAULT ''
+);
 CREATE TABLE IF NOT EXISTS counters (
     series TEXT PRIMARY KEY,
     value INTEGER NOT NULL
@@ -310,13 +317,15 @@ MIGRATIONS = [
     ("products", "supplier_id", "INTEGER"),
     ("sales", "voided_by", "TEXT NOT NULL DEFAULT ''"),
     ("sales", "voided_at", "TEXT"),
+    # Two-step verification secret (TOTP) of administrators who turn it on.
+    ("users", "totp_secret", "TEXT NOT NULL DEFAULT ''"),
 ]
 
-# Failed logins before an account is locked, and for how long. Each new lock doubles the wait (5, 10, 20 min…
-# up to a day), so guessing a short PIN online stays impractical.
-MAX_FAILED_LOGINS = 5
-LOCKOUT_MINUTES = 5
-MAX_LOCKOUT_MINUTES = 24 * 60
+# An account locks for a fixed, short time after many failures. A long or growing lock would let anyone who knows a
+# username keep the business out of its own till; guessing is slowed per device instead (ui/auth.py), PINs are
+# long enough to make it impractical, and administrators can always get back in with a recovery code.
+MAX_FAILED_LOGINS = 10
+LOCKOUT_MINUTES = 15
 
 # Insertion order respects foreign keys; deletion goes in reverse.
 DATA_TABLES = ["products", "customers", "sales", "sale_items", "invoices", "appointments", "cash_closings",
@@ -1261,7 +1270,8 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin):
 
     # --------------------------------------------------------------------- users
     # Users and the audit log are never part of backups or templates: credentials stay on the server.
-    _USER_FIELDS = "id, username, name, role, active, last_login, created_at"
+    _USER_FIELDS = ("id, username, name, role, active, last_login, created_at, "
+                    "CASE WHEN totp_secret <> '' THEN 1 ELSE 0 END AS two_factor")
 
     def has_users(self) -> bool:
         with self.db.tx() as cur:
@@ -1329,11 +1339,12 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin):
                         (hash_secret(secret), int(user_id)))
             self._audit(cur, by, "contraseña_cambiada", user["username"])
 
-    def authenticate(self, username: str, secret: str, now: datetime | None = None) -> dict:
-        """Check a login. Locks the account for a few minutes after repeated failures."""
+    def authenticate(self, username: str, secret: str, now: datetime | None = None, otp: str = "") -> dict:
+        """Check a login (and the two-step code when the account has it). Locks the account briefly after many
+        failures. The error never says which part was wrong, nor whether the user exists."""
         now = now or clock.now()
         username = str(username or "").strip().lower()
-        generic = AuthError("Usuario o contraseña incorrectos.")
+        generic = AuthError("Usuario, contraseña o código incorrectos.")
         locked = ""
         with self.db.tx() as cur:
             user = cur.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
@@ -1345,8 +1356,10 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin):
                 pass  # the failed attempt is recorded; raise once the transaction has committed
             elif user["locked_until"] and datetime.fromisoformat(user["locked_until"]) > now:
                 minutes = max(1, round((datetime.fromisoformat(user["locked_until"]) - now).total_seconds() / 60))
-                raise AuthError(f"Demasiados intentos fallidos. Vuelve a intentarlo en {minutes} min.")
-            elif verify_secret(secret, user["secret_hash"]):
+                raise AuthError(f"Demasiados intentos fallidos. Vuelve a intentarlo en {minutes} min. Si eres el "
+                                "administrador, puedes entrar con un código de recuperación.")
+            elif verify_secret(secret, user["secret_hash"]) and (
+                    not user["totp_secret"] or verify_totp(user["totp_secret"], otp)):
                 cur.execute("UPDATE users SET failed_attempts = 0, lockouts = 0, locked_until = '', last_login = ? "
                             "WHERE id = ?",
                             (now.isoformat(timespec="seconds"), user["id"]))
@@ -1354,18 +1367,91 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin):
                 return {k: user[k] for k in ("id", "username", "name", "role")}
             else:
                 failed = user["failed_attempts"] + 1
-                lockouts = user["lockouts"]
                 if failed >= MAX_FAILED_LOGINS:
-                    lock_minutes = min(LOCKOUT_MINUTES * 2 ** lockouts, MAX_LOCKOUT_MINUTES)
-                    locked = (now + timedelta(minutes=lock_minutes)).isoformat(timespec="seconds")
-                    failed, lockouts = 0, lockouts + 1
-                cur.execute("UPDATE users SET failed_attempts = ?, lockouts = ?, locked_until = ? WHERE id = ?",
-                            (failed, lockouts, locked, user["id"]))
+                    locked = (now + timedelta(minutes=LOCKOUT_MINUTES)).isoformat(timespec="seconds")
+                    failed = 0
+                cur.execute("UPDATE users SET failed_attempts = ?, locked_until = ? WHERE id = ?",
+                            (failed, locked, user["id"]))
                 self._audit(cur, username, "acceso_fallido", "cuenta bloqueada" if locked else f"intento {failed}")
         if locked:
-            minutes = round((datetime.fromisoformat(locked) - now).total_seconds() / 60)
-            raise AuthError(f"Demasiados intentos fallidos. Cuenta bloqueada {minutes} minutos.")
+            raise AuthError(f"Demasiados intentos fallidos. Cuenta bloqueada {LOCKOUT_MINUTES} minutos.")
         raise generic
+
+    def change_own_secret(self, user_id: int, current: str, new: str) -> None:
+        """A person changes their own PIN or password, proving they know the current one."""
+        with self.db.tx() as cur:
+            user = cur.execute("SELECT username, role, secret_hash FROM users WHERE id = ? AND active = 1",
+                               (int(user_id),)).fetchone()
+            if user is None or not verify_secret(current, user["secret_hash"]):
+                raise ValueError("El PIN o contraseña actual no es correcto.")
+            if verify_secret(new, user["secret_hash"]):
+                raise ValueError("El nuevo PIN o contraseña debe ser distinto del actual.")
+            check_secret_strength(new, user["role"])
+            cur.execute("UPDATE users SET secret_hash = ? WHERE id = ?", (hash_secret(new), int(user_id)))
+            self._audit(cur, user["username"], "contraseña_cambiada", "por la propia persona")
+
+    # ------------------------------------------------- administrator recovery codes
+    def create_recovery_codes(self, user_id: int, by: str = "") -> list[str]:
+        """New single-use codes for an administrator; the previous unused ones stop working. Shown only once."""
+        codes = [new_recovery_code() for _ in range(RECOVERY_CODE_COUNT)]
+        stamp = clock.now().isoformat(timespec="seconds")
+        with self.db.tx() as cur:
+            user = cur.execute("SELECT username, role FROM users WHERE id = ?", (int(user_id),)).fetchone()
+            if user is None or user["role"] != "admin":
+                raise ValueError("Solo los administradores tienen códigos de recuperación.")
+            cur.execute("DELETE FROM recovery_codes WHERE user_id = ? AND used_at = ''", (int(user_id),))
+            cur.executemany("INSERT INTO recovery_codes(user_id, code_hash, created_at) VALUES (?, ?, ?)",
+                            [(int(user_id), hash_secret(normalize_recovery_code(c), RECOVERY_ITERATIONS), stamp)
+                             for c in codes])
+            self._audit(cur, by or user["username"], "codigos_recuperacion_generados", user["username"])
+        return codes
+
+    def recovery_codes_left(self, user_id: int) -> int:
+        with self.db.tx() as cur:
+            return int(cur.execute("SELECT COUNT(*) AS n FROM recovery_codes WHERE user_id = ? AND used_at = ''",
+                                   (int(user_id),)).fetchone()["n"])
+
+    def recover_with_code(self, username: str, code: str, new_secret: str) -> dict:
+        """An administrator who forgot the password, lost the phone or is locked out sets a new password with one
+        of their recovery codes. It also unlocks the account and turns two-step verification off (set it up again).
+        """
+        username = str(username or "").strip().lower()
+        code = normalize_recovery_code(code)
+        generic = AuthError("Usuario o código de recuperación incorrectos.")
+        with self.db.tx() as cur:
+            user = cur.execute("SELECT * FROM users WHERE username = ? AND active = 1 AND role = 'admin'",
+                               (username,)).fetchone()
+            rows = [] if user is None else cur.execute(
+                "SELECT id, code_hash FROM recovery_codes WHERE user_id = ? AND used_at = ''", (user["id"],)).fetchall()
+            match = next((r for r in rows if verify_secret(code, r["code_hash"])), None)
+            if match is None:
+                self._audit(cur, username, "recuperacion_fallida", "")
+            else:
+                check_secret_strength(new_secret, "admin")
+                cur.execute("UPDATE recovery_codes SET used_at = ? WHERE id = ?",
+                            (clock.now().isoformat(timespec="seconds"), match["id"]))
+                cur.execute("UPDATE users SET secret_hash = ?, totp_secret = '', failed_attempts = 0, lockouts = 0, "
+                            "locked_until = '' WHERE id = ?", (hash_secret(new_secret), user["id"]))
+                self._audit(cur, username, "acceso_recuperado", "con código de recuperación")
+                return {k: user[k] for k in ("id", "username", "name", "role")}
+        raise generic
+
+    # ------------------------------------------------- two-step verification (TOTP)
+    def enable_two_factor(self, user_id: int, secret: str, code: str) -> None:
+        if not verify_totp(secret, code):
+            raise ValueError("El código no es correcto. Comprueba que la hora del móvil es la correcta y prueba otra vez.")
+        with self.db.tx() as cur:
+            user = cur.execute("SELECT username FROM users WHERE id = ?", (int(user_id),)).fetchone()
+            cur.execute("UPDATE users SET totp_secret = ? WHERE id = ?", (secret, int(user_id)))
+            self._audit(cur, user["username"], "verificacion_dos_pasos", "activada")
+
+    def disable_two_factor(self, user_id: int, code: str) -> None:
+        with self.db.tx() as cur:
+            user = cur.execute("SELECT username, totp_secret FROM users WHERE id = ?", (int(user_id),)).fetchone()
+            if not user or not verify_totp(user["totp_secret"], code):
+                raise ValueError("El código no es correcto.")
+            cur.execute("UPDATE users SET totp_secret = '' WHERE id = ?", (int(user_id),))
+            self._audit(cur, user["username"], "verificacion_dos_pasos", "desactivada")
 
     @staticmethod
     def _audit(cur, username: str, action: str, detail: str = "") -> None:

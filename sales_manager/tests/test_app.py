@@ -152,6 +152,9 @@ def test_first_run_creates_admin_then_business(tmp_path, monkeypatch):
     at.button[0].click().run()
     assert not at.exception, at.exception
     assert store.has_users() and store.users().iloc[0]["role"] == "admin"
+    codes = at.code[0].value.split("\n")  # recovery codes are shown once, before anything else
+    assert len(codes) == 8 and store.recovery_codes_left(int(store.users().iloc[0]["id"])) == 8
+    next(b for b in at.button if b.label == "Ya los he guardado").click().run()
     at.text_input[0].input("Café Aurora")  # onboarding form follows
     at.button[0].click().run()
     assert not at.exception, at.exception
@@ -181,18 +184,20 @@ def test_staff_login_and_permissions(tmp_path, monkeypatch):
     store = Store(tmp_path / "team.db")
     store.load_preset("restaurant", with_demo_sales=False)
     store.create_user("Ismael", "ismael", "admin", "Segura2026")
-    store.create_user("Lucía", "lucia", "empleado", "4826")
+    store.create_user("Lucía Pérez", "lucia", "empleado", "482619")
     at = _app(store, monkeypatch)
-    at.selectbox[0].set_value("lucia")
-    at.text_input[0].input("0000")
+    page = " ".join(str(e.value) for e in at.markdown) + " ".join(str(s.label) for s in at.selectbox)
+    assert "Lucía" not in page and "Ismael" not in page and not at.selectbox  # no public list of the team
+    at.text_input[0].input("lucia")
+    at.text_input[1].input("000000")
     at.button[0].click().run()
     assert at.error and "incorrectos" in at.error[0].value
-    at.text_input[0].input("4826")
+    at.text_input[1].input("482619")
     at.button[0].click().run()
     assert not at.exception, at.exception
     assert at.session_state["user"]["username"] == "lucia"
     labels = " ".join(str(b.label) for b in at.sidebar.button)
-    assert "Cambiar de negocio" not in labels and "Cerrar sesión · Lucía" in labels
+    assert "Cambiar de negocio" not in labels and "Cerrar sesión · Lucía Pérez" in labels and "Cambiar mi PIN" in labels
 
     # A staff member who opens an admin page directly gets a permission error, not the page.
     script = SCRIPT.format(root=ROOT, db=str(tmp_path / "team.db"), fn="settings_page", role="empleado")
@@ -205,7 +210,7 @@ def test_deactivated_user_is_signed_out(tmp_path, monkeypatch):
     store = Store(tmp_path / "out.db")
     store.load_preset("retail", with_demo_sales=False)
     store.create_user("Ismael", "ismael", "admin", "Segura2026")
-    uid = store.create_user("Diego", "diego", "empleado", "7391")
+    uid = store.create_user("Diego", "diego", "empleado", "739104")
     at = _app(store, monkeypatch, user={"id": uid, "username": "diego", "name": "Diego", "role": "empleado"})
     assert at.session_state["user"]["username"] == "diego"
     store.update_user(uid, active=False)
@@ -249,3 +254,27 @@ def test_settings_offer_templates_in_demo_mode(demo_db):
                              default_timeout=30).run()
     assert not at.exception, at.exception
     assert {"Cargar plantilla", "Empezar desde cero", "Restaurar copia"} <= {b.label for b in at.button}
+
+
+def test_weak_pin_from_before_must_be_changed_at_login(tmp_path, monkeypatch):
+    from core.security import hash_secret
+
+    store = Store(tmp_path / "weak.db")
+    store.load_preset("retail", with_demo_sales=False)
+    store.create_user("Ismael", "ismael", "admin", "Segura2026")
+    uid = store.create_user("Ana", "ana", "empleado", "582913")
+    with store.db.tx() as cur:  # a 4-digit PIN set under the old rules
+        cur.execute("UPDATE users SET secret_hash = ? WHERE id = ?", (hash_secret("4826"), uid))
+    at = _app(store, monkeypatch)
+    at.text_input[0].input("ana")
+    at.text_input[1].input("4826")
+    at.button[0].click().run()
+    assert not at.exception, at.exception
+    assert "más seguro" in " ".join(str(m.value) for m in at.markdown)
+    at.text_input[0].input("4826")
+    at.text_input[1].input("771930")
+    at.text_input[2].input("771930")
+    at.button[0].click().run()
+    assert not at.exception, at.exception
+    assert "must_change_secret" not in at.session_state
+    assert store.authenticate("ana", "771930")["name"] == "Ana"

@@ -1,9 +1,12 @@
 """Security helpers: secret hashing, input limits and safe exports."""
 
+import base64
 import hashlib
 import hmac
 import re
 import secrets
+import time
+from urllib.parse import quote
 
 import pandas as pd
 
@@ -47,19 +50,74 @@ def verify_secret(secret: str, stored: str) -> bool:
 DUMMY_HASH = hash_secret(secrets.token_hex(16))
 
 
+COMMON_SECRETS = {"password", "contraseña", "12345678", "123456789", "qwerty123", "admin123", "password1"}
+MIN_PIN_LENGTH = 6
+
+
+def _is_trivial_pin(secret: str) -> bool:
+    """Same digit repeated or a straight run (123456, 654321): the first ones anyone tries."""
+    if not secret.isdigit():
+        return False
+    steps = {int(b) - int(a) for a, b in zip(secret, secret[1:])}
+    return len(steps) == 1 and steps <= {-1, 0, 1}
+
+
 def check_secret_strength(secret: str, role: str) -> None:
-    """Administrators need a real password; staff may use a PIN of at least 4 digits."""
+    """Administrators need a real password; everyone else a PIN or password of at least 6 characters."""
+    if len(secret) > 128:
+        raise ValueError("La contraseña es demasiado larga (máximo 128 caracteres).")
     if role == "admin":
         if len(secret) < 8:
             raise ValueError("La contraseña del administrador debe tener al menos 8 caracteres.")
         if not (any(ch.isalpha() for ch in secret) and any(not ch.isalpha() for ch in secret)):
             raise ValueError("Usa una contraseña con letras y números (o símbolos), no solo dígitos o solo letras.")
-    elif len(secret) < 4:
-        raise ValueError("El PIN o contraseña debe tener al menos 4 caracteres.")
-    if len(secret) > 128:
-        raise ValueError("La contraseña es demasiado larga (máximo 128 caracteres).")
-    if secret in {"1234", "0000", "1111", "12345", "123456", "password", "contraseña", "12345678"}:
-        raise ValueError("Esa contraseña es demasiado fácil de adivinar.")
+    elif len(secret) < MIN_PIN_LENGTH:
+        raise ValueError(f"El PIN o contraseña debe tener al menos {MIN_PIN_LENGTH} caracteres.")
+    if secret.lower() in COMMON_SECRETS or _is_trivial_pin(secret):
+        raise ValueError("Ese PIN o contraseña es demasiado fácil de adivinar.")
+
+
+# ------------------------------------------------------------- recovery codes
+RECOVERY_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  # no 0/O or 1/I
+RECOVERY_CODE_COUNT = 8
+RECOVERY_ITERATIONS = 20_000  # ~60 random bits per code: a fast hash is enough
+
+
+def new_recovery_code() -> str:
+    raw = "".join(secrets.choice(RECOVERY_ALPHABET) for _ in range(12))
+    return f"{raw[:4]}-{raw[4:8]}-{raw[8:]}"
+
+
+def normalize_recovery_code(code: str) -> str:
+    return re.sub(r"[^A-Z0-9]", "", str(code or "").upper())
+
+
+# ----------------------------------------------- two-step verification (TOTP)
+def new_totp_secret() -> str:
+    return base64.b32encode(secrets.token_bytes(20)).decode().rstrip("=")
+
+
+def totp_code(secret: str, at: float | None = None, step: int = 30, digits: int = 6) -> str:
+    """RFC 6238 code, the one shown by Google Authenticator, Microsoft Authenticator and similar apps."""
+    key = base64.b32decode(secret.upper() + "=" * (-len(secret) % 8))
+    counter = int((time.time() if at is None else at) // step)
+    digest = hmac.new(key, counter.to_bytes(8, "big"), hashlib.sha1).digest()
+    offset = digest[-1] & 0x0F
+    value = (int.from_bytes(digest[offset:offset + 4], "big") & 0x7FFFFFFF) % 10 ** digits
+    return f"{value:0{digits}d}"
+
+
+def verify_totp(secret: str, code: str, at: float | None = None) -> bool:
+    """Accept the current code and the ones just before and after (phone clocks drift)."""
+    code = re.sub(r"\D", "", str(code or ""))
+    if not secret or len(code) != 6:
+        return False
+    now = time.time() if at is None else at
+    return any(hmac.compare_digest(totp_code(secret, now + drift), code) for drift in (-30, 0, 30))
+
+
+def totp_uri(secret: str, account: str, issuer: str = "NirKanA") -> str:
+    return f"otpauth://totp/{quote(issuer)}:{quote(account)}?secret={secret}&issuer={quote(issuer)}"
 
 
 def clean_text(value, field: str, kind: str = "name", required: bool = False) -> str:

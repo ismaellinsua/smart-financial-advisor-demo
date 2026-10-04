@@ -11,7 +11,7 @@ import streamlit as st
 from core import automation
 from core.db import FISCAL_DATA_MESSAGE, FiscalDataError, SaleError
 from core.presets import CURRENCIES, PAYMENT_METHODS, PRESETS
-from core.security import ROLES, csv_safe
+from core.security import ROLES, csv_safe, new_totp_secret, totp_uri
 from core.pdfs import cash_closing_pdf, credit_note_pdf, invoice_pdf
 from core.receipts import receipt_html, refund_receipt_html
 from ui import pages_intel
@@ -922,11 +922,13 @@ def team_page() -> None:
     st.caption(roles_help)
     st.dataframe(
         users.assign(role=users["role"].map(ROLES), active=users["active"].astype(bool),
+                     two_factor=users["two_factor"].astype(bool),
                      last_login=pd.to_datetime(users["last_login"].replace("", None))),
         hide_index=True, use_container_width=True,
-        column_order=["name", "username", "role", "active", "last_login"],
+        column_order=["name", "username", "role", "active", "two_factor", "last_login"],
         column_config={"name": "Nombre", "username": "Usuario", "role": "Rol",
                        "active": st.column_config.CheckboxColumn("Activo"),
+                       "two_factor": st.column_config.CheckboxColumn("Dos pasos"),
                        "last_login": st.column_config.DatetimeColumn("Último acceso", format="DD/MM/YYYY HH:mm")},
     )
 
@@ -938,8 +940,8 @@ def team_page() -> None:
             username = st.text_input("Usuario", max_chars=30, placeholder="Ej.: lucia")
             role = st.selectbox("Rol", list(ROLES), index=2, format_func=ROLES.get)
             secret = st.text_input("PIN o contraseña", type="password", max_chars=128,
-                                   help="Empleados y encargados: mínimo 4 caracteres. Administradores: mínimo 8, "
-                                        "con letras y números.")
+                                   help="Empleados y encargados: mínimo 6 cifras o caracteres, sin series fáciles "
+                                        "(123456, 111111). Administradores: mínimo 8, con letras y números.")
             if st.form_submit_button("Añadir", type="primary", icon=":material/person_add:"):
                 try:
                     c.store.create_user(name, username, role, secret, by=c.username)
@@ -958,6 +960,8 @@ def team_page() -> None:
             uid = st.selectbox("Persona", list(options), format_func=options.get, key="team_user")
             _manage_user(c, users.set_index("id").loc[uid], uid)
 
+    _own_account_security(c)
+
     st.markdown("#### Registro de actividad")
     st.caption("Accesos, intentos fallidos, anulaciones, facturas, cierres de caja y cambios de configuración.")
     log = c.store.audit_log()
@@ -970,6 +974,65 @@ def team_page() -> None:
     })
     st.download_button("Exportar registro a CSV", _csv(log), "registro_actividad.csv", "text/csv",
                        icon=":material/download:")
+
+
+def _own_account_security(c) -> None:
+    """Recovery codes and two-step verification for the administrator who is signed in."""
+    st.markdown("#### Seguridad de tu cuenta")
+    codes_col, totp_col = st.columns(2, gap="large")
+    if c.user is None or c.user["role"] != "admin":
+        return
+    with codes_col, st.container(border=True):
+        left = c.store.recovery_codes_left(c.user["id"])
+        st.markdown("**Códigos de recuperación**")
+        st.caption(f"Te quedan **{left}**. Sirven para volver a entrar si olvidas la contraseña, pierdes el móvil "
+                   "o alguien bloquea tu cuenta." + (" **Genera unos nuevos.**" if left <= 2 else ""))
+        if st.button("Generar códigos nuevos", key="new_codes", icon=":material/key:",
+                     help="Los anteriores que no hayas usado dejarán de funcionar."):
+            st.session_state["team_codes"] = c.store.create_recovery_codes(c.user["id"], by=c.username)
+        if st.session_state.get("team_codes"):
+            st.warning("Guárdalos ahora fuera de este dispositivo: no se volverán a mostrar.", icon=":material/key:")
+            st.code("\n".join(st.session_state["team_codes"]), language=None)
+            if st.button("Ya los he guardado", key="codes_saved"):
+                st.session_state.pop("team_codes", None)
+                st.rerun()
+    with totp_col, st.container(border=True):
+        st.markdown("**Verificación en dos pasos**")
+        me = c.store.user(c.user["id"])
+        if me is None:
+            return
+        enabled = bool(me["two_factor"])
+        if enabled:
+            st.success("Activada: al entrar se pide también el código de tu app de autenticación.",
+                       icon=":material/verified_user:")
+            with st.form("totp_off", clear_on_submit=True, border=False):
+                code = st.text_input("Código actual de la app para desactivarla", max_chars=6)
+                if st.form_submit_button("Desactivar"):
+                    try:
+                        c.store.disable_two_factor(c.user["id"], code)
+                    except ValueError as exc:
+                        st.error(str(exc))
+                    else:
+                        st.rerun()
+            return
+        st.caption("Recomendado para el administrador: aunque alguien adivine tu contraseña, sin tu móvil no entra. "
+                   "Usa Google Authenticator, Microsoft Authenticator o similar.")
+        secret = st.session_state.setdefault("totp_pending", new_totp_secret())
+        st.markdown("1. En la app, añade una cuenta con **«Introducir clave de configuración»** y escribe esta clave "
+                    "(tipo: basada en tiempo):")
+        st.code(" ".join(secret[i:i + 4] for i in range(0, len(secret), 4)), language=None)
+        st.caption(f"Cuenta: {c.username} · NirKanA. En el móvil también puedes abrir este enlace: "
+                   f"[añadir a la app]({totp_uri(secret, c.username)}).")
+        with st.form("totp_on", clear_on_submit=True, border=False):
+            code = st.text_input("2. Escribe el código de 6 cifras que muestra la app", max_chars=6)
+            if st.form_submit_button("Activar", type="primary"):
+                try:
+                    c.store.enable_two_factor(c.user["id"], secret, code)
+                except ValueError as exc:
+                    st.error(str(exc))
+                else:
+                    st.session_state.pop("totp_pending", None)
+                    st.rerun()
 
 
 def _manage_user(c, target, uid: int) -> None:

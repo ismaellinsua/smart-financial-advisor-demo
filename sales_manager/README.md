@@ -131,9 +131,10 @@ segundos en despertar la primera vez; la app se reconecta sola.
 
 | Medida | Detalle |
 |---|---|
-| Cuentas individuales | Cada persona entra con su usuario y su PIN o contraseña. Las contraseñas se guardan cifradas con PBKDF2-SHA256 (600.000 iteraciones y sal aleatoria), nunca en claro. |
+| Cuentas individuales | Cada persona entra escribiendo su usuario y su PIN (mínimo 6 cifras, sin series como 123456) o contraseña; la pantalla de acceso no muestra quién trabaja en el negocio. Los PIN antiguos más cortos se cambian al entrar, y cada persona puede cambiar el suyo. Las contraseñas se guardan cifradas con PBKDF2-SHA256 (600.000 iteraciones y sal aleatoria), nunca en claro. |
 | Roles | **Administrador:** todo. **Encargado:** panel, caja, gestión, inteligencia, facturas, devoluciones y anulaciones. **Empleado:** mesas, vender, agenda y consultar tickets. Cada página comprueba el rol en el servidor, no solo el menú. |
-| Fuerza bruta | 5 intentos fallidos bloquean la cuenta; cada nuevo bloqueo dura el doble (5, 10, 20 min… hasta 24 h). Los fallos se retrasan y quedan registrados. Un usuario inexistente tarda lo mismo que uno real. |
+| Fuerza bruta | Quien falla muchas veces desde un mismo dispositivo espera cada vez más (15 min, 30, 1 h… hasta 24 h) sin afectar al resto. La cuenta solo se bloquea 15 minutos tras 10 fallos, para que nadie pueda dejar al negocio fuera de su propia caja. Un usuario inexistente tarda lo mismo que uno real. |
+| Recuperación y dos pasos | El administrador recibe 8 códigos de recuperación de un solo uso (al crear la cuenta y en «Equipo y seguridad»): sirven para entrar si olvida la contraseña, pierde el móvil o le bloquean la cuenta. Puede activar la verificación en dos pasos con Google Authenticator o similar. |
 | Primer acceso | Crear el administrador exige `app_password` de los *Secrets* o, si no existe, un código de un solo uso que solo aparece en el registro del servidor (terminal o «Manage app → Logs»). Así nadie puede apropiarse de la app tras un reinicio. |
 | Sesiones | Se cierran tras un tiempo sin uso (configurable, 12 h por defecto) y al desactivar a una persona. Recargar la página pide de nuevo el PIN. |
 | Registro de actividad | Accesos, intentos fallidos, anulaciones, facturas, cierres y reaperturas de caja, cambios de configuración, restauraciones y cambios en el equipo. |
