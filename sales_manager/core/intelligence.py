@@ -8,6 +8,8 @@ from datetime import datetime, timedelta
 
 import pandas as pd
 
+from . import automation
+
 from .automation import WEEKDAYS
 
 ABC_LIMITS = (80.0, 95.0)  # cumulative % of gross margin that closes classes A and B
@@ -186,10 +188,12 @@ def smart_alerts(data: dict, now: datetime, money=lambda v: f"{v:,.2f}") -> list
                           f"Al ritmo actual: {_names(soon)}.", "automations"))
 
     # 4. Best customers who stopped coming, compared with their own habits.
-    with_customer = done[done["customer_id"].notna()]
-    if not with_customer.empty:
-        stats = with_customer.groupby("customer_id").agg(
-            n=("id", "count"), value=("total", "sum"), first=("created_at", "min"), last=("created_at", "max"))
+    totals = data.get("customer_totals")
+    if totals is None:
+        totals = automation.customer_stats(sales)
+    if not totals.empty:
+        stats = totals.rename(columns={"purchases": "n", "lifetime_value": "value", "first_purchase": "first",
+                                       "last_purchase": "last"})
         stats = stats[stats["n"] >= 3]
         if not stats.empty:
             vip = stats[stats["value"] >= stats["value"].quantile(0.6)]

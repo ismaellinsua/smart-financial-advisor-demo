@@ -1,6 +1,5 @@
 """Intelligence: smart alerts, ABC analysis, price suggestions and the weekly report."""
 
-import time
 from datetime import datetime, timedelta
 
 import pandas as pd
@@ -19,13 +18,27 @@ ABC_COLORS = {"A": "#12B76A", "B": "#F79009", "C": "#98A2B3"}
 ALERTS_TTL = 90  # seconds a computed alert list is reused within one session
 
 
+@st.cache_data(ttl=ALERTS_TTL, max_entries=20, show_spinner=False)
+def _shared_alerts(store_key: int, version: tuple, _store) -> list[dict]:
+    """Shared by every session of the same business until the data changes or ALERTS_TTL passes."""
+    return _store.alerts()
+
+
+@st.cache_data(ttl=600, max_entries=40, show_spinner=False)
+def _shared_report(store_key: int, version: tuple, start, _store, _alerts) -> dict:
+    return _store.weekly_report(start, alerts=_alerts)
+
+
 def cached_alerts(c, refresh: bool = False) -> list[dict]:
-    """Alerts for the top bar and the Panel, recomputed at most every ALERTS_TTL seconds per session."""
-    cached = st.session_state.get("_alerts")
-    if refresh or not cached or time.monotonic() - cached[0] > ALERTS_TTL:
-        cached = (time.monotonic(), c.store.alerts())
-        st.session_state["_alerts"] = cached
-    return cached[1]
+    """Alerts for the top bar and the Panel. Computed once for everyone and reused until a sale, return, stock
+    adjustment, cash closing or expense changes them (or ALERTS_TTL seconds pass)."""
+    if refresh:
+        _shared_alerts.clear()
+    return _shared_alerts(id(c.store), c.store.data_version(), c.store)
+
+
+def cached_report(c, start) -> dict:
+    return _shared_report(id(c.store), c.store.data_version(), start, c.store, cached_alerts(c))
 
 
 def alert_counts(c) -> tuple[int, int]:
@@ -197,7 +210,7 @@ def _report_tab(c) -> None:
     start = st.selectbox("Semana", weeks, format_func=lambda w: _week_label(w) + (" (en curso)" if w == this_week
                                                                                   else ""), key="report_week")
     st.caption("Cada lunes el informe de la semana anterior aparece listo en el Panel para descargar.")
-    report = c.store.weekly_report(start)
+    report = cached_report(c, start)
     n = report["numbers"]
     pct = lambda v: None if v is None else f"{v:+.1f} %".replace(".", ",")  # noqa: E731
     m1, m2, m3, m4 = st.columns(4)

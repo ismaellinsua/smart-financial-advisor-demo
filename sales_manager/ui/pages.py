@@ -95,7 +95,7 @@ def switch_business_dialog() -> None:
     st.warning("Se reemplazarán el catálogo, los clientes y las ventas actuales por los del nuevo negocio.",
                icon=":material/warning:")
     st.download_button(
-        "Antes, descargar una copia de mis datos", c.store.backup_bytes(), f"ventas-{clock.today():%Y-%m-%d}.db",
+        "Antes, descargar una copia de mis datos", c.store.backup_bytes, f"ventas-{clock.today():%Y-%m-%d}.db",
         "application/octet-stream", icon=":material/download:", use_container_width=True,
     )
     if st.button(f"Cambiar a «{PRESETS[business_type]['label']}»", type="primary", use_container_width=True,
@@ -1242,7 +1242,7 @@ def customers_page() -> None:
     if "customers_flash" in st.session_state:
         st.success(st.session_state.pop("customers_flash"))
 
-    ranking = automation.customer_ranking(c.store.customers(), c.store.sales())
+    ranking = automation.customer_ranking(c.store.customers(), c.store.customer_totals())
     points = c.store.points_by_customer()
     ranking = ranking.merge(points, left_on="id", right_on="customer_id", how="left").drop(columns=["customer_id"])
     ranking["points"] = ranking["points"].fillna(0).astype(int)
@@ -1371,7 +1371,7 @@ def automations_page() -> None:
     )
     products = c.store.products()
     lines = c.store.sale_lines(start=clock.now() - timedelta(days=120))
-    sales = c.store.sales()
+    totals = c.store.customer_totals()
     t1, t2, t3, t4 = st.tabs(["Reposición inteligente", "Alertas de stock", "Seguimiento de clientes", "Informes"])
 
     with t1:
@@ -1419,7 +1419,7 @@ def automations_page() -> None:
         days = st.slider("Considerar inactivo tras (días)", 15, 180, int(c.settings["inactive_days"]))
         customers = c.store.customers()
         allowed = customers[customers["marketing_consent"] == 1]
-        inactive = automation.inactive_customers(allowed, sales, days)
+        inactive = automation.inactive_customers(allowed, totals, days)
         st.caption(f"Solo aparecen los clientes que aceptan recibir ofertas ({len(allowed)} de {len(customers)}). "
                    "El consentimiento se marca en Clientes → Protección de datos.")
         if inactive.empty:
@@ -1451,7 +1451,7 @@ def automations_page() -> None:
             a, b = st.columns(2)
             a.download_button("Resumen por artículo (CSV)", _csv(summary), "resumen_articulos.csv", "text/csv",
                               icon=":material/download:", use_container_width=True)
-            b.download_button("Detalle de ventas (CSV)", _csv(c.store.sales(start, end)), "ventas_detalle.csv",
+            b.download_button("Detalle de ventas (CSV)", lambda: _csv(c.store.sales(start, end)), "ventas_detalle.csv",
                               "text/csv", icon=":material/download:", use_container_width=True)
 
 
@@ -1630,7 +1630,7 @@ def settings_page() -> None:
                        "Cloud se pierden cuando la app se reinicia o se actualiza: descarga copias a menudo o "
                        "conecta una base de datos gratuita (ver README).", icon=":material/warning:")
         st.download_button(
-            "Descargar copia de seguridad", c.store.backup_bytes(), f"ventas-{clock.today():%Y-%m-%d}.db",
+            "Descargar copia de seguridad", c.store.backup_bytes, f"ventas-{clock.today():%Y-%m-%d}.db",
             "application/octet-stream", icon=":material/download:", type="primary",
         )
         if not replaceable:

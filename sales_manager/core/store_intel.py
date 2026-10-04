@@ -52,6 +52,17 @@ class IntelligenceMixin:
         symbol = CURRENCIES.get(settings.get("currency", "EUR"), "€")
         return lambda v: format_money(v, symbol)
 
+    def data_version(self) -> tuple:
+        """Changes whenever something the alerts and reports read changes: a cheap key for sharing them."""
+        with self.db.tx() as cur:
+            row = cur.execute(
+                "SELECT (SELECT COALESCE(MAX(id), 0) FROM sales) AS s, "
+                "(SELECT COUNT(*) FROM sales WHERE status = 'anulada') AS v, "
+                "(SELECT COALESCE(MAX(id), 0) FROM refunds) AS r, (SELECT COALESCE(MAX(id), 0) FROM stock_moves) AS m, "
+                "(SELECT COALESCE(MAX(id), 0) FROM cash_closings) AS c, (SELECT COALESCE(MAX(id), 0) FROM expenses) AS e, "
+                "(SELECT COUNT(*) FROM orders WHERE status = 'abierta') AS o").fetchone()
+        return tuple(row.values())
+
     def alerts(self, now: datetime | None = None) -> list[dict]:
         now = now or clock.now()
         this_month = now.date().replace(day=1)
@@ -59,8 +70,10 @@ class IntelligenceMixin:
         data = {
             "settings": self.settings(),
             "products": self.products(),
-            "lines": self.sale_lines(start=now - timedelta(days=60)),
-            "sales": self.sales(start=now - timedelta(days=400)),
+            # Only what the rules read: 30 days of lines and tickets, and per-customer totals summed in SQL.
+            "lines": self.sale_lines(start=now - timedelta(days=30)),
+            "sales": self.sales(start=now - timedelta(days=30)),
+            "customer_totals": self.customer_totals(start=now - timedelta(days=400)),
             "customers": self.customers(),
             "closings": self.cash_closings(),
             "open_orders": self.open_orders(),
@@ -82,25 +95,27 @@ class IntelligenceMixin:
         return {"net_sales": numbers["cur"]["net"], "gross": gross, "fixed": fixed,
                 "variable": float(variable["amount"].sum()), "opex": opex, "net": gross - opex}
 
-    def weekly_report(self, start: datetime, now: datetime | None = None) -> dict:
+    def weekly_report(self, start: datetime, now: datetime | None = None, alerts: list[dict] | None = None) -> dict:
         """Everything the weekly PDF shows for the week that starts on Monday `start`."""
         now = now or clock.now()
         end = start + timedelta(days=7)
         settings = self.settings()
         preset = PRESETS[settings.get("business_type", "retail")]
         sales = self.sales(start=start - timedelta(days=7), end=end)
-        lines = self.sale_lines(start=start - timedelta(days=7), end=end)
+        month_lines = self.sale_lines(start=end - timedelta(days=30), end=end)  # one query covers both uses
+        lines = month_lines[month_lines["created_at"] >= start - timedelta(days=7)]
         refunds = self.refunds(start=start - timedelta(days=7), end=end)
         numbers = intelligence.weekly_numbers(sales, lines, refunds, start)
         products = self.products()
         week_lines = lines[lines["created_at"] >= start]
-        abc = intelligence.abc_analysis(products, self.sale_lines(start=end - timedelta(days=30), end=end))
+        abc = intelligence.abc_analysis(products, month_lines)
         closings = self.cash_closings()
         if not closings.empty:
             days = pd.to_datetime(closings["day"])
             closings = closings[(days >= start) & (days < end)]
         profit = self._week_profit(start, end, numbers)
-        alerts = self.alerts(min(now, end))
+        if alerts is None or now >= end:  # the current week reuses today's alerts; a past one is judged as it ended
+            alerts = self.alerts(min(now, end))
         insights = automation.insights(products, week_lines, preset["item_label"])
         return {
             "start": start, "end": end, "numbers": numbers, "abc": abc,

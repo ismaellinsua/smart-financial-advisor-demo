@@ -338,7 +338,14 @@ CREATE TABLE IF NOT EXISTS billing_records (
     hash TEXT UNIQUE NOT NULL,
     source TEXT,
     source_id INTEGER
-)
+);
+CREATE INDEX IF NOT EXISTS idx_sales_customer ON sales(customer_id);
+CREATE INDEX IF NOT EXISTS idx_invoices_sale ON invoices(sale_id);
+CREATE INDEX IF NOT EXISTS idx_refunds_created ON refunds(created_at);
+CREATE INDEX IF NOT EXISTS idx_refund_items_refund ON refund_items(refund_id);
+CREATE INDEX IF NOT EXISTS idx_credit_notes_refund ON credit_notes(refund_id);
+CREATE INDEX IF NOT EXISTS idx_billing_source ON billing_records(source, source_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id)
 """
 
 # Columns added after the first release, applied to existing databases on start-up.
@@ -470,6 +477,20 @@ class _Cursor:
     @property
     def rowcount(self) -> int:
         return self._cur.rowcount
+
+    def query_rows(self, sql: str, params=()) -> tuple[list[tuple], list[str]]:
+        """Plain tuples and column names, for building tables fast (no per-row dicts)."""
+        if self._pyformat:
+            from psycopg.rows import tuple_row
+
+            previous, self._cur.row_factory = self._cur.row_factory, tuple_row
+            try:
+                self.execute(sql, params)
+                return self._cur.fetchall(), self.columns
+            finally:
+                self._cur.row_factory = previous
+        self.execute(sql, params)
+        return self._cur.fetchall(), self.columns
 
 
 class _SQLite:
@@ -660,10 +681,8 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin, Billin
 
     def _frame(self, sql: str, params=()) -> pd.DataFrame:
         with self.db.tx() as cur:
-            cur.execute(sql, params)
-            rows = cur.fetchall()
-            columns = cur.columns
-        return pd.DataFrame([list(r.values()) for r in rows], columns=columns)
+            rows, columns = cur.query_rows(sql, params)
+        return pd.DataFrame.from_records(rows, columns=columns)
 
     # ------------------------------------------------------------------ settings
     @staticmethod
@@ -1158,6 +1177,22 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin, Billin
         df["created_at"] = pd.to_datetime(df["created_at"])
         money = ["subtotal", "discount", "tax", "total", "discount_pct", "tax_rate"]
         df[money] = df[money].astype(float)
+        return df
+
+    def customer_totals(self, start: datetime | None = None) -> pd.DataFrame:
+        """Completed purchases per customer, summed by the database: a few thousand rows instead of every ticket."""
+        sql = ("SELECT customer_id, COUNT(*) AS purchases, SUM(total) AS lifetime_value, "
+               "MIN(created_at) AS first_purchase, MAX(created_at) AS last_purchase FROM sales "
+               "WHERE status = 'completada' AND customer_id IS NOT NULL")
+        params = []
+        if start:
+            sql += " AND created_at >= ?"
+            params.append(start.isoformat(timespec="seconds"))
+        df = self._frame(sql + " GROUP BY customer_id", params)
+        df["purchases"] = df["purchases"].astype(int)
+        df["lifetime_value"] = df["lifetime_value"].astype(float)
+        for col in ("first_purchase", "last_purchase"):
+            df[col] = pd.to_datetime(df[col])
         return df
 
     def sale_lines(self, start: datetime | None = None, end: datetime | None = None) -> pd.DataFrame:
