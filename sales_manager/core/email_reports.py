@@ -1,11 +1,11 @@
 """Email reports: weekly summaries, alerts and customer follow-ups."""
 
 import smtplib
-from datetime import datetime
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
 import pandas as pd
+from . import clock
 
 
 def _format_money(value: float, currency: str = "€") -> str:
@@ -89,7 +89,7 @@ class EmailReporter:
         <body style="font-family:Arial,sans-serif;color:#333;background:#f5f5f5">
         <div style="max-width:600px;margin:0 auto;background:white;padding:20px;border-radius:8px">
             <h1 style="color:#1F4E79">{business_name} · Weekly Report</h1>
-            <p style="color:#666">Week ending {datetime.now().strftime('%Y-%m-%d')}</p>
+            <p style="color:#666">Week ending {clock.now().strftime('%Y-%m-%d')}</p>
 
             <!-- Key Metrics -->
             <div style="background:#f9f9f9;padding:15px;border-radius:6px;margin:20px 0">
@@ -137,7 +137,7 @@ class EmailReporter:
 
         return self._send(
             to_email,
-            f"{business_name} · Weekly Report {datetime.now().strftime('%Y-%m-%d')}",
+            f"{business_name} · Weekly Report {clock.now().strftime('%Y-%m-%d')}",
             html
         )
 

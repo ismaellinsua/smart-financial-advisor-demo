@@ -1,10 +1,10 @@
 """Tables, open orders (comandas) and the kitchen queue."""
 
-from datetime import datetime
 
 import pandas as pd
 
 from .security import clean_text
+from . import clock
 
 KITCHEN_FLOW = ["pendiente", "preparando", "listo", "servido"]
 
@@ -77,7 +77,7 @@ class OrdersMixin:
                         "INSERT INTO orders(table_id, label, opened_at, opened_by, guests) VALUES (?, ?, ?, ?, ?) "
                         "RETURNING id",
                         (None if table_id is None else int(table_id), label,
-                         datetime.now().isoformat(timespec="seconds"), opened_by, max(0, int(guests))),
+                         clock.now().isoformat(timespec="seconds"), opened_by, max(0, int(guests))),
                     ).fetchone()["id"]
             except self.db.integrity_errors:
                 continue  # another waiter opened it at the same instant: take theirs
@@ -132,7 +132,7 @@ class OrdersMixin:
                 "INSERT INTO order_items(order_id, product_id, name, quantity, notes, added_by, added_at) "
                 "VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id",
                 (int(order_id), int(product_id), p["name"], quantity, notes, added_by,
-                 datetime.now().isoformat(timespec="seconds")),
+                 clock.now().isoformat(timespec="seconds")),
             ).fetchone()["id"]
 
     def change_order_item(self, item_id: int, delta: int, force: bool = False) -> None:
@@ -198,7 +198,7 @@ class OrdersMixin:
                 raise ValueError("Parte de la comanda ya está cobrada: cobra el resto.")
             cur.execute("DELETE FROM order_items WHERE order_id = ?", (int(order_id),))
             cur.execute("UPDATE orders SET status = 'cancelada', closed_at = ? WHERE id = ?",
-                        (datetime.now().isoformat(timespec="seconds"), int(order_id)))
+                        (clock.now().isoformat(timespec="seconds"), int(order_id)))
 
     def order_cart(self, order_id: int, selection: dict | None = None) -> list[dict]:
         """Cart for charging: all unpaid items, or `selection` {item_id: units} to split the bill by products."""
@@ -215,7 +215,7 @@ class OrdersMixin:
         cart = self.order_cart(order_id, selection)
         if not cart:
             raise self.SaleError("No hay nada seleccionado para cobrar.")
-        when = checkout.pop("when", None) or datetime.now()
+        when = checkout.pop("when", None) or clock.now()
         for attempt in range(3):
             try:
                 with self.db.tx() as cur:

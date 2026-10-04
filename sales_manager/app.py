@@ -5,7 +5,7 @@ Ejecutar desde la raíz del repositorio:  streamlit run sales_manager/app.py
 Copyright (c) 2025-2026 Ismael Linsua. Todos los derechos reservados. Software propietario: ver LICENSE.
 """
 
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 import streamlit as st
 
@@ -15,6 +15,7 @@ from ui import pages, pages_intel, pages_management, pages_promos, pages_tables
 from ui.auth import logout_button, require_user
 from ui.context import PAGES, ctx
 from ui.styles import inject_css, sidebar_brand, sidebar_copyright, topbar
+from core import clock
 
 st.set_page_config(page_title="Gestor de Ventas", page_icon=":material/storefront:", layout="wide")
 
@@ -93,7 +94,7 @@ nav = st.navigation(sections, expanded=True)
 logout_button(c.store, user)
 sidebar_copyright()
 
-now = datetime.now()
+now = clock.now()
 today = c.store.sales(start=now.replace(hour=0, minute=0, second=0, microsecond=0), include_cancelled=False)
 if not c.can("encargado"):
     today = today[today["user_name"] == c.who]  # staff see their own figures

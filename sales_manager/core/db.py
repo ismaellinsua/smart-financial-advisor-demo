@@ -27,6 +27,7 @@ from .security import (
     DUMMY_HASH, ROLE_RANK, ROLES, USERNAME_RE, check_secret_strength, clean_text, hash_secret, is_safe_identifier,
     verify_secret,
 )
+from . import clock
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS settings (
@@ -553,6 +554,8 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin):
             return self._settings(cur)
 
     def save_settings(self, values: dict) -> None:
+        if "timezone" in values:
+            clock.zone(values["timezone"])  # rejects unknown zones
         with self.db.tx() as cur:
             self._save_settings(cur, values)
 
@@ -615,7 +618,7 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin):
                 row = cur.execute(
                     f"INSERT INTO customers({', '.join(fields)}, created_at) "
                     f"VALUES ({', '.join('?' * len(fields))}, ?) RETURNING id",
-                    [*values, datetime.now().isoformat(timespec="seconds")],
+                    [*values, clock.now().isoformat(timespec="seconds")],
                 ).fetchone()
                 return row["id"]
             cur.execute(
@@ -655,7 +658,7 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin):
         """
         if not cart:
             raise SaleError("El carrito está vacío.")
-        when = when or datetime.now()
+        when = when or clock.now()
         customer_id = None if customer_id is None else int(customer_id)
         for attempt in range(3):
             try:
@@ -676,7 +679,7 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin):
         """Price a cart without saving anything: what the till shows before charging."""
         with self.db.tx() as cur:
             q = self._quote(cur, cart, float(discount_pct), None, None if customer_id is None else int(customer_id),
-                            int(redeem_points or 0), when or datetime.now(), apply_promos)
+                            int(redeem_points or 0), when or clock.now(), apply_promos)
         return {
             "lines": [{"product_id": p["id"], "name": p["name"], **line} for p, line in q["lines"]],
             "totals": q["totals"], "tax_rate": q["tax_rate"], "points_earned": q["points_earned"],
@@ -875,7 +878,7 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin):
     def cancel_sale(self, sale_id: int, by: str = "", when: datetime | None = None) -> None:
         """Void a sale and return its units to stock. Sales are never deleted, to keep numbering intact."""
         sale_id = int(sale_id)
-        stamp = (when or datetime.now()).isoformat(timespec="seconds")
+        stamp = (when or clock.now()).isoformat(timespec="seconds")
         with self.db.tx() as cur:
             sale = cur.execute("SELECT status FROM sales WHERE id = ?", (sale_id,)).fetchone()
             if sale is None or sale["status"] == "anulada":
@@ -998,7 +1001,7 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin):
             raise ValueError("Para emitir una factura hacen falta el nombre y el NIF/CIF del cliente.")
         address = clean_text(customer.get("address"), "Dirección", "address")
         email = clean_text(customer.get("email"), "Email", "email")
-        when = when or datetime.now()
+        when = when or clock.now()
         sale_id = int(sale_id)
         for attempt in range(3):
             try:
@@ -1099,7 +1102,7 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin):
                 (starts_at.isoformat(timespec="seconds"), duration_min,
                  None if customer_id is None else int(customer_id), customer_name,
                  None if product_id is None else int(product_id), notes,
-                 datetime.now().isoformat(timespec="seconds"), created_by),
+                 clock.now().isoformat(timespec="seconds"), created_by),
             ).fetchone()
             return row["id"]
 
@@ -1131,7 +1134,7 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin):
                         raise SaleError("La cita no tiene servicio asociado: cóbrala desde Vender.")
                     sale_id = self._insert_sale(
                         cur, [{"product_id": appt["product_id"], "quantity": 1}], payment_method,
-                        appt["customer_id"], float(discount_pct), None, datetime.now(), user_name,
+                        appt["customer_id"], float(discount_pct), None, clock.now(), user_name,
                     )
                     cur.execute(
                         "UPDATE appointments SET status = 'completada', sale_id = ? WHERE id = ?",
@@ -1198,7 +1201,7 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin):
                     (day.isoformat(), float(opening_float), summary["cash"], expected, float(counted_cash),
                      round(float(counted_cash) - expected, 2), summary["total"], summary["count"],
                      json.dumps(summary["breakdown"], ensure_ascii=False), notes,
-                     (when or datetime.now()).isoformat(timespec="seconds"), closed_by),
+                     (when or clock.now()).isoformat(timespec="seconds"), closed_by),
                 )
         except self.db.integrity_errors as exc:
             raise ValueError("La caja de ese día ya está cerrada. Reábrela si necesitas repetir el cierre.") from exc
@@ -1253,7 +1256,7 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin):
                 row = cur.execute(
                     "INSERT INTO users(username, name, role, secret_hash, created_at) VALUES (?, ?, ?, ?, ?) "
                     "RETURNING id",
-                    (username, name, role, hash_secret(secret), datetime.now().isoformat(timespec="seconds")),
+                    (username, name, role, hash_secret(secret), clock.now().isoformat(timespec="seconds")),
                 ).fetchone()
                 self._audit(cur, by or username, "usuario_creado", f"{username} ({ROLES[role]})")
                 return row["id"]
@@ -1296,7 +1299,7 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin):
 
     def authenticate(self, username: str, secret: str, now: datetime | None = None) -> dict:
         """Check a login. Locks the account for a few minutes after repeated failures."""
-        now = now or datetime.now()
+        now = now or clock.now()
         username = str(username or "").strip().lower()
         generic = AuthError("Usuario o contraseña incorrectos.")
         locked = ""
@@ -1335,7 +1338,7 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin):
     @staticmethod
     def _audit(cur, username: str, action: str, detail: str = "") -> None:
         cur.execute("INSERT INTO audit_log(happened_at, username, action, detail) VALUES (?, ?, ?, ?)",
-                    (datetime.now().isoformat(timespec="seconds"), str(username)[:60], action, str(detail)[:500]))
+                    (clock.now().isoformat(timespec="seconds"), str(username)[:60], action, str(detail)[:500]))
 
     def audit(self, username: str, action: str, detail: str = "") -> None:
         with self.db.tx() as cur:
@@ -1488,7 +1491,7 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin):
         ]
         customer_ids = [self.upsert_customer({"name": n, "email": e}) for n, e in names]
         products = self.products()
-        now = datetime.now().replace(second=0, microsecond=0)
+        now = clock.now().replace(second=0, microsecond=0)
         for days_ago in range(60, -1, -1):
             day = now - timedelta(days=days_ago)
             weekend_boost = 1.5 if day.weekday() >= 4 else 1.0

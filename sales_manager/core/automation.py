@@ -4,11 +4,12 @@ import math
 from datetime import datetime, timedelta
 
 import pandas as pd
+from . import clock
 
 
 def period_bounds(days: int, now: datetime | None = None):
     """Current window of `days` days ending now, plus the previous window of equal length."""
-    now = now or datetime.now()
+    now = now or clock.now()
     end = now + timedelta(seconds=1)
     start = (now - timedelta(days=days - 1)).replace(hour=0, minute=0, second=0, microsecond=0)
     prev_start = start - timedelta(days=days)
@@ -64,7 +65,7 @@ def reorder_suggestions(
 
     Demand is the average daily units sold over the last `window_days`.
     """
-    now = now or datetime.now()
+    now = now or clock.now()
     recent = lines[lines["created_at"] >= now - timedelta(days=window_days)]
     daily = recent.groupby("product_id")["quantity"].sum() / window_days
 
@@ -94,7 +95,7 @@ def inactive_customers(
     customers: pd.DataFrame, sales: pd.DataFrame, days: int = 60, now: datetime | None = None
 ) -> pd.DataFrame:
     """Customers with past purchases whose last purchase is older than `days` days."""
-    now = now or datetime.now()
+    now = now or clock.now()
     done = sales[(sales["status"] == "completada") & sales["customer_id"].notna()]
     if done.empty:
         return pd.DataFrame(columns=["id", "name", "email", "phone", "last_purchase", "days_inactive", "lifetime_value"])

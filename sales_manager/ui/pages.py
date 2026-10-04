@@ -18,13 +18,14 @@ from ui import pages_intel
 from ui.checkout import checkout_panel
 from ui.context import PAGES, ctx, get_store
 from ui.styles import insight, page_header, style_figure
+from core import clock
 
 MONTHS = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto",
           "septiembre", "octubre", "noviembre", "diciembre"]
 
 
 def _today_label() -> str:
-    d = date.today()
+    d = clock.today()
     return f"{automation.WEEKDAYS[d.weekday()].capitalize()}, {d.day} de {MONTHS[d.month - 1]} de {d.year}"
 
 
@@ -91,7 +92,7 @@ def switch_business_dialog() -> None:
     st.warning("Se reemplazarán el catálogo, los clientes y las ventas actuales por los del nuevo negocio.",
                icon=":material/warning:")
     st.download_button(
-        "Antes, descargar una copia de mis datos", c.store.backup_bytes(), f"ventas-{date.today():%Y-%m-%d}.db",
+        "Antes, descargar una copia de mis datos", c.store.backup_bytes(), f"ventas-{clock.today():%Y-%m-%d}.db",
         "application/octet-stream", icon=":material/download:", use_container_width=True,
     )
     if st.button(f"Cambiar a «{PRESETS[business_type]['label']}»", type="primary", use_container_width=True,
@@ -139,7 +140,7 @@ def dashboard() -> None:
     left, right = st.columns([3, 2], gap="large")
     with left, st.container(border=True):
         st.markdown("**Facturación diaria**")
-        days = pd.date_range(start.date(), date.today(), freq="D")
+        days = pd.date_range(start.date(), clock.today(), freq="D")
         daily = cur_sales.groupby(cur_sales["created_at"].dt.normalize())["total"].sum().reindex(days, fill_value=0)
         if not refunds.empty:  # returns lower the day they were made
             back = refunds.groupby(refunds["created_at"].dt.normalize())["total"].sum()
@@ -425,7 +426,7 @@ def history() -> None:
 
 def _history_sales(c) -> None:
     f1, f2, f3 = st.columns([2, 1, 2])
-    rng = f1.date_input("Fechas", (date.today() - timedelta(days=30), date.today()), format="DD/MM/YYYY")
+    rng = f1.date_input("Fechas", (clock.today() - timedelta(days=30), clock.today()), format="DD/MM/YYYY")
     status = f2.selectbox("Estado", ["Todas", "Completadas", "Anuladas"])
     query = f3.text_input("Buscar", placeholder="Nº de ticket o cliente…")
     if not isinstance(rng, tuple) or len(rng) != 2:
@@ -625,7 +626,7 @@ def cash_page() -> None:
                 eyebrow="Caja")
     if "cash_flash" in st.session_state:
         st.success(st.session_state.pop("cash_flash"))
-    day = st.date_input("Día", date.today(), max_value=date.today(), format="DD/MM/YYYY", key="cash_day")
+    day = st.date_input("Día", clock.today(), max_value=clock.today(), format="DD/MM/YYYY", key="cash_day")
     summary = c.store.day_summary(day)
     closing = c.store.cash_closing(day)
 
@@ -743,8 +744,8 @@ def agenda_config(preset: dict) -> dict:
 
 
 def _shift_agenda_day(days: int | None) -> None:
-    current = st.session_state.get("agenda_day", date.today())
-    st.session_state["agenda_day"] = date.today() if days is None else current + timedelta(days=days)
+    current = st.session_state.get("agenda_day", clock.today())
+    st.session_state["agenda_day"] = clock.today() if days is None else current + timedelta(days=days)
 
 
 def _set_appointment_status(appointment_id: int, status: str) -> None:
@@ -766,7 +767,7 @@ def agenda_page() -> None:
 
     if "agenda_goto" in st.session_state:
         st.session_state["agenda_day"] = st.session_state.pop("agenda_goto")
-    st.session_state.setdefault("agenda_day", date.today())
+    st.session_state.setdefault("agenda_day", clock.today())
     b1, b2, b3, b4 = st.columns([1, 4, 1, 1.4], vertical_alignment="bottom")
     b1.button("", icon=":material/chevron_left:", on_click=_shift_agenda_day, args=(-1,), help="Día anterior",
               use_container_width=True)
@@ -1136,7 +1137,7 @@ def automations_page() -> None:
         eyebrow="Inteligencia",
     )
     products = c.store.products()
-    lines = c.store.sale_lines(start=datetime.now() - timedelta(days=120))
+    lines = c.store.sale_lines(start=clock.now() - timedelta(days=120))
     sales = c.store.sales()
     t1, t2, t3, t4 = st.tabs(["Reposición inteligente", "Alertas de stock", "Seguimiento de clientes", "Informes"])
 
@@ -1199,7 +1200,7 @@ def automations_page() -> None:
                     st.caption("Este cliente no tiene email registrado.")
 
     with t4:
-        rng = st.date_input("Periodo del informe", (date.today().replace(day=1), date.today()), format="DD/MM/YYYY")
+        rng = st.date_input("Periodo del informe", (clock.today().replace(day=1), clock.today()), format="DD/MM/YYYY")
         if isinstance(rng, tuple) and len(rng) == 2:
             start = datetime.combine(rng[0], time.min)
             end = datetime.combine(rng[1] + timedelta(days=1), time.min)
@@ -1242,6 +1243,11 @@ def settings_page() -> None:
         a, b, d = st.columns(3)
         currencies = list(CURRENCIES)
         values["currency"] = a.selectbox("Moneda", currencies, currencies.index(s["currency"]))
+        zones = list(clock.TIMEZONES)
+        current_zone = s.get("timezone") if s.get("timezone") in zones else clock.DEFAULT_TIMEZONE
+        values["timezone"] = st.selectbox(
+            "Zona horaria", zones, zones.index(current_zone), format_func=lambda z: f"{clock.TIMEZONES[z]} ({z})",
+            help="Hora de tickets, facturas, caja, agenda y promociones por franja horaria.")
         values["tax_rate"] = b.number_input("Impuesto por defecto (%)", 0.0, 100.0, float(s["tax_rate"]), step=0.5)
         values["invoice_prefix"] = d.text_input("Prefijo de tickets", s["invoice_prefix"], max_chars=8)
         values["receipt_footer"] = st.text_input("Pie del ticket", s["receipt_footer"])
@@ -1323,7 +1329,7 @@ def settings_page() -> None:
                        "Cloud se pierden cuando la app se reinicia o se actualiza: descarga copias a menudo o "
                        "conecta una base de datos gratuita (ver README).", icon=":material/warning:")
         st.download_button(
-            "Descargar copia de seguridad", c.store.backup_bytes(), f"ventas-{date.today():%Y-%m-%d}.db",
+            "Descargar copia de seguridad", c.store.backup_bytes(), f"ventas-{clock.today():%Y-%m-%d}.db",
             "application/octet-stream", icon=":material/download:", type="primary",
         )
         upload = st.file_uploader("Restaurar desde una copia", type=["db"])

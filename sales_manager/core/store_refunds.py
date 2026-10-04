@@ -7,6 +7,7 @@ import pandas as pd
 
 from .presets import PAYMENT_METHODS
 from .security import clean_text
+from . import clock
 
 CENT = Decimal("0.01")
 
@@ -65,7 +66,7 @@ class RefundsMixin:
         wanted = {int(k): int(v) for k, v in quantities.items() if int(v or 0) > 0}
         if not wanted:
             raise ValueError("Elige al menos una unidad para devolver.")
-        when = when or datetime.now()
+        when = when or clock.now()
         sale_id = int(sale_id)
         for attempt in range(3):
             try:

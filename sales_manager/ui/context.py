@@ -5,6 +5,7 @@ from dataclasses import dataclass
 
 import streamlit as st
 
+from core import clock
 from core.db import Store
 from core.presets import CURRENCIES, PRESETS
 from core.pricing import format_money, format_money_short
@@ -67,6 +68,7 @@ class Ctx:
 def ctx() -> Ctx:
     store = get_store()
     settings = store.settings()
+    clock.set_timezone(settings.get("timezone"))  # every date and time the app shows or saves
     return Ctx(
         store=store,
         settings=settings,

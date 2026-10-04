@@ -143,6 +143,7 @@ DEFAULT_SETTINGS = {
     "email": "",
     "phone": "",
     "currency": "EUR",
+    "timezone": "Europe/Madrid",
     "tax_rate": "21.0",
     "invoice_prefix": "VTA",
     "accent_color": "#1F4E79",

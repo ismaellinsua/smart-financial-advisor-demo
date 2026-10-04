@@ -1,7 +1,7 @@
 """Intelligence: smart alerts, ABC analysis, price suggestions and the weekly report."""
 
-import time as clock
-from datetime import date, datetime, timedelta
+import time
+from datetime import datetime, timedelta
 
 import pandas as pd
 import plotly.graph_objects as go
@@ -13,6 +13,7 @@ from core.security import csv_safe
 from core.store_intel import week_start
 from ui.context import PAGES, ctx
 from ui.styles import alert_card, page_header, style_figure
+from core import clock
 
 ABC_COLORS = {"A": "#12B76A", "B": "#F79009", "C": "#98A2B3"}
 ALERTS_TTL = 90  # seconds a computed alert list is reused within one session
@@ -21,8 +22,8 @@ ALERTS_TTL = 90  # seconds a computed alert list is reused within one session
 def cached_alerts(c, refresh: bool = False) -> list[dict]:
     """Alerts for the top bar and the Panel, recomputed at most every ALERTS_TTL seconds per session."""
     cached = st.session_state.get("_alerts")
-    if refresh or not cached or clock.monotonic() - cached[0] > ALERTS_TTL:
-        cached = (clock.monotonic(), c.store.alerts())
+    if refresh or not cached or time.monotonic() - cached[0] > ALERTS_TTL:
+        cached = (time.monotonic(), c.store.alerts())
         st.session_state["_alerts"] = cached
     return cached[1]
 
@@ -50,8 +51,8 @@ def _week_label(start: datetime) -> str:
 
 def report_card(c) -> None:
     """Panel card: last week's report, ready every Monday."""
-    start = week_start(date.today()) - timedelta(days=7)
-    monday = date.today().weekday() == 0
+    start = week_start(clock.today()) - timedelta(days=7)
+    monday = clock.today().weekday() == 0
     with st.container(border=True):
         a, b = st.columns([3, 2], vertical_alignment="center")
         a.markdown(f"**Informe semanal {'· nuevo' if monday else 'listo'}**  \n"
@@ -98,7 +99,7 @@ def _alerts_tab(c) -> None:
 def _abc_tab(c, products: pd.DataFrame) -> pd.DataFrame:
     days = st.segmented_control("Periodo analizado", [30, 90, 180], default=30, key="abc_days",
                                 format_func=lambda d: f"Últimos {d} días") or 30
-    lines = c.store.sale_lines(start=datetime.now() - timedelta(days=days))
+    lines = c.store.sale_lines(start=clock.now() - timedelta(days=days))
     abc = intelligence.abc_analysis(products, lines)
     if abc.empty or lines.empty:
         st.info("Aún no hay ventas suficientes en este periodo para el análisis.")
@@ -191,7 +192,7 @@ def _prices_tab(c, products: pd.DataFrame, abc: pd.DataFrame) -> None:
 
 
 def _report_tab(c) -> None:
-    this_week = week_start(date.today())
+    this_week = week_start(clock.today())
     weeks = [this_week - timedelta(days=7 * i) for i in range(1, 13)] + [this_week]
     start = st.selectbox("Semana", weeks, format_func=lambda w: _week_label(w) + (" (en curso)" if w == this_week
                                                                                   else ""), key="report_week")

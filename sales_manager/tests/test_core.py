@@ -841,3 +841,37 @@ def test_weekly_report_and_pdf(store):
     assert report["profit"]["net"] == pytest.approx(n["cur"]["margin"] - 120)
     pdf = weekly_report_pdf(report, store.settings())
     assert pdf.startswith(b"%PDF") and len(pdf) > 2000
+
+
+@pytest.fixture
+def madrid():
+    from core import clock
+    clock.set_timezone("Europe/Madrid")
+    yield clock
+    clock.set_timezone(clock.DEFAULT_TIMEZONE)
+
+
+def test_clock_follows_business_timezone_not_server(madrid):
+    from zoneinfo import ZoneInfo
+    expected = datetime.now(ZoneInfo("Europe/Madrid")).replace(tzinfo=None)
+    assert abs((madrid.now() - expected).total_seconds()) < 5
+    canary = datetime.now(ZoneInfo("Atlantic/Canary")).replace(tzinfo=None)
+    madrid.set_timezone("Atlantic/Canary")
+    assert abs((madrid.now() - canary).total_seconds()) < 5
+    assert madrid.timezone_name() == "Atlantic/Canary"
+
+
+def test_sale_is_stamped_with_business_local_time(store, madrid):
+    from zoneinfo import ZoneInfo
+    sale = store.create_sale([{"product_id": product_id(store, "CAM-001"), "quantity": 1}], "Tarjeta")
+    local = datetime.now(ZoneInfo("Europe/Madrid")).replace(tzinfo=None)
+    assert abs((datetime.fromisoformat(sale["created_at"]) - local).total_seconds()) < 60
+
+
+def test_invalid_timezone_is_rejected_and_never_breaks_the_clock(store, madrid):
+    with pytest.raises(ValueError):
+        store.save_settings({"timezone": "Marte/Olympus"})
+    madrid.set_timezone("Marte/Olympus")
+    assert madrid.timezone_name() == madrid.DEFAULT_TIMEZONE
+    store.save_settings({"timezone": "Atlantic/Canary"})
+    assert store.settings()["timezone"] == "Atlantic/Canary"
