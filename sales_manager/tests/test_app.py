@@ -11,7 +11,7 @@ APP = str(Path(__file__).resolve().parent.parent / "app.py")
 ROOT = str(Path(APP).parent)
 PAGES = ["dashboard", "intelligence_page", "point_of_sale", "history", "products_page", "customers_page", "automations_page",
          "settings_page", "cash_page", "agenda_page", "team_page", "promotions_page", "tables_page",
-         "kitchen_page", "purchases_page", "expenses_page"]
+         "kitchen_page", "purchases_page", "expenses_page", "help_page"]
 
 # Renders a single page function against a given database file.
 SCRIPT = """
@@ -155,11 +155,25 @@ def test_first_run_creates_admin_then_business(tmp_path, monkeypatch):
     codes = at.code[0].value.split("\n")  # recovery codes are shown once, before anything else
     assert len(codes) == 8 and store.recovery_codes_left(int(store.users().iloc[0]["id"])) == 8
     next(b for b in at.button if b.label == "Ya los he guardado").click().run()
-    at.text_input[0].input("Café Aurora")  # onboarding form follows
-    at.button[0].click().run()
+    # The three-step setup follows: business, fiscal data, start.
+    at.text_input[0].input("Café Aurora")
+    at.radio[0].set_value("restaurant")
+    next(b for b in at.button if b.label == "Siguiente").click().run()
     assert not at.exception, at.exception
-    assert store.settings()["business_name"] == "Café Aurora"
-    assert not store.is_empty()
+    fiscal = {t.label: t for t in at.text_input}
+    fiscal["NIF / CIF"].input("b-1234567-4")
+    fiscal["Dirección fiscal"].input("Calle Mayor 1, 28001 Madrid")
+    next(b for b in at.button if b.label == "Siguiente").click().run()
+    assert not at.exception, at.exception
+    assert not at.warning  # a valid CIF raises no warning
+    assert all(not t.value for t in at.toggle)  # no example sales unless asked
+    next(b for b in at.button if b.label == "Crear mi negocio").click().run()
+    assert not at.exception, at.exception
+    settings = store.settings()
+    assert (settings["business_name"], settings["business_type"]) == ("Café Aurora", "restaurant")
+    assert (settings["tax_id"], settings["address"]) == ("B12345674", "Calle Mayor 1, 28001 Madrid")
+    assert float(settings["tax_rate"]) == 10.0 and settings["demo_mode"] == "no"
+    assert not store.is_empty() and store.sales().empty
 
 
 def test_first_admin_requires_setup_password(tmp_path, monkeypatch):
@@ -347,7 +361,7 @@ def test_staff_history_shows_only_their_own_recent_sales(module_targets):
 # must not open it either).
 PAGE_ROLES = {
     "point_of_sale": "empleado", "history": "empleado", "agenda_page": "empleado", "tables_page": "empleado",
-    "kitchen_page": "empleado",
+    "kitchen_page": "empleado", "help_page": "empleado",
     "dashboard": "encargado", "cash_page": "encargado", "products_page": "encargado", "customers_page": "encargado",
     "automations_page": "encargado", "intelligence_page": "encargado", "promotions_page": "encargado",
     "purchases_page": "encargado", "expenses_page": "encargado",
@@ -367,3 +381,14 @@ def test_each_page_checks_the_role_itself(demo_db, fn, role):
     assert not at.exception, at.exception
     refused = any("No tienes permiso" in str(e.value) for e in at.error)
     assert refused == (RANK[role] < RANK[PAGE_ROLES[fn]]), f"{fn} as {role}"
+
+
+def test_help_shows_each_role_only_what_it_can_do(demo_db):
+    titles = {}
+    for role in ("empleado", "admin"):
+        at = AppTest.from_string(SCRIPT.format(root=ROOT, db=demo_db, fn="help_page", role=role),
+                                 default_timeout=30).run()
+        assert not at.exception, at.exception
+        titles[role] = {e.label for e in at.expander}
+    assert "Cobrar una venta" in titles["empleado"] and "Equipo y seguridad" not in titles["empleado"]
+    assert {"Cobrar una venta", "Equipo y seguridad", "Cerrar la caja"} <= titles["admin"]

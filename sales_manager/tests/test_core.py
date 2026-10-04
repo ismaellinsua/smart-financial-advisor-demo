@@ -1247,3 +1247,14 @@ def test_simultaneous_invoices_and_returns_keep_numbers_and_the_billing_chain_in
     assert not errors and len(set(refunds)) == 6
     chain = store.verify_billing_chain()
     assert chain["ok"] and chain["checked"] == 6 + 6 + 6  # tickets, invoices, corrective invoices: no fork
+
+
+def test_spanish_tax_ids_are_checked():
+    from core.fiscal_id import normalize, tax_id_problem
+
+    for good in ("12345678Z", "X1234567L", "A58818501", "B12345674", "Q2826000H", "89890001K"):
+        assert tax_id_problem(good) is None, good
+    assert normalize(" b-1234567.4 ") == "B12345674"
+    assert "letra" in tax_id_problem("12345678A")
+    assert "control" in tax_id_problem("B12345678")
+    assert "No parece" in tax_id_problem("hola")

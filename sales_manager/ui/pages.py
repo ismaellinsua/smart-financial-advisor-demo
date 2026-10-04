@@ -21,6 +21,7 @@ from ui.checkout import checkout_panel
 from ui.context import PAGES, ctx, get_store, logged_download
 from ui.styles import insight, page_header, pos_mobile_css, style_figure
 from core import clock
+from core.fiscal_id import normalize as normalize_tax_id, tax_id_problem
 
 MONTHS = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto",
           "septiembre", "octubre", "noviembre", "diciembre"]
@@ -53,29 +54,103 @@ def _csv(df: pd.DataFrame) -> bytes:
 
 
 # ---------------------------------------------------------------- onboarding
+ONBOARDING_STEPS = ["Tu negocio", "Datos fiscales", "Empezar"]
+
+
 def onboarding() -> None:
+    """First run: a three-step setup that leaves the business ready to sell and invoice, with real data."""
     store = get_store()
+    data = st.session_state.setdefault("onboarding", {"step": 0})
+    step = data["step"]
     _, center, _ = st.columns([1, 2, 1])
     with center:
-        page_header(
-            "Bienvenido a tu Gestor de Ventas",
-            "Configura tu negocio en un minuto. Podrás cambiar todo después en Configuración.",
-            eyebrow="Primeros pasos",
-        )
-        with st.form("onboarding"):
-            name = st.text_input("Nombre del negocio", placeholder="Ej.: Café Aurora")
-            business_type = st.selectbox(
-                "Tipo de negocio", list(PRESETS), format_func=lambda k: PRESETS[k]["label"]
-            )
-            currency = st.selectbox("Moneda", list(CURRENCIES))
-            demo = st.toggle("Cargar datos de ejemplo (solo para probar)", value=False,
-                             help="60 días de ventas inventadas para explorar la app. Déjalo apagado si vas a "
-                                  "vender de verdad: los datos de ejemplo se borran al empezar.")
-            if st.form_submit_button("Crear mi espacio", type="primary", width="stretch"):
-                store.save_settings({"business_name": name.strip() or "Mi Negocio", "currency": currency})
-                with st.spinner("Preparando tu catálogo…"):
-                    store.load_preset(business_type, with_demo_sales=demo)
-                st.rerun()
+        page_header("Bienvenido a NirKanA", "Deja tu negocio listo para vender en tres pasos. Todo se puede cambiar "
+                    "después en Configuración.", eyebrow=f"Paso {step + 1} de 3 · {ONBOARDING_STEPS[step]}")
+        st.progress((step + 1) / 3)
+        if step == 0:
+            _onboarding_business(data)
+        elif step == 1:
+            _onboarding_fiscal(data)
+        else:
+            _onboarding_start(store, data)
+
+
+def _onboarding_business(data: dict) -> None:
+    with st.form("onboarding_business"):
+        name = st.text_input("Nombre del negocio *", data.get("business_name", ""), placeholder="Ej.: Café Aurora",
+                             help="Sale en tickets, facturas y en la cabecera de la app.")
+        types = list(PRESETS)
+        business_type = st.radio("Tipo de negocio", types, index=types.index(data.get("business_type", types[0])),
+                                 format_func=lambda k: PRESETS[k]["label"],
+                                 captions=[PRESETS[k]["description"] for k in types])
+        zones = list(clock.TIMEZONES)
+        zone = st.selectbox("Zona horaria", zones, zones.index(data.get("timezone", clock.DEFAULT_TIMEZONE)),
+                            format_func=lambda z: clock.TIMEZONES[z],
+                            help="La hora de tus tickets, facturas y cierres de caja.")
+        if st.form_submit_button("Siguiente", type="primary", width="stretch", icon=":material/arrow_forward:"):
+            if not name.strip():
+                st.error("Escribe el nombre del negocio.")
+                return
+            data.update(business_name=name.strip(), business_type=business_type, timezone=zone, step=1)
+            st.rerun()
+
+
+def _onboarding_fiscal(data: dict) -> None:
+    preset = PRESETS[data["business_type"]]
+    st.caption("Son obligatorios en toda factura. Si ahora no los tienes a mano, puedes seguir y completarlos "
+               "después: hasta entonces la app no emitirá facturas.")
+    with st.form("onboarding_fiscal"):
+        a, b = st.columns(2)
+        tax_id = a.text_input("NIF / CIF", data.get("tax_id", ""), placeholder="B12345674")
+        phone = b.text_input("Teléfono", data.get("phone", ""))
+        address = st.text_input("Dirección fiscal", data.get("address", ""),
+                                placeholder="Calle, número, código postal y ciudad")
+        email = st.text_input("Email de contacto", data.get("email", ""))
+        rates = [21.0, 10.0, 5.0, 4.0, 0.0]
+        default_rate = float(data.get("tax_rate", preset["tax_rate"]))
+        rate = st.selectbox("IVA habitual de lo que vendes", rates, rates.index(default_rate) if default_rate in rates
+                            else 0, format_func=lambda r: f"{r:g} %",
+                            help="21 % general, 10 % hostelería y alimentación, 4 % pan, leche, libros… Cada producto "
+                                 "puede tener el suyo. Los precios se escriben con el IVA incluido, como en la carta.")
+        back, forward = st.columns(2)
+        go_back = back.form_submit_button("Atrás", width="stretch", icon=":material/arrow_back:")
+        go_on = forward.form_submit_button("Siguiente", type="primary", width="stretch", icon=":material/arrow_forward:")
+    if go_back:
+        data["step"] = 0
+        st.rerun()
+    if go_on:
+        problem = tax_id_problem(tax_id) if tax_id.strip() else None
+        data.update(tax_id=normalize_tax_id(tax_id) if tax_id.strip() else "", address=address.strip(),
+                    email=email.strip(), phone=phone.strip(), tax_rate=rate, tax_id_warning=problem, step=2)
+        st.rerun()
+
+
+def _onboarding_start(store, data: dict) -> None:
+    preset = PRESETS[data["business_type"]]
+    with st.container(border=True):
+        st.markdown(f"**{escape(data['business_name'])}** · {preset['label']}")
+        fiscal = " · ".join(escape(v) for v in (data.get("tax_id"), data.get("address")) if v)
+        st.caption(fiscal or "Sin datos fiscales todavía: complétalos en Configuración antes de facturar.")
+        st.caption(f"IVA habitual {data['tax_rate']:g} % · precios con IVA incluido · {clock.TIMEZONES[data['timezone']]}")
+    if data.get("tax_id_warning"):
+        st.warning(f"{data['tax_id_warning']} Revísalo si es un NIF español: saldrá en todas tus facturas.",
+                   icon=":material/warning:")
+    st.markdown("Para no partir de cero empezarás con un catálogo de ejemplo de tu tipo de negocio: cambia nombres "
+                "y precios (con IVA incluido) antes de vender.")
+    demo = st.toggle("Solo quiero probar la app con ventas de ejemplo", value=False,
+                     help="Añade 60 días de ventas inventadas. Se borran al empezar de verdad.")
+    back, create = st.columns(2)
+    if back.button("Atrás", width="stretch", icon=":material/arrow_back:"):
+        data["step"] = 1
+        st.rerun()
+    if create.button("Crear mi negocio", type="primary", width="stretch", icon=":material/rocket_launch:"):
+        with st.spinner("Preparando tu negocio…"):
+            store.load_preset(data["business_type"], with_demo_sales=demo)
+            store.save_settings({k: data[k] for k in ("business_name", "timezone", "tax_id", "address", "email",
+                                                      "phone", "tax_rate")})
+        clock.set_timezone(data["timezone"])
+        st.session_state.pop("onboarding", None)
+        st.rerun()
 
 
 @st.dialog("Cambiar de negocio")
@@ -461,6 +536,8 @@ def _invoice_dialog(sale_id: int) -> None:
     st.caption(f"Venta {sale['number']} · {c.money(sale['total'])}. Revisa los datos fiscales del cliente.")
     name = st.text_input("Nombre o razón social *", customer.get("name", ""), key=f"inv_name_{sale_id}")
     tax_id = st.text_input("NIF / CIF *", customer.get("tax_id", ""), key=f"inv_tax_{sale_id}")
+    if tax_id.strip() and (problem := tax_id_problem(tax_id)):
+        st.caption(f":orange[{problem}] Si el cliente es de fuera de España, puede ser correcto.")
     address = st.text_input("Dirección fiscal", customer.get("address", ""), key=f"inv_addr_{sale_id}")
     email = st.text_input("Email", customer.get("email", ""), key=f"inv_mail_{sale_id}")
     irpf = st.selectbox("Retención de IRPF", c.store.IRPF_RATES, format_func=lambda r: "Sin retención" if not r
@@ -1514,6 +1591,8 @@ def settings_page() -> None:
     page_header("Configuración", "Identidad del negocio, impuestos, numeración y tipo de negocio.", eyebrow="Ajustes")
     if "settings_flash" in st.session_state:
         st.success(st.session_state.pop("settings_flash"))
+    if "settings_warning" in st.session_state:
+        st.warning(st.session_state.pop("settings_warning"), icon=":material/warning:")
 
     with st.form("settings"):
         st.markdown("##### Datos del negocio")
@@ -1583,6 +1662,8 @@ def settings_page() -> None:
                 c.store.save_settings(values)
                 c.store.audit(c.username, "configuracion_guardada")
                 st.session_state["settings_flash"] = "Configuración guardada."
+                if values.get("tax_id", "").strip() and (problem := tax_id_problem(values["tax_id"])):
+                    st.session_state["settings_warning"] = f"{problem} Revísalo: saldrá en todas tus facturas."
                 st.rerun()
 
     replaceable = c.store.can_replace_data()
@@ -1662,3 +1743,70 @@ def settings_page() -> None:
                 st.session_state.pop("cart", None)
                 st.session_state["settings_flash"] = "Copia restaurada correctamente."
                 st.rerun()
+
+
+# -------------------------------------------------------------------- help
+HELP = [
+    # (who can do it, title, steps)
+    ("empleado", "Cobrar una venta", [
+        "Abre **Vender** y toca los productos (o búscalos por nombre o código).",
+        "En el móvil, toca **Ver ticket y cobrar**; en el ordenador el ticket está a la derecha.",
+        "Elige la forma de pago (con efectivo, escribe lo entregado y verás el cambio) y toca **Cobrar**.",
+        "Desde la ventana de la venta puedes **imprimir** el ticket o enviarlo por **WhatsApp** o **email**.",
+    ]),
+    ("empleado", "Si recargas o se cierra la pestaña", [
+        "No pierdes nada: sigues dentro y el ticket que estabas haciendo sigue ahí.",
+        "La sesión se cierra sola tras el tiempo sin uso que fije el administrador.",
+    ]),
+    ("empleado", "Buscar o reimprimir un ticket", [
+        "Abre **Historial**, busca por número o cliente y selecciona la venta.",
+        "En «Imprimir o enviar el ticket» tienes de nuevo impresión, WhatsApp y email.",
+    ]),
+    ("empleado", "Descuentos", [
+        "Puedes aplicar hasta el máximo que fije el negocio. Por encima, un encargado lo autoriza con su usuario y PIN "
+        "en tu misma caja.",
+    ]),
+    ("encargado", "Devolver productos o anular una venta", [
+        "En **Historial**, selecciona la venta y toca **Devolver productos**: elige las unidades y el motivo.",
+        "Si la venta estaba facturada, la factura rectificativa se emite sola.",
+        "**Anular** solo es posible si la venta no tiene factura ni devoluciones.",
+    ]),
+    ("encargado", "Facturar a un cliente", [
+        "En **Historial**, selecciona la venta y toca **Emitir factura**. Hacen falta el nombre y el NIF del cliente.",
+        "Para facturar, el negocio debe tener su NIF y su dirección en **Configuración**.",
+    ]),
+    ("encargado", "Cerrar la caja", [
+        "Al final del día abre **Caja**, cuenta el efectivo y escribe lo contado: verás si hay descuadre.",
+        "Descarga el cierre en PDF si lo necesitas para tu gestoría.",
+    ]),
+    ("encargado", "Stock y precios", [
+        "En el catálogo, cambia precios (con IVA incluido) y el IVA de cada producto.",
+        "Para el stock usa **ajustes** (+ o −) con su motivo: nunca se pisan las ventas hechas mientras tanto.",
+    ]),
+    ("encargado", "Datos de un cliente (RGPD)", [
+        "En **Clientes → Protección de datos** puedes descargar todos sus datos, marcar si acepta ofertas o borrar "
+        "sus datos personales cuando lo pida (las facturas se conservan, como obliga la ley).",
+    ]),
+    ("admin", "Equipo y seguridad", [
+        "En **Equipo y seguridad** das de alta a cada persona con su rol: empleado, encargado o administrador.",
+        "Genera tus **códigos de recuperación** y guárdalos: sirven si olvidas tu contraseña.",
+        "El registro de actividad muestra accesos, anulaciones, facturas, cierres y cada descarga de datos.",
+    ]),
+    ("admin", "Copias de seguridad", [
+        "En **Configuración → Copia de seguridad** descargas una copia completa cuando quieras.",
+        "Con las copias automáticas configuradas (ver README), cada noche se guarda una copia cifrada y se comprueba "
+        "que se puede restaurar.",
+    ]),
+]
+
+
+def help_page() -> None:
+    c = ctx()
+    page_header("Ayuda", "Lo esencial para trabajar con NirKanA, según lo que puedes hacer en este negocio.",
+                eyebrow="Guía rápida")
+    for role, title, steps in HELP:
+        if not c.can(role):
+            continue
+        with st.expander(title):
+            st.markdown("\n".join(f"{i}. {step}" for i, step in enumerate(steps, 1)))
+    st.caption("¿Algo no funciona como esperas? Escribe a nirkana.oficial@gmail.com.")

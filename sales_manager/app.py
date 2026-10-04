@@ -56,6 +56,7 @@ PAGES.update(
     customers=st.Page(pages.customers_page, title="Clientes", icon=":material/group:", url_path="clientes"),
     automations=st.Page(pages.automations_page, title="Automatizaciones", icon=":material/bolt:",
                         url_path="automatizaciones"),
+    help=st.Page(pages.help_page, title="Ayuda", icon=":material/help:", url_path="ayuda"),
     intelligence=st.Page(pages_intel.intelligence_page, title="Alertas y análisis", icon=":material/insights:",
                          url_path="inteligencia"),
     settings=st.Page(pages.settings_page, title="Configuración", icon=":material/settings:", url_path="ajustes"),
@@ -84,7 +85,9 @@ if c.can("encargado"):
     sections["Gestión"] = [P["products"], P["customers"], P["promos"], P["purchases"], P["expenses"]]
     sections["Inteligencia"] = [P["intelligence"], P["automations"]]
 if c.can("admin"):
-    sections["Ajustes"] = [P["settings"], P["team"]]
+    sections["Ajustes"] = [P["settings"], P["team"], P["help"]]
+else:
+    sections["Ayuda"] = [P["help"]]
 
 sidebar_brand(c.settings["business_name"], PRESETS[c.settings["business_type"]]["label"])
 if c.can("admin") and c.store.can_replace_data() and st.sidebar.button(
