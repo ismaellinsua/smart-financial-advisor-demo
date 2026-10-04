@@ -5,6 +5,7 @@ Ejecutar desde la raíz del repositorio:  streamlit run sales_manager/app.py
 Copyright (c) 2025-2026 Ismael Linsua. Todos los derechos reservados. Software propietario: ver LICENSE.
 """
 
+import traceback
 from datetime import timedelta
 
 import streamlit as st
@@ -133,4 +134,13 @@ topbar(c.settings["business_name"], c.money_short(today["total"].sum()), len(tod
        alerts=pages_intel.alert_counts(c) if c.can("encargado") else None)
 if c.settings.get("demo_mode") == "si":
     pages.demo_banner(c)
-nav.run()
+try:
+    nav.run()
+except Exception as exc:  # noqa: BLE001 - st.rerun/st.stop are BaseException and pass through untouched
+    traceback.print_exc()  # the full detail stays in the server log («Manage app → Logs»)
+    try:
+        ref = c.store.record_error(exc, nav.title, c.username)
+    except Exception:  # noqa: BLE001 - the database itself may be what failed
+        ref = "sin registrar"
+    st.error(f"Algo ha fallado en esta pantalla. Queda registrado con la referencia **{ref}**: si se repite, "
+             "escríbenos a nirkana.oficial@gmail.com con ella. Tus datos no se han perdido.", icon=":material/error:")

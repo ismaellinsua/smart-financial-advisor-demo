@@ -392,3 +392,24 @@ def test_help_shows_each_role_only_what_it_can_do(demo_db):
         titles[role] = {e.label for e in at.expander}
     assert "Cobrar una venta" in titles["empleado"] and "Equipo y seguridad" not in titles["empleado"]
     assert {"Cobrar una venta", "Equipo y seguridad", "Cerrar la caja"} <= titles["admin"]
+
+
+def test_a_failing_page_shows_a_reference_and_is_logged(tmp_path, monkeypatch):
+    import ui.pages
+
+    store = Store(tmp_path / "errors.db")
+    store.load_preset("retail", with_demo_sales=False)
+    uid = store.create_user("Ana", "ana", "admin", "Segura2026!")
+
+    def broken():
+        {}["customer@example.com"]  # the message would contain personal data: it must not be stored
+
+    monkeypatch.setattr(ui.pages, "dashboard", broken)
+    at = _app(store, monkeypatch, user={"id": uid, "username": "ana", "name": "Ana", "role": "admin"})
+    assert not at.exception, at.exception  # the person sees a message, not a crash
+    message = at.error[0].value
+    errors = store.recent_errors()
+    assert len(errors) == 1 and errors.iloc[0]["ref"] in message
+    row = errors.iloc[0]
+    assert (row["kind"], row["page"], row["username"]) == ("KeyError", "Panel", "ana")
+    assert "broken" in row["where_"] and "example.com" not in " ".join(map(str, row.values))

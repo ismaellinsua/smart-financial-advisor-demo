@@ -8,6 +8,7 @@ does can read or change another's data: every query runs with its own schema as 
 
 import re
 import secrets
+from datetime import timedelta
 
 from . import clock
 from .db import Store, _secure_url
@@ -148,7 +149,12 @@ class Directory:
                 stats = conn.execute(
                     f'SELECT COUNT(*) AS sales, MAX(created_at) AS last_sale FROM "{schema}".sales').fetchone()
                 users = conn.execute(f'SELECT COUNT(*) AS n FROM "{schema}".users WHERE active = 1').fetchone()
-                t.update(sales=stats["sales"], last_sale=stats["last_sale"] or "", users=users["n"])
+                errors = 0
+                if conn.execute("SELECT to_regclass(%s) AS t", (f"{schema}.app_errors",)).fetchone()["t"]:
+                    since = (clock.now() - timedelta(days=7)).isoformat(timespec="seconds")
+                    errors = conn.execute(f'SELECT COUNT(*) AS n FROM "{schema}".app_errors WHERE happened_at >= %s',
+                                          (since,)).fetchone()["n"]
+                t.update(sales=stats["sales"], last_sale=stats["last_sale"] or "", users=users["n"], errors=errors)
         return tenants
 
     def log(self, limit: int = 100) -> list[dict]:

@@ -25,6 +25,7 @@ jobs:
       SMTP_USER: ${{ secrets.SMTP_USER }}
       SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
       SMTP_FROM: ${{ secrets.SMTP_FROM }}
+      OPERATOR_EMAIL: ${{ secrets.OPERATOR_EMAIL }}
     steps:
       - name: Sin configurar todavía
         if: env.NOTIFY_DATABASES == '' || env.SMTP_HOST == ''

@@ -26,6 +26,7 @@ from .store_refunds import RefundsMixin
 from .store_billing import BillingMixin
 from .store_sessions import SessionsMixin
 from .store_privacy import PrivacyMixin
+from .store_errors import ErrorsMixin
 from .security import (
     DUMMY_HASH, RECOVERY_CODE_COUNT, RECOVERY_ITERATIONS, ROLE_RANK, ROLES, USERNAME_RE, check_secret_strength,
     clean_text, hash_secret, is_safe_identifier, new_recovery_code, normalize_recovery_code, verify_secret, verify_totp,
@@ -327,6 +328,16 @@ CREATE TABLE IF NOT EXISTS password_resets (
     attempts INTEGER NOT NULL DEFAULT 0,
     used_at TEXT NOT NULL DEFAULT ''
 );
+CREATE TABLE IF NOT EXISTS app_errors (
+    id {pk},
+    happened_at TEXT NOT NULL,
+    ref TEXT NOT NULL,
+    page TEXT NOT NULL DEFAULT '',
+    username TEXT NOT NULL DEFAULT '',
+    kind TEXT NOT NULL,
+    where_ TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS idx_app_errors_happened ON app_errors(happened_at);
 CREATE TABLE IF NOT EXISTS pos_carts (
     user_id INTEGER PRIMARY KEY,
     cart TEXT NOT NULL DEFAULT '{{}}',
@@ -670,7 +681,7 @@ def _is_postgres(target) -> bool:
 
 # ----------------------------------------------------------------------------- store
 class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin, BillingMixin, SessionsMixin,
-            PrivacyMixin):
+            PrivacyMixin, ErrorsMixin):
     SaleError = SaleError
     def __init__(self, path=DEFAULT_DB_PATH, schema: str | None = None):
         """`schema`: on PostgreSQL, the business's own schema when one database serves several businesses."""

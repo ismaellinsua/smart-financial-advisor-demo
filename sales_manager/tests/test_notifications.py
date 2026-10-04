@@ -71,3 +71,37 @@ def test_message_and_configuration():
     with pytest.raises(ValueError):
         mailer.message("a@b.com\nBcc: otro@example.com", "x", "y")
     assert valid_email("a@b.es") and not valid_email("a@b") and mask_email("nirkana@gmail.com") == "n***@gmail.com"
+
+
+def test_uptime_check_reports_an_app_that_does_not_answer(tmp_path):
+    import http.server
+    import subprocess
+    import sys
+    import threading
+    from pathlib import Path
+
+    class Health(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            ok = self.path == "/_stcore/health"
+            self.send_response(200 if ok else 404)
+            self.end_headers()
+            self.wfile.write(b"ok" if ok else b"no")
+
+        def log_message(self, *args):
+            pass
+
+    server = http.server.HTTPServer(("127.0.0.1", 0), Health)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    up = f"http://127.0.0.1:{server.server_port}"
+    script = Path(__file__).resolve().parents[2] / "ops" / "uptime.py"
+    env = {"PATH": "/usr/bin:/bin", "UPTIME_URLS": up}
+    result = subprocess.run([sys.executable, str(script)], capture_output=True, text=True, env=env)
+    assert result.returncode == 0 and "OK" in result.stdout
+    env["UPTIME_URLS"] = f"{up}\nhttp://127.0.0.1:9"
+    # The address that does not answer is retried without waiting, to keep the test fast.
+    result = subprocess.run([sys.executable, "-c", "import sys; import importlib.util as u; "
+                             f"spec = u.spec_from_file_location('uptime', {str(script)!r}); m = u.module_from_spec(spec); "
+                             "spec.loader.exec_module(m); m.WAIT_SECONDS = 0; sys.exit(m.main())"],
+                            capture_output=True, text=True, env=env)
+    server.shutdown()
+    assert result.returncode == 1 and "CAÍDA http://127.0.0.1:9" in result.stdout

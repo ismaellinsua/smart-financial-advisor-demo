@@ -1116,6 +1116,14 @@ def team_page() -> None:
     })
     logged_download(st, "Exportar registro a CSV", _csv(log), "registro_actividad.csv", "text/csv",
                        icon=":material/download:")
+    errors = c.store.recent_errors(7)
+    with st.expander(f"Errores de la app en 7 días: {len(errors)}", icon=":material/bug_report:"):
+        if errors.empty:
+            st.caption("Ninguno. Si alguna pantalla falla, aparecerá aquí con su referencia.")
+        else:
+            st.dataframe(errors, hide_index=True, width="stretch", column_config={
+                "happened_at": st.column_config.DatetimeColumn("Cuándo", format="DD/MM/YYYY HH:mm"),
+                "ref": "Referencia", "page": "Pantalla", "username": "Usuario", "kind": "Tipo", "where_": "Dónde"})
 
 
 def _own_account_security(c) -> None:

@@ -118,11 +118,12 @@ def operator_panel() -> None:
     else:
         overview["estado"] = overview["status"].map(STATUSES)
         overview["administrador"] = overview["setup_used_at"].map(lambda v: "Creado" if v else "Pendiente")
-        st.dataframe(overview[["code", "name", "estado", "administrador", "users", "sales", "last_sale", "contact",
-                               "created_at"]], hide_index=True, width="stretch",
+        st.dataframe(overview[["code", "name", "estado", "administrador", "users", "sales", "last_sale", "errors",
+                               "contact", "created_at"]], hide_index=True, width="stretch",
                      column_config={"code": "Código", "name": "Nombre", "estado": "Estado",
                                     "administrador": "Administrador", "users": "Personas", "sales": "Ventas",
-                                    "last_sale": "Última venta", "contact": "Contacto", "created_at": "Alta"})
+                                    "last_sale": "Última venta", "errors": "Errores 7 días",
+                                    "contact": "Contacto", "created_at": "Alta"})
         with st.container(border=True):
             chosen = st.selectbox("Gestionar", list(overview["code"]), format_func=lambda c: f"{c} · " + str(
                 overview.set_index("code").loc[c, "name"]))

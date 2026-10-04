@@ -213,6 +213,26 @@ Con el correo configurado, la pantalla de acceso ofrece al administrador recibir
 email del negocio para cambiar su contraseña: caduca en 15 minutos, sirve una vez, admite 5 intentos y como mucho se
 piden 3 por hora. La respuesta es la misma exista o no el usuario.
 
+## Errores y caídas
+
+**Errores:** si una pantalla falla, la persona ve un aviso con una **referencia** (p. ej. `A3F09C`) en vez de un
+error técnico, y queda registrado el tipo de error, la pantalla, el usuario y la línea del código donde ocurrió. Nunca
+se guarda el mensaje del error, porque puede contener datos de clientes o de ventas. El administrador los ve en
+**Equipo y seguridad → Errores de la app**, y el operador, en su panel (errores de 7 días por negocio). El detalle
+completo sigue en «Manage app → Logs» de Streamlit.
+
+**Caídas:** el flujo **Disponibilidad** de GitHub Actions comprueba cada 10 minutos que cada app responde (con 3
+intentos antes de darla por caída). Si una no responde, la ejecución falla y GitHub avisa por email al dueño del
+repositorio. Secretos de Actions:
+
+| Secreto | Qué poner |
+|---|---|
+| `UPTIME_URLS` | Una dirección por línea, p. ej. `https://cafe-aurora.streamlit.app` |
+| `OPERATOR_EMAIL` | Opcional: tu email, para recibir también el aviso de caída y, cada mañana, el resumen de errores de las últimas 24 h (necesita los `SMTP_*`). |
+
+En Streamlit Community Cloud las apps se duermen sin uso: la comprobación mira que el servidor responde. Si al abrir
+una app aparece el botón para despertarla, se resuelve pulsándolo.
+
 ## Seguridad
 
 | Medida | Detalle |
