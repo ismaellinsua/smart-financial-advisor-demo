@@ -23,6 +23,16 @@ def sale_adjustments(sale: dict) -> list[tuple[str, float]]:
     return rows
 
 
+def prices_include_vat(sale: dict) -> bool:
+    """Sales since per-product VAT store each line's VAT; older ones priced without VAT and added it at the end."""
+    return bool(sale.get("items")) and all(i.get("tax_amount") is not None for i in sale["items"])
+
+
+def vat_rows(taxes: list[dict]) -> list[tuple[str, float, float]]:
+    """(label, base, VAT) per rate, e.g. («IVA 10 %», 4.09, 0.41)."""
+    return [(f"IVA {t['rate']:g} %", t["base"], t["tax"]) for t in taxes]
+
+
 def payment_lines(sale: dict) -> list[str]:
     """Plain-text description of how a sale was paid, with the change given in cash."""
     out = []
@@ -57,6 +67,13 @@ def receipt_html(sale: dict, settings: dict) -> str:
     discount_row = "".join(
         f"<tr><td>{escape(label)}</td><td class='n'>−{money(amount)}</td></tr>" for label, amount in sale_adjustments(sale)
     )
+    if prices_include_vat(sale):
+        tax_block = (f"<tr class='grand'><td>Total</td><td class='n'>{money(sale['total'])}</td></tr>"
+                     + "".join(f"<tr class='muted'><td>{escape(label)} incluido (base {money(base)})</td>"
+                               f"<td class='n'>{money(vat)}</td></tr>" for label, base, vat in vat_rows(sale["taxes"])))
+    else:  # sales from before prices included VAT
+        tax_block = (f"<tr><td>Impuestos ({sale['tax_rate']:g} %)</td><td class='n'>{money(sale['tax'])}</td></tr>"
+                     f"<tr class='grand'><td>Total</td><td class='n'>{money(sale['total'])}</td></tr>")
     paid = "".join(f"<div>{escape(line)} {escape(symbol)}</div>" for line in payment_lines(sale))
     points = (f"<div>Puntos ganados con esta compra: <b>{sale['points_earned']}</b></div>"
               if sale.get("points_earned") else "")
@@ -102,8 +119,7 @@ def receipt_html(sale: dict, settings: dict) -> str:
 <table class="totals">
   <tr><td>Subtotal</td><td class="n">{money(sale['subtotal'])}</td></tr>
   {discount_row}
-  <tr><td>Impuestos ({sale['tax_rate']:g} %)</td><td class="n">{money(sale['tax'])}</td></tr>
-  <tr class="grand"><td>Total</td><td class="n">{money(sale['total'])}</td></tr>
+  {tax_block}
 </table>
 <div class="pay muted">{paid}{points}</div>
 <footer class="muted">{escape(settings.get('receipt_footer', ''))}</footer>
@@ -115,8 +131,14 @@ def refund_receipt_html(refund: dict, settings: dict) -> str:
     symbol = CURRENCIES.get(settings.get("currency", "EUR"), "€")
     money = lambda v: format_money(v, symbol)  # noqa: E731
     when = datetime.fromisoformat(refund["created_at"]).strftime("%d/%m/%Y %H:%M")
+    def amount(i):  # what the customer gets back for the line, VAT included
+        rate = i["tax_rate"] if i.get("tax_rate") is not None else refund["tax_rate"]
+        vat = i["tax_amount"] if i.get("tax_amount") is not None else round(i["net_amount"] * rate / 100, 2)
+        return i["net_amount"] + vat
     rows = "".join(f"<tr><td>{escape(i['name'])}</td><td class='n'>{i['quantity']}</td>"
-                   f"<td class='n'>−{money(i['net_amount'])}</td></tr>" for i in refund["items"])
+                   f"<td class='n'>−{money(amount(i))}</td></tr>" for i in refund["items"])
+    vat_lines = " · ".join(f"{label}: −{money(vat)} (base −{money(base)})"
+                           for label, base, vat in vat_rows(refund.get("taxes") or []))
     note = (f"<p>Factura rectificativa: <b>{escape(refund['credit_note']['number'])}</b></p>"
             if refund.get("credit_note") else "")
     return f"""<!doctype html><html lang="es"><head><meta charset="utf-8">
@@ -128,8 +150,8 @@ table {{ width: 100%; border-collapse: collapse; }} td, th {{ padding: 6px 0; bo
 <h2>{escape(settings.get('business_name', ''))}</h2>
 <p><b>Devolución {escape(refund['number'])}</b> · {when}<br>
 <span class="muted">Ticket original {escape(refund['sale_number'])} · Motivo: {escape(refund['reason'])}</span></p>
-<table><tr><th align="left">Concepto</th><th class="n">Cant.</th><th class="n">Base</th></tr>{rows}</table>
-<p class="muted">IVA: −{money(refund['tax'])}</p>
+<table><tr><th align="left">Concepto</th><th class="n">Cant.</th><th class="n">Importe</th></tr>{rows}</table>
+<p class="muted">{vat_lines}</p>
 <div class="total">Devuelto: {money(refund['total'])}</div>
 <p class="muted">Forma de devolución: {escape(refund['method'])}</p>{note}
 </body></html>"""

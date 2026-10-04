@@ -13,6 +13,7 @@ from core.receipts import receipt_html
 def store(make_store):
     s = make_store()
     s.load_preset("retail", with_demo_sales=False)
+    s.save_settings({"tax_id": "B12345678", "address": "Calle Mayor 1, 28001 Madrid"})  # required on invoices
     for pid in s.promotions()["id"]:  # template promotions depend on the weekday; tests add their own
         s.delete_promotion(int(pid))
     return s
@@ -23,11 +24,26 @@ def product_id(store, sku):
     return int(df.loc[df["sku"] == sku, "id"].iloc[0])
 
 
-def test_compute_totals_applies_discount_before_tax():
+def test_compute_totals_prices_include_vat():
     totals = compute_totals([{"unit_price": 10, "quantity": 3}, {"unit_price": 5.5, "quantity": 2}], 10, 21)
-    assert {k: totals[k] for k in ("subtotal", "discount", "tax", "total")} == {
-        "subtotal": 41.0, "discount": 4.1, "tax": 7.75, "total": 44.65}
+    assert {k: totals[k] for k in ("subtotal", "discount", "base", "tax", "total")} == {
+        "subtotal": 41.0, "discount": 4.1, "base": 30.5, "tax": 6.4, "total": 36.9}
     assert sum(totals["net_amounts"]) == pytest.approx(totals["base"])
+    assert sum(totals["tax_amounts"]) == pytest.approx(totals["tax"])
+
+
+def test_ticket_matches_the_menu_and_vat_is_broken_down_per_rate():
+    cafes = compute_totals([{"unit_price": 1.5, "quantity": 7, "tax_rate": 10}], 0, 10)
+    assert cafes["total"] == 10.5  # 7 coffees at 1,50 € cost 10,50 €, not 10,47 €
+    mixed = compute_totals([{"unit_price": 2.0, "quantity": 1, "tax_rate": 4},
+                            {"unit_price": 5.0, "quantity": 2, "tax_rate": 21}], 10, 21, loyalty_amount=1.0)
+    assert mixed["total"] == 9.8  # (2 + 10) − 10 % − 1 € of points
+    assert [t["rate"] for t in mixed["taxes"]] == [21.0, 4.0]
+    for t in mixed["taxes"]:
+        assert t["base"] + t["tax"] == pytest.approx(t["total"])
+        assert t["base"] == pytest.approx(round(t["total"] / (1 + t["rate"] / 100), 2))
+    assert sum(t["total"] for t in mixed["taxes"]) == pytest.approx(mixed["total"])
+    assert sum(mixed["gross_amounts"]) == pytest.approx(mixed["total"])
 
 
 def test_compute_totals_rejects_invalid_discount():
@@ -48,7 +64,7 @@ def test_sale_decrements_stock_and_numbers_sequentially(store):
     assert first["number"] == f"VTA-{year}-00001"
     assert second["number"] == f"VTA-{year}-00002"
     assert int(store.products().set_index("id").loc[pid, "stock"]) == before - 3
-    assert first["total"] == pytest.approx(39.90 * 2 * 1.21, abs=0.01)
+    assert first["total"] == pytest.approx(39.90 * 2, abs=0.001)
 
 
 def test_sale_rejects_insufficient_stock_without_side_effects(store):
@@ -295,7 +311,7 @@ def test_cash_closing(store):
     store.cancel_sale(cancelled["id"])
     summary = store.day_summary(today)
     assert summary["count"] == 2 and summary["cancelled"] == 1
-    assert summary["cash"] == pytest.approx(39.90 * 1.21, abs=0.01)
+    assert summary["cash"] == pytest.approx(39.90, abs=0.001)
 
     closing = store.close_cash(today, 100, 100 + summary["cash"] - 5, "Falta cambio")
     assert closing["expected_cash"] == pytest.approx(100 + summary["cash"], abs=0.01)
@@ -629,7 +645,7 @@ def test_sale_with_promotion_points_and_mixed_payment(store):
     quote = store.quote([{"product_id": pid, "quantity": 3}], customer_id=cid)
     assert quote["lines"][0]["promo_name"] == "3x2 accesorios"
     total = quote["totals"]["total"]
-    assert total == pytest.approx(49.00 * 1.21, abs=0.01)
+    assert total == pytest.approx(49.00, abs=0.001)
     with pytest.raises(SaleError, match="suman"):
         store.create_sale([{"product_id": pid, "quantity": 3}], customer_id=cid,
                           payments=[{"method": "Tarjeta", "amount": 10}])
@@ -650,7 +666,7 @@ def test_redeem_points(store):
     pid = product_id(store, "BOL-004")  # 120 €
     store.create_sale([{"product_id": pid, "quantity": 1}], "Tarjeta", customer_id=cid)
     balance = store.customer_points(cid)
-    assert balance == int(120 * 1.21)
+    assert balance == 120
     with pytest.raises(SaleError, match="a partir de"):
         store.quote([{"product_id": pid, "quantity": 1}], customer_id=cid, redeem_points=50)
     with pytest.raises(SaleError, match="solo tiene"):
@@ -660,7 +676,7 @@ def test_redeem_points(store):
     sale = store.create_sale([{"product_id": product_id(store, "CAM-001"), "quantity": 1}], "Efectivo",
                              customer_id=cid, redeem_points=100)
     assert sale["loyalty_discount"] > 0
-    assert sale["total"] == pytest.approx(39.90 * 1.21 - 1.00, abs=0.02)  # 100 points = 1 €
+    assert sale["total"] == pytest.approx(39.90 - 1.00, abs=0.001)  # 100 points = 1 €
     after = store.customer_points(cid)
     assert after == balance - 100 + sale["points_earned"]
     store.cancel_sale(sale["id"])
@@ -701,7 +717,7 @@ def test_partial_refunds_add_up_exactly(store):
     points_before = store.customer_points(cid)
     first = store.create_refund(sale["id"], {cam_item["id"]: 1}, "Efectivo", "Talla equivocada", user_name="Ana")
     assert first["number"].startswith("DEV-") and first["credit_note"] is None
-    assert first["total"] == pytest.approx(39.90 * 0.9 * 1.21, abs=0.02)
+    assert first["total"] == pytest.approx(39.90 * 0.9, abs=0.001)
     assert int(store.products().set_index("id").loc[cam, "stock"]) == stock_before - 3 + 1
     assert store.customer_points(cid) < points_before
     assert [i["remaining"] for i in store.returnable(sale["id"])] == [2, 1]
@@ -843,9 +859,9 @@ def test_recurring_expenses_and_profit(store):
     store.create_sale([{"product_id": product_id(store, "CAM-001"), "quantity": 10}], "Tarjeta",
                       when=datetime(2026, 3, 15, 12, 0))
     p = store.profit(date(2026, 3, 1), date(2026, 4, 1))
-    assert p["net_sales"] == pytest.approx(399.0) and p["cogs"] == pytest.approx(160.0)
+    assert p["net_sales"] == pytest.approx(329.75) and p["cogs"] == pytest.approx(160.0)  # 399 € without VAT
     assert p["opex"] == pytest.approx(1000.0) and p["purchases"] == pytest.approx(300.0)
-    assert p["net"] == pytest.approx(399 - 160 - 1000)
+    assert p["net"] == pytest.approx(329.75 - 160 - 1000)
     with pytest.raises(ValueError):
         store.add_expense(date(2026, 3, 5), "Inventada", "x", 10)
 
@@ -873,13 +889,16 @@ def test_price_suggestions_and_apply(store):
     assert intelligence.round_price(7.01) == 7.05 and intelligence.round_price(12.31) == 12.4
     assert intelligence.round_price(150.2) == 151.0 and intelligence.round_price(7.05) == 7.05
     sug = intelligence.price_suggestions(store.products(), 60)
-    assert set(sug["name"]) == {"Camisa de lino", "Pantalón chino", "Zapatilla urbana", "Bolso de piel"}
+    # Margins are measured on the price without VAT: 39,90 € with 21 % VAT leaves 32,98 €.
+    assert set(sug["name"]) == {"Camisa de lino", "Pantalón chino", "Zapatilla urbana", "Bolso de piel",
+                                "Cinturón clásico"}
     row = sug.set_index("name").loc["Camisa de lino"]
-    assert row["suggested"] == 40.0 and row["new_margin_pct"] >= 60  # 16 / 0.4
+    assert row["suggested"] == intelligence.round_price(16 / 0.4 * 1.21)  # cost 16 → 40 € net → shelf price
+    assert row["new_margin_pct"] >= 60
     with pytest.raises(ValueError):
         intelligence.price_suggestions(store.products(), 0)
     assert store.set_prices({int(row["id"]): row["suggested"]}) == 1
-    assert store.products().set_index("sku").loc["CAM-001", "price"] == 40.0
+    assert store.products().set_index("sku").loc["CAM-001", "price"] == row["suggested"]
     with pytest.raises(ValueError):
         store.set_prices({int(row["id"]): 0})
 
@@ -1100,3 +1119,71 @@ def test_staff_discount_needs_a_manager(store):
     log = store.audit_log()
     assert {"autorizacion", "descuento_autorizado"} <= set(log["action"])
     assert store.user(who["id"])["last_login"] == ""  # authorising is not signing in
+
+
+def test_existing_prices_without_vat_are_converted_once(make_store, tmp_path):
+    if make_store.targets.backend != "sqlite":
+        pytest.skip("same conversion on both engines; the SQLite file is reopened here")
+    path = tmp_path / "old.db"
+    s = Store(path)
+    s.save_settings({"tax_rate": "21"})
+    pid = s.upsert_product({"sku": "X-1", "name": "Viejo", "category": "General", "price": 10, "cost": 4,
+                            "stock": 5, "min_stock": 0, "track_stock": 1, "active": 1})
+    with s.db.tx() as cur:  # a database from before prices included VAT
+        cur.execute("DELETE FROM settings WHERE key = 'prices_include_tax'")
+    s.close()
+    again = Store(path)
+    assert again.products().set_index("id").loc[pid, "price"] == 12.10
+    again.close()
+    assert Store(path).products().set_index("id").loc[pid, "price"] == 12.10  # never twice
+
+
+def test_vat_per_product_on_ticket_invoice_and_return(store):
+    from core.pdfs import credit_note_pdf, invoice_pdf
+    from core.receipts import receipt_html, refund_receipt_html
+    bread = store.upsert_product({"sku": "PAN-1", "name": "Pan", "category": "General", "price": 1.20, "cost": 0.4,
+                                  "stock": 50, "min_stock": 0, "track_stock": 1, "active": 1, "tax_rate": 4})
+    shirt = product_id(store, "CAM-001")  # 39,90 € at the default 21 %
+    products = store.products().set_index("id")
+    assert products.loc[bread, "vat"] == 4 and products.loc[shirt, "vat"] == 21
+    assert products.loc[shirt, "net_price"] == pytest.approx(39.90 / 1.21, abs=1e-4)
+    sale = store.create_sale([{"product_id": bread, "quantity": 3}, {"product_id": shirt, "quantity": 1}], "Tarjeta")
+    assert sale["total"] == pytest.approx(3.60 + 39.90)
+    assert {t["rate"]: t["total"] for t in sale["taxes"]} == {21.0: 39.90, 4.0: 3.60}
+    assert sum(t["base"] + t["tax"] for t in sale["taxes"]) == pytest.approx(sale["total"])
+    html = receipt_html(sale, store.settings())
+    assert "IVA 4 % incluido" in html and "IVA 21 % incluido" in html
+
+    invoice = store.create_invoice(sale["id"], {"name": "Norte S.L.", "tax_id": "B87654321"}, irpf_rate=15)
+    base = sum(t["base"] for t in sale["taxes"])
+    assert invoice["irpf_amount"] == pytest.approx(round(base * 0.15, 2))
+    assert invoice_pdf(invoice, store.settings()).startswith(b"%PDF")
+
+    shirt_item = next(i for i in sale["items"] if i["product_id"] == shirt)
+    refund = store.create_refund(sale["id"], {shirt_item["id"]: 1}, "Tarjeta", "Talla")
+    assert refund["total"] == pytest.approx(39.90) and refund["taxes"][0]["rate"] == 21.0
+    assert refund["tax"] == pytest.approx(shirt_item["tax_amount"])
+    assert "Importe" in refund_receipt_html(refund, store.settings())
+    assert credit_note_pdf(store.credit_note(refund["id"]), store.settings()).startswith(b"%PDF")
+
+
+def test_invoices_need_the_issuers_tax_id_and_address(store):
+    sale = _sell(store)
+    store.save_settings({"tax_id": ""})
+    with pytest.raises(ValueError, match="NIF"):
+        store.create_invoice(sale["id"], {"name": "Cliente SL", "tax_id": "B1"})
+    store.save_settings({"tax_id": "B12345678"})
+    with pytest.raises(ValueError, match="IRPF"):
+        store.create_invoice(sale["id"], {"name": "Cliente SL", "tax_id": "B1"}, irpf_rate=12)
+    assert store.create_invoice(sale["id"], {"name": "Cliente SL", "tax_id": "B1"})["irpf_amount"] == 0
+
+
+def test_returns_of_sales_from_before_vat_per_product_still_add_up(store):
+    sale = store.create_sale([{"product_id": product_id(store, "CAM-001"), "quantity": 2}], "Efectivo")
+    with store.db.tx() as cur:  # how lines were stored before: no per-line VAT
+        cur.execute("UPDATE sale_items SET tax_amount = NULL, gross_amount = NULL, tax_rate = NULL WHERE sale_id = ?",
+                    (sale["id"],))
+    item = store.sale(sale["id"])["items"][0]
+    first = store.create_refund(sale["id"], {item["id"]: 1}, "Efectivo", "Talla")
+    second = store.create_refund(sale["id"], {item["id"]: 1}, "Efectivo", "Talla")
+    assert first["total"] + second["total"] == pytest.approx(sale["total"], abs=0.001)

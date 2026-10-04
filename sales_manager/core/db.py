@@ -18,7 +18,7 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 import pandas as pd
 
 from .presets import DEFAULT_SETTINGS, PAYMENT_METHODS, PRESETS
-from .pricing import PROMO_KINDS, PROMO_SCOPES, apply_promotions, compute_totals
+from .pricing import PROMO_KINDS, PROMO_SCOPES, apply_promotions, compute_totals, tax_breakdown
 from .store_orders import OrdersMixin
 from .store_purchases import PurchasesMixin
 from .store_intel import IntelligenceMixin
@@ -331,6 +331,17 @@ MIGRATIONS = [
     ("users", "totp_secret", "TEXT NOT NULL DEFAULT ''"),
     # Who authorised a manual discount above the staff limit.
     ("sales", "discount_approved_by", "TEXT NOT NULL DEFAULT ''"),
+    # VAT per product (empty: the business default) and each sold or returned line's base, VAT and final price,
+    # so tickets, invoices and returns break VAT down per rate. Prices include VAT (see _migrate_prices).
+    ("products", "tax_rate", "{real}"),
+    ("sale_items", "tax_rate", "{real}"),
+    ("sale_items", "tax_amount", "{real}"),
+    ("sale_items", "gross_amount", "{real}"),
+    ("refund_items", "tax_rate", "{real}"),
+    ("refund_items", "tax_amount", "{real}"),
+    # Income tax withheld on invoices of professionals to companies (retención de IRPF).
+    ("invoices", "irpf_rate", "{real} NOT NULL DEFAULT 0"),
+    ("invoices", "irpf_amount", "{real} NOT NULL DEFAULT 0"),
 ]
 
 # An account locks for a fixed, short time after many failures. A long or growing lock would let anyone who knows a
@@ -353,6 +364,16 @@ DEFAULT_DB_PATH = Path(__file__).resolve().parent.parent / "data" / "ventas.db"
 
 class SaleError(Exception):
     """Raised when a sale cannot be completed (e.g. insufficient stock)."""
+
+
+def _vat(value) -> float | None:
+    """A product's VAT rate, or None for «the business default»."""
+    if value is None or value == "" or (isinstance(value, float) and value != value):  # NaN from the editor
+        return None
+    rate = float(value)
+    if not 0 <= rate <= 100:
+        raise ValueError("El IVA debe estar entre 0 y 100 %.")
+    return rate
 
 
 class FiscalDataError(ValueError):
@@ -547,11 +568,23 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin):
                     cur.execute(f"ALTER TABLE {table} ADD COLUMN {column} {ddl.format(real=self.db.real)}")
             self._backfill_payments(cur)
             had_mode = "demo_mode" in self._settings(cur)
+            had_gross = "prices_include_tax" in self._settings(cur)
             self._insert_default_settings(cur)
+            if not had_gross:
+                self._migrate_prices(cur)
             if not had_mode:
                 # Databases from before this setting: only the demo generator creates purchases signed «Demo».
                 demo = cur.execute("SELECT 1 FROM purchase_orders WHERE created_by = 'Demo' LIMIT 1").fetchone()
                 self._save_settings(cur, {"demo_mode": "si" if demo else "no"})
+
+    @staticmethod
+    def _migrate_prices(cur: _Cursor) -> None:
+        """Databases from before prices included VAT stored them without it: convert once (price × (1 + VAT))."""
+        rate = float(cur.execute("SELECT value FROM settings WHERE key = 'tax_rate'").fetchone()["value"] or 0)
+        rows = cur.execute("SELECT id, price FROM products").fetchall()
+        cur.executemany("UPDATE products SET price = ? WHERE id = ?",
+                        [(round(float(r["price"]) * (1 + rate / 100) + 1e-9, 2), r["id"]) for r in rows])
+        cur.execute("UPDATE settings SET value = 'si' WHERE key = 'prices_include_tax'")
 
     @property
     def backend_label(self) -> str:
@@ -602,21 +635,27 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin):
 
     # ------------------------------------------------------------------ products
     def products(self, include_inactive: bool = False) -> pd.DataFrame:
+        """Catalog. `price` includes VAT; `vat` is the rate that applies and `net_price` the price without it."""
         sql = "SELECT * FROM products"
         if not include_inactive:
             sql += " WHERE active = 1"
-        return self._frame(sql + " ORDER BY category, name")
+        df = self._frame(sql + " ORDER BY category, name")
+        default = float(self.settings().get("tax_rate") or 0)
+        df["vat"] = pd.to_numeric(df["tax_rate"], errors="coerce").fillna(default).astype(float)
+        df["net_price"] = (df["price"].astype(float) / (1 + df["vat"] / 100)).round(4)
+        return df
 
     def upsert_product(self, data: dict, product_id: int | None = None) -> int:
-        fields = ["sku", "name", "category", "price", "cost", "stock", "min_stock", "track_stock", "active"]
+        fields = ["sku", "name", "category", "price", "cost", "stock", "min_stock", "track_stock", "active", "tax_rate"]
         if not data.get("sku") or not data.get("name"):
             raise ValueError("Código y nombre son obligatorios.")
         data = {**data, "sku": clean_text(data["sku"], "Código", "short"), "name": clean_text(data["name"], "Nombre"),
                 "category": clean_text(data.get("category") or "General", "Categoría", "short")}
         # Plain Python types: pandas/numpy scalars from the editor are not understood by every driver.
+        data["tax_rate"] = _vat(data.get("tax_rate"))
         values = [
             data.get(f) if isinstance(data.get(f), str) or data.get(f) is None
-            else (float(data[f]) if f in ("price", "cost") else int(data[f]))
+            else (float(data[f]) if f in ("price", "cost", "tax_rate") else int(data[f]))
             for f in fields
         ]
         try:
@@ -636,7 +675,7 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin):
         except self.db.integrity_errors as exc:
             raise ValueError(f"No se pudo guardar: el código '{data['sku']}' ya existe o hay valores inválidos.") from exc
 
-    PRODUCT_EDITABLE = ("sku", "name", "category", "price", "cost", "min_stock", "track_stock", "active")
+    PRODUCT_EDITABLE = ("sku", "name", "category", "price", "cost", "min_stock", "track_stock", "active", "tax_rate")
 
     def update_product(self, product_id: int, changes: dict) -> None:
         """Save only the fields that were edited, so a stale screen never overwrites what others changed (stock
@@ -649,7 +688,8 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin):
                 raise ValueError("Código y nombre son obligatorios.")
         cleaners = {"sku": lambda v: clean_text(v, "Código", "short"), "name": lambda v: clean_text(v, "Nombre"),
                     "category": lambda v: clean_text(v or "General", "Categoría", "short"),
-                    "price": float, "cost": float, "min_stock": int, "track_stock": int, "active": int}
+                    "price": float, "cost": float, "min_stock": int, "track_stock": int, "active": int,
+                    "tax_rate": _vat}
         values = {k: cleaners[k](v) for k, v in changes.items()}
         try:
             with self.db.tx() as cur:
@@ -830,7 +870,8 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin):
             products.append((p, qty))
         promos = cur.execute("SELECT * FROM promotions WHERE active = 1").fetchall() if apply_promos else []
         priced = apply_promotions(
-            [{"product_id": p["id"], "category": p["category"], "quantity": q, "unit_price": p["price"]}
+            [{"product_id": p["id"], "category": p["category"], "quantity": q, "unit_price": p["price"],
+              "tax_rate": p["tax_rate"] if p["tax_rate"] is not None else tax_rate}
              for p, q in products], promos, when,
         )
 
@@ -848,7 +889,7 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin):
                 raise SaleError(f"Se canjean a partir de {loyalty['min_redeem']} puntos.")
         loyalty_amount = round(redeem_points * loyalty["value"], 2)
         totals = compute_totals(priced, discount_pct, tax_rate, loyalty_amount)
-        if loyalty_amount and loyalty_amount - (totals["loyalty_discount"] * (1 + tax_rate / 100)) > 0.02:
+        if loyalty_amount and loyalty_amount - totals["loyalty_discount"] > 0.02:
             raise SaleError("Los puntos superan el importe de la venta: canjea menos puntos.")
         earned = int(totals["total"] * loyalty["per_euro"]) if enabled else 0
         return {"lines": list(zip([p for p, _ in products], priced)), "totals": totals, "tax_rate": tax_rate,
@@ -900,12 +941,12 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin):
         if discount_approved_by:
             self._audit(cur, user_name, "descuento_autorizado",
                         f"{discount_pct:g} % autorizado por {discount_approved_by}")
-        for (p, line), net in zip(q["lines"], t["net_amounts"]):
+        for (p, line), net, vat, gross in zip(q["lines"], t["net_amounts"], t["tax_amounts"], t["gross_amounts"]):
             cur.execute(
                 "INSERT INTO sale_items(sale_id, product_id, name, quantity, unit_price, unit_cost, line_discount, "
-                "promo_name, net_amount) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "promo_name, net_amount, tax_rate, tax_amount, gross_amount) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (sale_id, p["id"], p["name"], line["quantity"], p["price"], p["cost"], line["line_discount"],
-                 line["promo_name"], net),
+                 line["promo_name"], net, float(line["tax_rate"]), vat, gross),
             )
             if p["track_stock"]:
                 # Guarded decrement: protects against concurrent sales of the last units.
@@ -1030,7 +1071,7 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin):
             items = cur.execute("SELECT * FROM sale_items WHERE sale_id = ? ORDER BY id", (sale_id,)).fetchall()
             payments = cur.execute("SELECT method, amount, tendered FROM sale_payments WHERE sale_id = ? ORDER BY id",
                                    (sale_id,)).fetchall()
-        return {**row, "items": items, "payments": payments}
+        return {**row, "items": items, "payments": payments, "taxes": tax_breakdown(items, row["tax_rate"])}
 
     def sales(self, start: datetime | None = None, end: datetime | None = None, include_cancelled=True) -> pd.DataFrame:
         sql = (
@@ -1097,8 +1138,21 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin):
         with self.db.tx() as cur:
             return cur.execute("SELECT * FROM invoices WHERE sale_id = ?", (int(sale_id),)).fetchone()
 
-    def create_invoice(self, sale_id: int, customer: dict, when: datetime | None = None, issued_by: str = "") -> dict:
-        """Issue a full invoice for a completed sale. Invoices have their own correlative series per year."""
+    IRPF_RATES = (0.0, 7.0, 15.0, 19.0)
+
+    def create_invoice(self, sale_id: int, customer: dict, when: datetime | None = None, issued_by: str = "",
+                       irpf_rate: float = 0.0) -> dict:
+        """Issue a full invoice for a completed sale. Invoices have their own correlative series per year.
+
+        `irpf_rate` is the income tax a company withholds from a professional's invoice (7 % or 15 % usually);
+        it is applied to the taxable base and shown as «Retención IRPF», lowering what the customer pays."""
+        settings = self.settings()
+        if not settings.get("tax_id", "").strip() or not settings.get("address", "").strip():
+            raise ValueError("Para emitir facturas, completa primero tu NIF y tu dirección en Configuración: "
+                             "son obligatorios en toda factura.")
+        irpf_rate = float(irpf_rate or 0)
+        if irpf_rate not in self.IRPF_RATES:
+            raise ValueError("Retención de IRPF no válida.")
         name = clean_text(customer.get("name"), "Nombre", "name")
         tax_id = clean_text(customer.get("tax_id"), "NIF/CIF", "short")
         if not name or not tax_id:
@@ -1115,11 +1169,15 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin):
                         raise SaleError("Solo se pueden facturar ventas completadas.")
                     if cur.execute("SELECT id FROM invoices WHERE sale_id = ?", (sale_id,)).fetchone():
                         raise SaleError("Esta venta ya tiene factura.")
+                    base = cur.execute("SELECT COALESCE(SUM(net_amount), 0) AS b FROM sale_items WHERE sale_id = ?",
+                                       (sale_id,)).fetchone()["b"]
+                    irpf_amount = round(float(base) * irpf_rate / 100 + 1e-9, 2)
                     row = cur.execute(
                         "INSERT INTO invoices(number, sale_id, issued_at, customer_name, customer_tax_id, "
-                        "customer_address, customer_email, issued_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id",
+                        "customer_address, customer_email, issued_by, irpf_rate, irpf_amount) "
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id",
                         (self._next_invoice_number(cur, when), sale_id, when.isoformat(timespec="seconds"),
-                         name, tax_id, address, email, issued_by),
+                         name, tax_id, address, email, issued_by, irpf_rate, irpf_amount),
                     ).fetchone()
                     if sale["customer_id"] is not None:
                         # Remember the fiscal data on the customer, without overwriting what is already there.

@@ -66,6 +66,7 @@ En el móvil:
 
 | Módulo | Qué hace |
 |---|---|
+| **Precios e IVA** | Los precios se escriben **con IVA incluido**, como en la carta o la etiqueta, y cada producto puede tener su IVA (21, 10, 5, 4 o 0 %) o usar el del negocio. El ticket siempre coincide con la carta; tickets, facturas y rectificativas desglosan base y cuota por tipo. Facturas con **retención de IRPF** opcional para profesionales, y solo con NIF y dirección del negocio. Los catálogos antiguos (precios sin IVA) se convierten solos una vez. |
 | **Configuración** | Datos fiscales, moneda, **zona horaria** (España por defecto: los servidores en la nube van en UTC), impuesto, series de tickets y facturas, color de marca, mesas y agenda, fidelización, tiempo de sesión y copias de seguridad. |
 | **Equipo y seguridad** | Cuentas por persona (PIN o contraseña) con roles administrador, encargado y empleado; varias personas a la vez desde sus móviles; registro de actividad. |
 | **Cambiar de negocio** | Cambia en segundos entre tienda, restaurante, autónomo o e-commerce con datos de ejemplo: ideal para enseñar la app a cada cliente. |

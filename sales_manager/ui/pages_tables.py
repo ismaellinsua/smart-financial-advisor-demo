@@ -62,7 +62,7 @@ def tables_page() -> None:
     m1, m2, m3 = st.columns(3)
     m1.metric("Mesas ocupadas", f"{len(busy)} de {len(floor)}")
     m2.metric("Comensales", int(busy["guests"].fillna(0).sum()))
-    m3.metric("Pendiente de cobro", c.money_short(busy["amount"].sum() * (1 + c.tax_rate / 100)))
+    m3.metric("Pendiente de cobro", c.money_short(busy["amount"].sum()))
     if floor.empty:
         st.info("No hay mesas. Créalas en «Configurar mesas», más abajo.")
 
@@ -76,7 +76,7 @@ def tables_page() -> None:
                     st.markdown(
                         f"<div class='sm-table busy'><b>{escape(t['name'])}</b>{ready}"
                         f"<div>{f'{int(t.guests)} pers · ' if t['guests'] else ''}{_minutes(t['opened_at'])} min</div>"
-                        f"<div class='amt'>{escape(c.money(t['amount'] * (1 + c.tax_rate / 100)))}</div></div>",
+                        f"<div class='amt'>{escape(c.money(t['amount']))}</div></div>",
                         unsafe_allow_html=True)
                     st.button("Ver comanda", key=f"tbl_{t['id']}", use_container_width=True,
                               on_click=st.session_state.__setitem__, args=("table_order", int(t["order_id"])))
@@ -190,7 +190,7 @@ def _order_view(c, order: dict) -> None:
                              help="Ya en cocina: solo un encargado puede quitarlo." if locked else "Quitar uno")
                 plus.button("", icon=":material/add:", key=f"oinc_{item['id']}", type="tertiary",
                             on_click=_change, args=(item["id"], 1, False))
-        st.markdown(f"**Por cobrar: {c.money(order['amount'] * (1 + c.tax_rate / 100))}**")
+        st.markdown(f"**Por cobrar: {c.money(order['amount'])}**")
 
         a, b = st.columns(2)
         charging = st.session_state.get("charging") == oid

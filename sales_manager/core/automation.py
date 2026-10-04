@@ -151,7 +151,8 @@ def insights(products: pd.DataFrame, lines: pd.DataFrame, item_label: str = "pro
 
     active = products[products["active"] == 1]
     priced = active[active["price"] > 0]
-    thin = priced[(priced["price"] - priced["cost"]) / priced["price"] < 0.25]
+    net = priced["net_price"].astype(float) if "net_price" in priced else priced["price"].astype(float)
+    thin = priced[(net - priced["cost"]) / net < 0.25]
     for name in thin["name"].head(3):
         out.append(("warning", f"«{name}» tiene un margen inferior al 25 %: revisa su precio o su coste."))
 

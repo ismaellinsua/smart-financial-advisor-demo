@@ -144,6 +144,8 @@ DEFAULT_SETTINGS = {
     "phone": "",
     "currency": "EUR",
     "timezone": "Europe/Madrid",
+    # Prices are entered with VAT included, as on the menu or the label.
+    "prices_include_tax": "si",
     # "si" while the data is a demonstration: it may be wiped. Real data is kept by law.
     "demo_mode": "no",
     "tax_rate": "21.0",

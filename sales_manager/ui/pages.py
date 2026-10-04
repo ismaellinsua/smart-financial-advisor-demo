@@ -417,6 +417,10 @@ def _invoice_dialog(sale_id: int) -> None:
     tax_id = st.text_input("NIF / CIF *", customer.get("tax_id", ""), key=f"inv_tax_{sale_id}")
     address = st.text_input("Dirección fiscal", customer.get("address", ""), key=f"inv_addr_{sale_id}")
     email = st.text_input("Email", customer.get("email", ""), key=f"inv_mail_{sale_id}")
+    irpf = st.selectbox("Retención de IRPF", c.store.IRPF_RATES, format_func=lambda r: "Sin retención" if not r
+                        else f"{r:g} %", key=f"inv_irpf_{sale_id}",
+                        help="Solo si eres profesional y facturas a una empresa o a otro profesional: 15 % en general, "
+                             "7 % los primeros años de actividad. El cliente te paga el total menos la retención.")
     invoice = c.store.invoice_for_sale(sale_id)
     slot = st.empty()  # the issue button disappears as soon as the invoice exists
     if invoice is None and slot.button("Emitir factura", type="primary", use_container_width=True,
@@ -424,8 +428,8 @@ def _invoice_dialog(sale_id: int) -> None:
         try:
             if not c.can("encargado"):
                 raise ValueError("Solo un encargado o el administrador puede emitir facturas.")
-            issued = c.store.create_invoice(sale_id, {"name": name, "tax_id": tax_id, "address": address,
-                                                      "email": email}, issued_by=c.who)
+            customer = {"name": name, "tax_id": tax_id, "address": address, "email": email}
+            issued = c.store.create_invoice(sale_id, customer, issued_by=c.who, irpf_rate=irpf)
             c.store.audit(c.username, "factura_emitida", f"{issued['number']} · {sale['number']}")
         except (ValueError, SaleError) as exc:
             st.error(str(exc))
@@ -814,7 +818,7 @@ def agenda_page() -> None:
     m1, m2, m3 = st.columns(3)
     m1.metric("Citas del día" if cfg["single"] else "Reservas del día", len(df[df["status"] != "cancelada"]))
     m2.metric("Pendientes", len(pending))
-    expected = pending["price"].fillna(0).astype(float).sum() * (1 + c.tax_rate / 100)
+    expected = pending["price"].fillna(0).astype(float).sum()
     m3.metric("Ingresos previstos", c.money_short(expected), help="Servicios pendientes, impuestos incluidos.")
 
     left, right = st.columns([3, 2], gap="large")
@@ -832,7 +836,7 @@ def _appointment_card(c, a) -> None:
     status = a["status"]
     detail = " · ".join(x for x in [
         a["service"] if isinstance(a["service"], str) else "",
-        c.money(float(a["price"]) * (1 + c.tax_rate / 100)) if pd.notna(a["price"]) else "",
+        c.money(float(a["price"])) if pd.notna(a["price"]) else "",
         a["notes"],
     ] if x)
     with st.container(border=True):
@@ -1062,6 +1066,11 @@ def _bump(name: str) -> None:
     st.session_state[name + "_v"] = st.session_state.get(name + "_v", 0) + 1
 
 
+def _same(a, b) -> bool:
+    """Equal cells of the table editor, counting two empty cells as equal."""
+    return (pd.isna(a) and pd.isna(b)) if (pd.isna(a) or pd.isna(b)) else a == b
+
+
 def products_page() -> None:
     c = ctx()
     if not _require(c, "encargado"):
@@ -1073,27 +1082,35 @@ def products_page() -> None:
         st.success(st.session_state.pop("products_flash"))
 
     df = c.store.products(include_inactive=True)
+    vat_labels = {None: f"Por defecto ({c.tax_rate:g} %)", **{r: f"{r:g} %" for r in (21.0, 10.0, 5.0, 4.0, 0.0)}}
+    vat_rates = {label: rate for rate, label in vat_labels.items()}
     categories = sorted(set(c.preset["categories"]) | set(df["category"]))
     tab_list, tab_new = st.tabs([f"Catálogo ({len(df)})", f"Nuevo {label.lower()}"])
 
     with tab_list:
         df = df.assign(
             track_stock=df["track_stock"].astype(bool), active=df["active"].astype(bool),
-            margin=((df["price"] - df["cost"]) / df["price"].where(df["price"] > 0) * 100).round(1),
+            margin=((df["net_price"] - df["cost"]) / df["net_price"].where(df["net_price"] > 0) * 100).round(1),
+            iva=[vat_labels[None] if pd.isna(r) else vat_labels.get(float(r), f"{float(r):g} %") for r in df["tax_rate"]],
             state=[("—" if not t else "Bajo mínimo" if s <= m else "Correcto")
                    for t, s, m in zip(df["track_stock"], df["stock"], df["min_stock"])],
         )
         edited = st.data_editor(
             df, key=_editor_key("products_editor"), hide_index=True, use_container_width=True,
             disabled=["id", "margin", "state"],
-            column_order=["sku", "name", "category", "price", "cost", "margin", "stock", "min_stock", "state",
+            column_order=["sku", "name", "category", "price", "iva", "cost", "margin", "stock", "min_stock", "state",
                           "track_stock", "active"],
             column_config={
                 "sku": "Código", "name": "Nombre",
                 "category": st.column_config.SelectboxColumn("Categoría", options=categories, required=True),
-                "price": st.column_config.NumberColumn("Precio", min_value=0, format=f"%.2f {c.symbol}"),
-                "cost": st.column_config.NumberColumn("Coste", min_value=0, format=f"%.2f {c.symbol}"),
-                "margin": st.column_config.NumberColumn("Margen", format="%.1f %%"),
+                "price": st.column_config.NumberColumn("Precio (IVA incl.)", min_value=0, format=f"%.2f {c.symbol}",
+                                                       help="El precio final, como en la carta o la etiqueta."),
+                "iva": st.column_config.SelectboxColumn(
+                    "IVA", options=list(vat_rates), required=True,
+                    help="El del producto, o el IVA por defecto del negocio (se cambia en Configuración)."),
+                "cost": st.column_config.NumberColumn("Coste (sin IVA)", min_value=0, format=f"%.2f {c.symbol}"),
+                "margin": st.column_config.NumberColumn("Margen", format="%.1f %%",
+                                                        help="Sobre el precio sin IVA, que es lo que te queda."),
                 "stock": st.column_config.NumberColumn("Stock", step=1),
                 "min_stock": st.column_config.NumberColumn("Mínimo", min_value=0, step=1),
                 "state": "Estado",
@@ -1108,7 +1125,10 @@ def products_page() -> None:
             try:
                 for (_, before), (_, after) in zip(df.iterrows(), edited.iterrows()):
                     pid = int(after["id"])
-                    changes = {f: after[f] for f in c.store.PRODUCT_EDITABLE if before[f] != after[f]}
+                    changes = {f: after[f] for f in c.store.PRODUCT_EDITABLE
+                               if f != "tax_rate" and not _same(before[f], after[f])}
+                    if before["iva"] != after["iva"]:
+                        changes["tax_rate"] = vat_rates.get(after["iva"])
                     delta = int(after["stock"]) - int(before["stock"])
                     if changes:
                         c.store.update_product(pid, changes)
@@ -1142,16 +1162,19 @@ def products_page() -> None:
             category = a.selectbox("Categoría", categories)
             new_category = b.text_input("…o nueva categoría")
             p1, p2, p3, p4 = st.columns(4)
-            price = p1.number_input(f"Precio ({c.symbol}, sin impuestos)", 0.0, step=1.0)
+            price = p1.number_input(f"Precio de venta ({c.symbol}, IVA incluido)", 0.0, step=0.5)
             cost = p2.number_input(f"Coste ({c.symbol})", 0.0, step=1.0)
             stock = p3.number_input("Stock inicial", 0, step=1)
             min_stock = p4.number_input("Stock mínimo", 0, step=1)
+            vat_options = [None, 21.0, 10.0, 5.0, 4.0, 0.0]
+            vat = st.selectbox("IVA", vat_options, format_func=lambda r: f"Por defecto ({c.tax_rate:g} %)"
+                               if r is None else f"{r:g} %")
             track = st.toggle("Controlar stock", value=bool(c.preset["track_stock"]))
             if st.form_submit_button(f"Crear {label.lower()}", type="primary"):
                 try:
                     c.store.upsert_product({
                         "sku": sku.strip(), "name": name.strip(), "category": new_category.strip() or category,
-                        "price": price, "cost": cost, "stock": stock if track else 0,
+                        "price": price, "cost": cost, "tax_rate": vat, "stock": stock if track else 0,
                         "min_stock": min_stock if track else 0, "track_stock": int(track), "active": 1,
                     })
                 except ValueError as exc:
@@ -1357,7 +1380,8 @@ def settings_page() -> None:
         values["timezone"] = st.selectbox(
             "Zona horaria", zones, zones.index(current_zone), format_func=lambda z: f"{clock.TIMEZONES[z]} ({z})",
             help="Hora de tickets, facturas, caja, agenda y promociones por franja horaria.")
-        values["tax_rate"] = b.number_input("Impuesto por defecto (%)", 0.0, 100.0, float(s["tax_rate"]), step=0.5)
+        values["tax_rate"] = b.number_input("IVA por defecto (%)", 0.0, 100.0, float(s["tax_rate"]), step=0.5,
+                                            help="El de los productos que no tengan un IVA propio.")
         values["invoice_prefix"] = d.text_input("Prefijo de tickets", s["invoice_prefix"], max_chars=8)
         values["receipt_footer"] = st.text_input("Pie del ticket", s["receipt_footer"])
         a, b = st.columns(2)

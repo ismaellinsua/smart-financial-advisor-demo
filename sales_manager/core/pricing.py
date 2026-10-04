@@ -72,13 +72,28 @@ def apply_promotions(lines: list[dict], promotions: list[dict], when: datetime) 
 
 
 # -------------------------------------------------------------------- totals
-def compute_totals(lines, discount_pct: float = 0.0, tax_rate: float = 0.0, loyalty_amount: float = 0.0) -> dict:
-    """Compute sale totals.
+def _allocate(amount: Decimal, weights: list[Decimal]) -> list[Decimal]:
+    """Split `amount` in proportion to `weights` in cents; the last share takes the remainder so it adds up."""
+    total = sum(weights, Decimal("0"))
+    shares, allocated = [], Decimal("0")
+    for i, w in enumerate(weights):
+        if i == len(weights) - 1:
+            share = amount - allocated
+        else:
+            share = _money(amount * w / total) if total else Decimal("0")
+            allocated += share
+        shares.append(share)
+    return shares
 
-    `lines` are dicts with `quantity`, `unit_price` (prices exclude tax) and optionally `line_discount`
-    (promotions). Order: promotions per line, then the manual percentage discount, then the loyalty discount
-    (`loyalty_amount` is the amount off the final, tax-included price), then tax on the remaining base.
-    The result also allocates the final base to each line (`net_amounts`) so analytics add up exactly.
+
+def compute_totals(lines, discount_pct: float = 0.0, tax_rate: float = 0.0, loyalty_amount: float = 0.0) -> dict:
+    """Compute sale totals from shelf prices, which include VAT.
+
+    `lines` are dicts with `quantity`, `unit_price` (VAT included, as on the menu or the label), optionally
+    `tax_rate` (the product's VAT; `tax_rate` is the default) and `line_discount` (promotions). Order: promotions
+    per line, then the manual percentage discount, then the loyalty discount (`loyalty_amount`, money off the
+    final price). The total is what the customer pays, so a ticket always matches the menu; VAT is then broken
+    down per rate (`taxes`), and each line gets its share of base and VAT so returns and analytics add up exactly.
     """
     if not 0 <= discount_pct <= 100:
         raise ValueError("El descuento debe estar entre 0 y 100 %.")
@@ -87,40 +102,68 @@ def compute_totals(lines, discount_pct: float = 0.0, tax_rate: float = 0.0, loya
     if loyalty_amount < 0:
         raise ValueError("El descuento por puntos no puede ser negativo.")
 
+    rates = [Decimal(str(l.get("tax_rate") if l.get("tax_rate") is not None else tax_rate)) for l in lines]
+    if any(r < 0 for r in rates):
+        raise ValueError("El impuesto no puede ser negativo.")
     gross_lines = [_money(_money(l["unit_price"]) * int(l["quantity"])) for l in lines]
     promo_lines = [min(_money(l.get("line_discount") or 0), g) for l, g in zip(lines, gross_lines)]
-    subtotal = sum(gross_lines, Decimal("0"))
-    promo = sum(promo_lines, Decimal("0"))
-    after_promo = subtotal - promo
-    manual = _money(after_promo * Decimal(str(discount_pct)) / 100)
-    after_manual = after_promo - manual
-    rate = Decimal(str(tax_rate)) / 100
-    loyalty = min(_money(Decimal(str(loyalty_amount)) / (1 + rate)), after_manual)
-    base = after_manual - loyalty
-    tax = _money(base * rate)
-    total = base + tax
+    after_promo = [g - p for g, p in zip(gross_lines, promo_lines)]
+    subtotal, promo = sum(gross_lines, Decimal("0")), sum(promo_lines, Decimal("0"))
+    after_promo_total = subtotal - promo
+    manual = _money(after_promo_total * Decimal(str(discount_pct)) / 100)
+    manual_lines = _allocate(manual, after_promo) if lines else []
+    after_manual = [a - m for a, m in zip(after_promo, manual_lines)]
+    loyalty = min(_money(loyalty_amount), after_promo_total - manual)
+    loyalty_lines = _allocate(loyalty, after_manual) if lines else []
+    final = [a - l for a, l in zip(after_manual, loyalty_lines)]
+    total = sum(final, Decimal("0"))
 
-    # Spread the base over the lines in proportion to what each line contributes; the last takes the remainder.
-    net_lines = [g - p for g, p in zip(gross_lines, promo_lines)]
-    allocated, net_amounts = Decimal("0"), []
-    for i, net in enumerate(net_lines):
-        if i == len(net_lines) - 1:
-            share = base - allocated
-        else:
-            share = _money(base * net / after_promo) if after_promo else Decimal("0")
-            allocated += share
-        net_amounts.append(float(share))
+    # VAT per rate on what is charged at that rate; each line then gets its share of that rate's base.
+    taxes, net_amounts, tax_amounts = [], [Decimal("0")] * len(lines), [Decimal("0")] * len(lines)
+    for rate in sorted(set(rates), reverse=True):
+        idx = [i for i, r in enumerate(rates) if r == rate]
+        gross = sum((final[i] for i in idx), Decimal("0"))
+        base = _money(gross / (1 + rate / 100))
+        for i, share in zip(idx, _allocate(base, [final[i] for i in idx])):
+            net_amounts[i], tax_amounts[i] = share, final[i] - share
+        taxes.append({"rate": float(rate), "base": float(base), "tax": float(gross - base), "total": float(gross)})
+    base_total = sum((t["base"] for t in taxes), 0.0)
     return {
         "subtotal": float(subtotal),
         "promo_discount": float(promo),
         "manual_discount": float(manual),
         "loyalty_discount": float(loyalty),
         "discount": float(promo + manual + loyalty),
-        "base": float(base),
-        "tax": float(tax),
+        "base": float(_money(base_total)),
+        "tax": float(total - _money(base_total)),
         "total": float(total),
-        "net_amounts": net_amounts,
+        "taxes": taxes,
+        "net_amounts": [float(n) for n in net_amounts],
+        "tax_amounts": [float(t) for t in tax_amounts],
+        "gross_amounts": [float(f) for f in final],
     }
+
+
+def tax_breakdown(items: list[dict], default_rate: float) -> list[dict]:
+    """Base and VAT per rate of stored lines (sale or refund items: `net_amount`, `tax_amount`, `tax_rate`).
+
+    Lines saved before per-product VAT have no `tax_amount`: they used the single rate of the sale."""
+    groups: dict[Decimal, list[Decimal]] = {}
+    for item in items:
+        rate = Decimal(str(item["tax_rate"] if item.get("tax_rate") is not None else default_rate))
+        base = _money(item.get("net_amount") or 0)
+        tax = (_money(item["tax_amount"]) if item.get("tax_amount") is not None
+               else _money(base * rate / 100))
+        acc = groups.setdefault(rate, [Decimal("0"), Decimal("0")])
+        acc[0] += base
+        acc[1] += tax
+    return [{"rate": float(r), "base": float(b), "tax": float(t), "total": float(b + t)}
+            for r, (b, t) in sorted(groups.items(), reverse=True)]
+
+
+def net_price(price: float, rate: float) -> float:
+    """Shelf price without VAT (what the business keeps), for margins and price suggestions."""
+    return float(Decimal(str(price)) / (1 + Decimal(str(rate)) / 100))
 
 
 def split_evenly(total: float, people: int) -> list[float]:

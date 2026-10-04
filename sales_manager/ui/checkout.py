@@ -19,10 +19,11 @@ def _totals_table(c, totals: dict) -> None:
         rows.append(("Descuento", f"−{c.money(totals['manual_discount'])}"))
     if totals["loyalty_discount"]:
         rows.append(("Puntos canjeados", f"−{c.money(totals['loyalty_discount'])}"))
-    rows.append((f"Impuestos ({c.tax_rate:g} %)", c.money(totals["tax"])))
     body = "".join(f"<tr><td>{escape(a)}</td><td>{escape(b)}</td></tr>" for a, b in rows)
     st.markdown(f"<table class='sm-totals'>{body}<tr class='grand'><td>Total</td>"
                 f"<td>{escape(c.money(totals['total']))}</td></tr></table>", unsafe_allow_html=True)
+    if totals.get("taxes"):
+        st.caption("IVA incluido: " + " · ".join(f"{t['rate']:g} % {c.money(t['tax'])}" for t in totals["taxes"]))
 
 
 def _payments(c, total: float, prefix: str) -> tuple[list[dict] | None, str | None]:
