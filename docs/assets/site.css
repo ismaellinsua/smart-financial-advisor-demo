@@ -475,3 +475,12 @@ details p { color: var(--muted); margin: .8rem 0 0; max-width: 64ch; }
   html { scroll-behavior: auto; }
   .stage, .feat, .browser, .tile, .tile img { transition: none; }
 }
+
+/* ------------------------------------------------------------------ demo video */
+.demo-section { padding: 88px 0; background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%); }
+.demo-section .head { margin-bottom: 48px; }
+.demo-section h2 { color: var(--ink); }
+.video-container { max-width: 900px; margin: 0 auto; border-radius: 16px; overflow: hidden;
+  box-shadow: 0 20px 60px -10px rgba(11, 27, 51, 0.2); background: #fff; }
+.video-container video { display: block; width: 100%; height: auto; }
+@media (max-width: 768px) { .demo-section { padding: 56px 0; } .video-container { border-radius: 12px; } }
