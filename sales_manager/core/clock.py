@@ -4,6 +4,7 @@ Cloud servers run in UTC, so `datetime.now()` would stamp tickets, invoices and 
 Times are stored as naive local wall time, as they always have been.
 """
 
+import threading
 from datetime import date, datetime
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -22,7 +23,14 @@ TIMEZONES = {
     "America/New_York": "EE. UU. (este)",
 }
 
-_zone = ZoneInfo(DEFAULT_TIMEZONE)
+_DEFAULT_ZONE = ZoneInfo(DEFAULT_TIMEZONE)
+# One app can serve several businesses in different time zones: each page run (its own thread in Streamlit)
+# carries the zone of the business it is serving.
+_local = threading.local()
+
+
+def _current() -> ZoneInfo:
+    return getattr(_local, "zone", _DEFAULT_ZONE)
 
 
 def zone(name: str | None) -> ZoneInfo:
@@ -34,19 +42,18 @@ def zone(name: str | None) -> ZoneInfo:
 
 def set_timezone(name: str | None) -> None:
     """Use the business's time zone; an unknown value falls back to the default instead of breaking the app."""
-    global _zone
     try:
-        _zone = zone(name)
+        _local.zone = zone(name)
     except ValueError:
-        _zone = ZoneInfo(DEFAULT_TIMEZONE)
+        _local.zone = _DEFAULT_ZONE
 
 
 def timezone_name() -> str:
-    return _zone.key
+    return _current().key
 
 
 def now() -> datetime:
-    return datetime.now(_zone).replace(tzinfo=None)
+    return datetime.now(_current()).replace(tzinfo=None)
 
 
 def today() -> date:
@@ -55,4 +62,4 @@ def today() -> date:
 
 def now_aware() -> datetime:
     """Now with the business's UTC offset, e.g. 2026-10-04T20:30:12+02:00 (VERI*FACTU records need it)."""
-    return datetime.now(_zone).replace(microsecond=0)
+    return datetime.now(_current()).replace(microsecond=0)

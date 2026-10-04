@@ -549,27 +549,41 @@ class _Postgres:
     label = "PostgreSQL en la nube"
     persistent_in_cloud = True
 
-    def __init__(self, url: str):
+    # Businesses served from the same database share one small pool instead of opening one each.
+    _pools: dict = {}
+    _pools_lock = threading.Lock()
+
+    def __init__(self, url: str, schema: str | None = None):
         import psycopg
         from psycopg.rows import dict_row
         from psycopg_pool import ConnectionPool
 
-        # A small pool that re-checks connections before use: free cloud databases (Neon) close idle
-        # connections when they suspend, and the app must reconnect transparently.
-        # prepare_threshold=None keeps it compatible with connection poolers (PgBouncer).
-        self._pool = ConnectionPool(
-            _secure_url(url),
-            min_size=1,
-            max_size=5,
-            open=True,
-            check=ConnectionPool.check_connection,
-            kwargs={"row_factory": dict_row, "prepare_threshold": None, "connect_timeout": 15},
-        )
-        try:
-            self._pool.wait(timeout=30)
-        except Exception:
-            self._pool.close()
-            raise
+        if schema is not None and not is_safe_identifier(schema):
+            raise ValueError("Nombre de esquema no válido.")
+        self._schema = schema
+        self._key = _secure_url(url)
+        with self._pools_lock:
+            entry = self._pools.get(self._key)
+            if entry is None:
+                # A small pool that re-checks connections before use: free cloud databases (Neon) close idle
+                # connections when they suspend, and the app must reconnect transparently.
+                # prepare_threshold=None keeps it compatible with connection poolers (PgBouncer).
+                pool = ConnectionPool(
+                    self._key,
+                    min_size=1,
+                    max_size=5,
+                    open=True,
+                    check=ConnectionPool.check_connection,
+                    kwargs={"row_factory": dict_row, "prepare_threshold": None, "connect_timeout": 15},
+                )
+                try:
+                    pool.wait(timeout=30)
+                except Exception:
+                    pool.close()
+                    raise
+                entry = self._pools[self._key] = [pool, 0]
+            entry[1] += 1
+            self._pool = entry[0]
         self.integrity_errors = (psycopg.errors.IntegrityError,)
 
     real = "DOUBLE PRECISION"
@@ -581,6 +595,9 @@ class _Postgres:
     def tx(self):
         # The pool commits when the block succeeds and rolls back on any exception.
         with self._pool.connection() as conn, conn.cursor() as cur:
+            if self._schema:
+                # Per transaction, so it also holds behind a transaction-pooling proxy (Neon's pooler, PgBouncer).
+                cur.execute(f'SET LOCAL search_path TO "{self._schema}"')
             yield _Cursor(cur, pyformat=True)
 
     def columns(self, cur: _Cursor, table: str) -> set[str]:
@@ -616,7 +633,14 @@ class _Postgres:
                 )
 
     def close(self) -> None:
-        self._pool.close()
+        with self._pools_lock:
+            entry = self._pools.get(self._key)
+            if entry is None:
+                return
+            entry[1] -= 1
+            if entry[1] <= 0:
+                del self._pools[self._key]
+                entry[0].close()
 
 
 LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1", ""}
@@ -639,8 +663,9 @@ def _is_postgres(target) -> bool:
 class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin, BillingMixin, SessionsMixin,
             PrivacyMixin):
     SaleError = SaleError
-    def __init__(self, path=DEFAULT_DB_PATH):
-        self.db = _Postgres(str(path)) if _is_postgres(path) else _SQLite(str(path))
+    def __init__(self, path=DEFAULT_DB_PATH, schema: str | None = None):
+        """`schema`: on PostgreSQL, the business's own schema when one database serves several businesses."""
+        self.db = _Postgres(str(path), schema) if _is_postgres(path) else _SQLite(str(path))
         with self.db.tx() as cur:
             for statement in filter(str.strip, self.db.schema().split(";")):
                 cur.execute(statement)

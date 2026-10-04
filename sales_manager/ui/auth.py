@@ -17,7 +17,7 @@ SESSION_SEEN = "last_seen"
 SESSION_TOKEN = "session_token"
 # The browser remembers the sign-in in a cookie (only a random token), so reloading or reopening the tab keeps
 # staff signed in until the business's idle time runs out. The server decides; the cookie only identifies.
-COOKIE = "nk_sesion"
+COOKIE = "nk_sesion"  # one per business in multi-business mode: nk_sesion_<code>
 COOKIE_DAYS = 7
 _COOKIE_SET, _COOKIE_CLEAR = "cookie_to_set", "cookie_to_clear"
 MUST_CHANGE = "must_change_secret"
@@ -91,9 +91,16 @@ def current_user() -> dict | None:
     return st.session_state.get(SESSION_USER)
 
 
+def _cookie_name() -> str:
+    from ui.context import tenant_code
+
+    code = tenant_code()
+    return f"{COOKIE}_{code.replace('-', '_')}" if code else COOKIE
+
+
 def _cookie_token() -> str:
     try:
-        value = st.context.cookies.get(COOKIE)
+        value = st.context.cookies.get(_cookie_name())
     except Exception:  # no request context (tests, bare mode)
         return ""
     return value if isinstance(value, str) else ""
@@ -114,7 +121,7 @@ def _write_cookie() -> None:
         return
     value, age = (token, COOKIE_DAYS * 86400) if token else ("", 0)
     st.html(f"""<script>
-document.cookie = "{COOKIE}={value}; Path=/; Max-Age={age}; SameSite=Strict"
+document.cookie = "{_cookie_name()}={value}; Path=/; Max-Age={age}; SameSite=Strict"
   + (location.protocol === "https:" ? "; Secure" : "");
 </script>""", unsafe_allow_javascript=True)
 
@@ -167,14 +174,29 @@ def setup_code() -> str:
 
 
 def _bootstrap(store: Store) -> None:
-    """No accounts yet: create the administrator, proving ownership with `app_password` or the setup code."""
-    expected = configured_password() or setup_code()
+    """No accounts yet: create the administrator, proving ownership with `app_password` or the setup code.
+    With several businesses in one app, each business proves it with the one-time code the operator gave it."""
+    from ui.context import get_directory, multi_tenant, tenant_code
+
+    business = tenant_code() if multi_tenant() else ""
+    if business:
+        def valid(entered: str) -> bool:
+            return get_directory().check_setup_code(business, entered)
+    else:
+        expected = configured_password() or setup_code()
+
+        def valid(entered: str) -> bool:
+            return hmac.compare_digest(entered.strip().encode(), expected.encode())
     _, center, _ = st.columns([1, 2, 1])
     with center:
         page_header("Crea tu cuenta de administrador",
                     "Será la cuenta con todos los permisos. Después podrás dar de alta a tu equipo.",
                     eyebrow="Primer acceso")
-        if configured_password():
+        if business:
+            code_label = "Código de instalación de tu negocio"
+            st.info("Es el código de 8 caracteres que te dimos al dar de alta tu negocio. Solo sirve una vez.",
+                    icon=":material/key:")
+        elif configured_password():
             code_label = "Contraseña de instalación (app_password)"
         else:
             code_label = "Código de instalación"
@@ -193,7 +215,7 @@ def _bootstrap(store: Store) -> None:
                 if _setup_blocked():
                     st.error("Demasiados intentos. Espera unos minutos.")
                     return
-                if not hmac.compare_digest(code.strip().encode(), expected.encode()):
+                if not valid(code):
                     _setup_failed()
                     _time.sleep(1)
                     st.error("La contraseña o el código de instalación no es correcto.")
@@ -208,6 +230,8 @@ def _bootstrap(store: Store) -> None:
                 except ValueError as exc:
                     st.error(str(exc))
                     return
+                if business:
+                    get_directory().mark_setup_used(business)
                 st.session_state[NEW_CODES] = store.create_recovery_codes(uid)
                 _sign_in(store, store.authenticate(username, secret))
 

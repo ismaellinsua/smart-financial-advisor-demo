@@ -89,14 +89,30 @@ def decrypt(path: Path, secret: str, out: Path) -> Path:
     return out
 
 
-def read_only(url: str):
+def read_only(url: str, schema: str | None = None):
     import psycopg
     from psycopg.rows import dict_row
 
     from core.db import _secure_url
 
-    return psycopg.connect(_secure_url(url), row_factory=dict_row, options="-c default_transaction_read_only=on",
+    conn = psycopg.connect(_secure_url(url), row_factory=dict_row, options="-c default_transaction_read_only=on",
                            connect_timeout=30)
+    if schema:
+        conn.execute(f'SET search_path TO "{schema}"')  # one business of a shared database
+    return conn
+
+
+def units(name: str, url: str) -> list[tuple[str, str | None]]:
+    """What to copy from one database: the whole of it, or, when it serves several businesses, each business's
+    schema separately (so each can be restored on its own) plus the operator's directory."""
+    from core.tenants import DIRECTORY_SCHEMA
+
+    with read_only(url) as conn:
+        shared = conn.execute("SELECT to_regclass(%s) AS t", (f"{DIRECTORY_SCHEMA}.tenants",)).fetchone()["t"]
+        if not shared:
+            return [(name, None)]
+        tenants = conn.execute(f"SELECT code, schema_name FROM {DIRECTORY_SCHEMA}.tenants ORDER BY code").fetchall()
+    return [(f"{name}-{t['code']}", t["schema_name"]) for t in tenants] + [(f"{name}-operador", DIRECTORY_SCHEMA)]
 
 
 def counts_pg(conn) -> dict[str, int]:
@@ -129,19 +145,27 @@ def take(out: Path) -> None:
     out.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M")
     manifest = {"created_utc": stamp, "businesses": {}}
-    for name, url in databases().items():
-        dump, db_file = out / f"{name}-{stamp}.dump", out / f"{name}-{stamp}.db"
-        with read_only(url) as conn:
-            counts = counts_pg(conn)
-            server = conn.execute("SHOW server_version_num").fetchone()["server_version_num"]
-            app_copy(conn, db_file)
-        run(["pg_dump", "--format=custom", "--no-owner", "--no-privileges", f"--file={dump}", f"--dbname={url}"])
-        files = {}
-        for plain in (dump, db_file):
-            enc = encrypt(plain, secret)
-            files[enc.name] = hashlib.sha256(enc.read_bytes()).hexdigest()
-        manifest["businesses"][name] = {"counts": counts, "server_version": int(server), "files": files}
-        print(f"{name}: copia cifrada ({', '.join(f'{k} {v}' for k, v in counts.items())})")
+    from core.tenants import DIRECTORY_SCHEMA
+
+    for base, url in databases().items():
+        for name, schema in units(base, url):
+            directory_only = schema == DIRECTORY_SCHEMA
+            dump, db_file = out / f"{name}-{stamp}.dump", out / f"{name}-{stamp}.db"
+            with read_only(url, schema) as conn:
+                counts = {} if directory_only else counts_pg(conn)
+                server = conn.execute("SHOW server_version_num").fetchone()["server_version_num"]
+                if not directory_only:
+                    app_copy(conn, db_file)
+            only = [f"--schema={schema}"] if schema else []
+            run(["pg_dump", "--format=custom", "--no-owner", "--no-privileges", *only, f"--file={dump}",
+                 f"--dbname={url}"])
+            files = {}
+            for plain in (dump,) if directory_only else (dump, db_file):
+                enc = encrypt(plain, secret)
+                files[enc.name] = hashlib.sha256(enc.read_bytes()).hexdigest()
+            manifest["businesses"][name] = {"counts": counts, "server_version": int(server), "files": files,
+                                            "schema": schema}
+            print(f"{name}: copia cifrada ({', '.join(f'{k} {v}' for k, v in counts.items()) or 'directorio'})")
     # Kept next to the copies for --verify; counts are not secret, but it is not uploaded with them.
     (out / "manifest.json").write_text(json.dumps(manifest, indent=2))
 
@@ -158,11 +182,12 @@ def verify(folder: Path) -> None:
         for file, digest in info["files"].items():
             if hashlib.sha256((folder / file).read_bytes()).hexdigest() != digest:
                 problems.append(f"{name}: {file} no coincide con su huella")
+        schema = info.get("schema")
         with tempfile.TemporaryDirectory() as tmp:
             dump_enc = next(folder / f for f in info["files"] if f.endswith(".dump.enc"))
-            db_enc = next(folder / f for f in info["files"] if f.endswith(".db.enc"))
+            db_enc = next((folder / f for f in info["files"] if f.endswith(".db.enc")), None)
             dump = decrypt(dump_enc, secret, Path(tmp) / "copy.dump")
-            db_file = decrypt(db_enc, secret, Path(tmp) / "copy.db")
+            db_file = decrypt(db_enc, secret, Path(tmp) / "copy.db") if db_enc else None
 
             scratch = f"drill_{name.replace('-', '_')}"
             with psycopg.connect(restore_url, autocommit=True) as admin:
@@ -170,7 +195,10 @@ def verify(folder: Path) -> None:
                 admin.execute(f'CREATE DATABASE "{scratch}"')
             target = urlunsplit(urlsplit(restore_url)._replace(path=f"/{scratch}"))
             run(["pg_restore", "--no-owner", "--no-privileges", "--exit-on-error", f"--dbname={target}", str(dump)])
-            with read_only(target) as conn:
+            if db_file is None:  # the operator's directory: restoring it without errors is the check
+                print(f"{name}: directorio restaurado")
+                continue
+            with read_only(target, schema) as conn:
                 restored = counts_pg(conn)
                 users = conn.execute("SELECT COUNT(*) AS n FROM users").fetchone()["n"]
             if restored != info["counts"]:

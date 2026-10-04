@@ -11,13 +11,17 @@ import streamlit as st
 
 from core.presets import PRESETS
 from core.security import ROLES
-from ui import pages, pages_intel, pages_management, pages_promos, pages_tables
+from ui import pages, pages_intel, pages_management, pages_promos, pages_tables, tenancy
 from ui.auth import logout_button, require_user
 from ui.context import PAGES, ctx
 from ui.styles import inject_css, sidebar_brand, sidebar_copyright, topbar
 from core import clock
 
 st.set_page_config(page_title="Gestor de Ventas", page_icon=":material/storefront:", layout="wide")
+
+# Several businesses in one app: decide which one this visit is for (or show the operator panel).
+if not tenancy.gate():
+    st.stop()
 
 try:
     c = ctx()

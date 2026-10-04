@@ -131,6 +131,31 @@ La app usa PostgreSQL cuando encuentra `database_url` en los *Secrets*; si no, u
 El plan gratuito de Neon basta para un negocio pequeño. La base se duerme tras unos minutos sin uso y tarda uno o dos
 segundos en despertar la primera vez; la app se reconecta sola.
 
+## Varios negocios en una sola app (modo multinegocio)
+
+En vez de una app y una base de datos por cliente, una sola app y una sola base de datos pueden atender a muchos
+negocios. Cada negocio vive en su propio esquema de PostgreSQL: sus ventas, clientes, facturas, cuentas y numeración
+no se mezclan con los de ningún otro, y nada de un negocio puede leer o cambiar lo de otro.
+
+1. En los *Secrets* de la app (con una base Neon, apartado anterior):
+   ```toml
+   database_url = "postgresql://…"
+   multi_tenant = true
+   operator_password = "una-contraseña-larga-solo-para-ti"
+   ```
+2. Abre `https://tu-app.streamlit.app/?operador`, entra con `operator_password` y **da de alta el negocio**: código
+   (va en la dirección, p. ej. `cafe-aurora`), nombre y contacto. Se muestra **una sola vez** su código de instalación.
+3. Envía al negocio su dirección (`…/?negocio=cafe-aurora`) y el código. Con él crea su administrador; después el
+   asistente de primera configuración deja el negocio listo.
+4. Desde el panel ves cada negocio (personas, ventas, última venta), puedes **suspender o reactivar** su acceso y
+   generar un código nuevo si lo perdió antes de crear su administrador. Todo queda en el registro del operador.
+
+Quien entra sin código ve «Entra en tu negocio»: la lista de negocios no se muestra nunca. Si en la misma pestaña se
+abre otro negocio, la sesión anterior se borra entera. Las copias automáticas detectan este modo y guardan **una copia
+cifrada por negocio** (más el directorio), cada una restaurable por separado.
+
+Sin `multi_tenant`, la app funciona como siempre: un negocio por app.
+
 ## Copias de seguridad automáticas
 
 Cada noche, GitHub Actions (gratis) hace una copia cifrada de la base de datos de cada negocio, la **restaura en una
