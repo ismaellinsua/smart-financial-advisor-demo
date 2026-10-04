@@ -158,6 +158,46 @@ button[kind="primary"]:disabled, button[data-testid^="stBaseButton-primary"]:dis
     )
 
 
+# Phones: the till shows either the catalogue or the ticket, switched from a bar fixed at the bottom, so «Cobrar» is
+# always two taps away; tiles stay three per row and every control is at least 44 px (WCAG 2.5.5).
+POS_MOBILE_CSS = """
+<style>
+.st-key-pos_bar {{ display: none; }}
+@media (max-width: 640px) {{
+  .st-key-pos_{hidden} {{ display: none !important; }}
+  .st-key-pos_bar {{ display: block; }}
+  .st-key-{fixed} {{ position: fixed; left: 0; right: 0; bottom: 0; z-index: 999990;
+                     padding: .6rem 1rem calc(.6rem + env(safe-area-inset-bottom)); background: var(--background-color, #fff);
+                     box-shadow: 0 -4px 16px rgba(16,24,40,.12); }}
+  .st-key-pos_grid .stButton button [data-testid="stIconMaterial"] {{ display: none; }}
+  [data-testid="stButtonGroup"] button, [data-testid="stNumberInputStepDown"], [data-testid="stNumberInputStepUp"],
+  [data-testid="stExpandSidebarButton"], [data-testid="stSidebarCollapseButton"] button {{
+      min-height: 44px; min-width: 44px; }}
+  [data-testid="stMainBlockContainer"] {{ padding-bottom: 6rem !important; }}
+  .st-key-pos_grid [data-testid="stHorizontalBlock"], .st-key-pos_lines [data-testid="stHorizontalBlock"] {{
+      flex-wrap: nowrap !important; gap: .4rem !important; }}
+  .st-key-pos_grid [data-testid="stColumn"], .st-key-pos_lines [data-testid="stColumn"] {{
+      min-width: 0 !important; width: auto !important; flex: 1 1 0 !important; }}
+  .st-key-pos_lines [data-testid="stColumn"]:first-child {{ flex: 5 1 0 !important; }}
+  .st-key-pos_grid .sm-tile-name {{ font-size: .85rem; min-height: 3.6em; }}
+  .st-key-pos_grid .sm-tile-cat, .st-key-pos_grid .sm-tile-stock {{ font-size: .68rem; }}
+  .st-key-pos_grid [data-testid="stVerticalBlockBorderWrapper"] {{ padding: .55rem !important; }}
+  .st-key-pos_grid .stButton button {{ padding: 0 .3rem; justify-content: center; }}
+  .st-key-pos_grid .stButton button * {{ gap: 0 !important; margin: 0 !important; justify-content: center; }}
+  .st-key-pos_grid .stButton button p {{ font-size: .85rem; white-space: nowrap; }}
+  .stButton button, .stDownloadButton button, [data-testid="stPopover"] button {{ min-height: 44px; }}
+  .st-key-pos_lines .stButton button {{ min-width: 44px; }}
+}}
+</style>
+"""
+
+
+def pos_mobile_css(view: str) -> None:
+    # Catalogue: the «see ticket» bar is fixed at the bottom. Ticket: «Cobrar» itself is, and «back» sits on top.
+    hidden, fixed = ("ticket", "pos_bar") if view == "catalogo" else ("catalog", "pos_charge")
+    st.markdown(POS_MOBILE_CSS.format(hidden=hidden, fixed=fixed), unsafe_allow_html=True)
+
+
 def page_header(title: str, subtitle: str = "", eyebrow: str = "") -> None:
     st.markdown(
         f"<div class='sm-header'><div>"

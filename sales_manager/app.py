@@ -91,6 +91,20 @@ if c.can("admin") and c.store.can_replace_data() and st.sidebar.button(
         "Cambiar de negocio", icon=":material/swap_horiz:", use_container_width=True):
     pages.switch_business_dialog()
 nav = st.navigation(sections, expanded=True)
+# On phones the menu covers the screen: close it as soon as a page is chosen (Streamlit leaves it open).
+st.html("""<script>
+(() => {
+  if (window.__nkCloseMenu) return;
+  window.__nkCloseMenu = true;
+  document.addEventListener("click", (event) => {
+    if (window.innerWidth > 768 || !event.target.closest('[data-testid="stSidebarNav"] a')) return;
+    setTimeout(() => {
+      const close = document.querySelector('[data-testid="stSidebarCollapseButton"] button');
+      if (close) close.click();
+    }, 150);
+  }, true);
+})();
+</script>""", unsafe_allow_javascript=True)
 logout_button(c.store, user)
 sidebar_copyright()
 

@@ -17,7 +17,7 @@ from core.receipts import receipt_html, refund_receipt_html
 from ui import pages_intel
 from ui.checkout import checkout_panel
 from ui.context import PAGES, ctx, get_store
-from ui.styles import insight, page_header, style_figure
+from ui.styles import insight, page_header, pos_mobile_css, style_figure
 from core import clock
 
 MONTHS = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto",
@@ -305,23 +305,38 @@ def point_of_sale() -> None:
         cart.pop(pid)
     by_id = products.set_index("id")
 
-    catalog, ticket = st.columns([3, 2], gap="large")
-    with catalog:
+    view = st.session_state.setdefault("pos_view", "catalogo")
+    if view == "ticket" and not cart:
+        view = st.session_state["pos_view"] = "catalogo"
+    pos_mobile_css(view)
+    with st.container(key="pos_bar"):
+        units = sum(cart.values())
+        if view == "catalogo":
+            st.button(f"Ver ticket y cobrar ({units})" if units else "Añade productos al ticket", key="pos_to_ticket",
+                      type="primary", use_container_width=True, icon=":material/shopping_cart:", disabled=not units,
+                      on_click=st.session_state.__setitem__, args=("pos_view", "ticket"))
+        else:
+            st.button("Seguir añadiendo", key="pos_to_catalog", use_container_width=True, icon=":material/arrow_back:",
+                      on_click=st.session_state.__setitem__, args=("pos_view", "catalogo"))
+
+    catalog_col, ticket_col = st.columns([3, 2], gap="large")
+    with catalog_col, st.container(key="pos_catalog"):
         f1, f2 = st.columns([2, 3])
         query = f1.text_input("Buscar", placeholder="Nombre o código…", label_visibility="collapsed")
         categories = sorted(products["category"].unique())
         selected = f2.pills("Categoría", categories, selection_mode="multi", label_visibility="collapsed")
-        view = products
+        shown = products
         if query:
             q = query.lower()
-            view = view[view["name"].str.lower().str.contains(q, regex=False)
-                        | view["sku"].str.lower().str.contains(q, regex=False)]
+            shown = shown[shown["name"].str.lower().str.contains(q, regex=False)
+                          | shown["sku"].str.lower().str.contains(q, regex=False)]
         if selected:
-            view = view[view["category"].isin(selected)]
-        if view.empty:
+            shown = shown[shown["category"].isin(selected)]
+        if shown.empty:
             st.info("No hay resultados con esos filtros.")
-        cols = st.columns(3)
-        for i, (_, p) in enumerate(view.iterrows()):
+        grid = st.container(key="pos_grid")
+        cols = grid.columns(3)
+        for i, (_, p) in enumerate(shown.iterrows()):
             pid = int(p["id"])
             available = p["stock"] - cart.get(pid, 0)
             with cols[i % 3], st.container(border=True):
@@ -340,13 +355,14 @@ def point_of_sale() -> None:
                     use_container_width=True, disabled=bool(p["track_stock"]) and available <= 0,
                 )
 
-    with ticket, st.container(border=True):
+    with ticket_col, st.container(key="pos_ticket"), st.container(border=True):
         st.markdown("#### Ticket actual")
         if not cart:
             st.caption("El ticket está vacío. Añade artículos desde el catálogo.")
+        lines = st.container(key="pos_lines")
         for pid, qty in list(cart.items()):
             p = by_id.loc[pid]
-            n, minus, q, plus = st.columns([6, 1, 1, 1], vertical_alignment="center")
+            n, minus, q, plus = lines.columns([6, 1, 1, 1], vertical_alignment="center")
             n.markdown(f"**{escape(p['name'])}**  \n<span style='opacity:.65'>{c.money(p['price'])} × {qty} = "
                        f"{c.money(p['price'] * qty)}</span>", unsafe_allow_html=True)
             minus.button("", key=f"dec_{pid}", on_click=_change_qty, args=(pid, -1), icon=":material/remove:",
@@ -378,6 +394,7 @@ def point_of_sale() -> None:
         if sale:
             cart.clear()
             st.session_state["last_sale"] = sale["id"]
+            st.session_state["pos_view"] = "catalogo"
             st.rerun()
         if cart and st.button("Vaciar ticket", use_container_width=True, icon=":material/delete:"):
             cart.clear()
