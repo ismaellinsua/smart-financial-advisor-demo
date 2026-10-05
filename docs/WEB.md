@@ -32,6 +32,20 @@ Con solo el email, el formulario abre el programa de correo del visitante con el
   2. Crea un formulario (**New form**) y copia el código que aparece en la dirección `https://formspree.io/f/XXXXXXX`.
   3. Pega solo `XXXXXXX` en `formspreeId`.
 
+### Contar visitas sin cookies (GoatCounter)
+
+La web puede contar visitas, páginas vistas y formularios enviados **sin cookies ni datos personales**, así que no
+necesita banner de cookies. Hasta que pongas tu código no cuenta nada.
+
+1. Crea una cuenta gratuita en [goatcounter.com](https://www.goatcounter.com) y elige un código, p. ej. `nirkana`
+   (tu panel quedará en `https://nirkana.goatcounter.com`).
+2. En el panel: **Settings → Data collection**, deja desmarcado guardar la IP y marca «Ignore IPs» con la tuya si no
+   quieres contarte.
+3. En `assets/site.js`, pon `const ANALYTICS = { goatcounter: "nirkana" };` y publica.
+
+Solo cuenta en `nirkana.es` (no en copias locales) y no cuenta a quien tenga activado «no rastrear» en su navegador.
+El aviso de privacidad ya lo explica.
+
 ## Publicarla gratis con GitHub Pages
 
 1. En GitHub, abre el repositorio → **Settings → Pages**.

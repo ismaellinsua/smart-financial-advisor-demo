@@ -208,7 +208,7 @@ def _bootstrap(store: Store) -> None:
         with st.form("bootstrap"):
             code = st.text_input(code_label, type="password", max_chars=128)
             name = st.text_input("Tu nombre", max_chars=120)
-            username = st.text_input("Usuario", max_chars=30, placeholder="p. ej. ismael",
+            username = st.text_input("Usuario", max_chars=30, placeholder="p. ej. marta",
                                      help="Minúsculas, números, punto o guion. Lo usarás para entrar.")
             secret = st.text_input("Contraseña", type="password", max_chars=128,
                                    help="Al menos 8 caracteres, con letras y números o símbolos.")

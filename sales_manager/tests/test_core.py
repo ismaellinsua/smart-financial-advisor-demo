@@ -378,7 +378,7 @@ def test_users_and_login_lockout(make_store):
     for weak in ("4826", "123456", "654321", "111111"):  # too short or too easy
         with pytest.raises(ValueError):
             s.create_user("Ana", "ana", "empleado", weak)
-    admin = s.create_user("Ismael", "ismael", "admin", "Segura2026")
+    admin = s.create_user("Elena", "elena", "admin", "Segura2026")
     s.create_user("Ana", "ANA", "empleado", "482619")
     with pytest.raises(ValueError, match="Ya existe"):
         s.create_user("Otra", "ana", "empleado", "482619")
@@ -421,31 +421,31 @@ def test_recovery_code_lets_a_locked_out_admin_back_in(make_store):
     from core.db import AuthError, MAX_FAILED_LOGINS
 
     s = make_store()
-    admin = s.create_user("Ismael", "ismael", "admin", "Segura2026")
+    admin = s.create_user("Elena", "elena", "admin", "Segura2026")
     codes = s.create_recovery_codes(admin)
     assert len(codes) == 8 and len(set(codes)) == 8 and s.recovery_codes_left(admin) == 8
     for _ in range(MAX_FAILED_LOGINS):  # someone locks the owner out
         with pytest.raises(AuthError):
-            s.authenticate("ismael", "adivinando1")
+            s.authenticate("elena", "adivinando1")
     with pytest.raises(AuthError, match="Demasiados"):
-        s.authenticate("ismael", "Segura2026")
+        s.authenticate("elena", "Segura2026")
     with pytest.raises(AuthError):
-        s.recover_with_code("ismael", "AAAA-BBBB-CCCC", "Nueva2026!")
-    user = s.recover_with_code("ismael", codes[0].lower().replace("-", " "), "Nueva2026!")  # typed loosely
+        s.recover_with_code("elena", "AAAA-BBBB-CCCC", "Nueva2026!")
+    user = s.recover_with_code("elena", codes[0].lower().replace("-", " "), "Nueva2026!")  # typed loosely
     assert user["role"] == "admin" and s.recovery_codes_left(admin) == 7
-    assert s.authenticate("ismael", "Nueva2026!")["id"] == admin
+    assert s.authenticate("elena", "Nueva2026!")["id"] == admin
     with pytest.raises(AuthError):
-        s.recover_with_code("ismael", codes[0], "Otra2026!")  # each code works once
+        s.recover_with_code("elena", codes[0], "Otra2026!")  # each code works once
     s.create_recovery_codes(admin)
     with pytest.raises(AuthError):
-        s.recover_with_code("ismael", codes[1], "Otra2026!")  # new codes replace the unused old ones
+        s.recover_with_code("elena", codes[1], "Otra2026!")  # new codes replace the unused old ones
 
 
 def test_recovery_codes_are_only_for_administrators(make_store):
     from core.db import AuthError
 
     s = make_store()
-    s.create_user("Ismael", "ismael", "admin", "Segura2026")
+    s.create_user("Elena", "elena", "admin", "Segura2026")
     staff = s.create_user("Ana", "ana", "empleado", "482619")
     with pytest.raises(ValueError):
         s.create_recovery_codes(staff)
@@ -460,20 +460,20 @@ def test_two_factor_login(make_store):
     from core.security import new_totp_secret, totp_code
 
     s = make_store()
-    admin = s.create_user("Ismael", "ismael", "admin", "Segura2026")
+    admin = s.create_user("Elena", "elena", "admin", "Segura2026")
     secret = new_totp_secret()
     with pytest.raises(ValueError):
         s.enable_two_factor(admin, secret, "000000" if totp_code(secret) != "000000" else "111111")
     s.enable_two_factor(admin, secret, totp_code(secret))
     assert bool(s.user(admin)["two_factor"])
     with pytest.raises(AuthError, match="incorrectos"):
-        s.authenticate("ismael", "Segura2026")  # password alone is not enough
+        s.authenticate("elena", "Segura2026")  # password alone is not enough
     with pytest.raises(AuthError, match="incorrectos"):
-        s.authenticate("ismael", "mala2026", otp=totp_code(secret))
-    assert s.authenticate("ismael", "Segura2026", otp=totp_code(secret, time.time() - 30))["id"] == admin
+        s.authenticate("elena", "mala2026", otp=totp_code(secret))
+    assert s.authenticate("elena", "Segura2026", otp=totp_code(secret, time.time() - 30))["id"] == admin
     codes = s.create_recovery_codes(admin)
-    s.recover_with_code("ismael", codes[0], "Nueva2026!")  # lost phone: recovery turns it off
-    assert not s.user(admin)["two_factor"] and s.authenticate("ismael", "Nueva2026!")["id"] == admin
+    s.recover_with_code("elena", codes[0], "Nueva2026!")  # lost phone: recovery turns it off
+    assert not s.user(admin)["two_factor"] and s.authenticate("elena", "Nueva2026!")["id"] == admin
 
 
 def test_totp_matches_rfc_6238():
@@ -492,7 +492,7 @@ def test_change_own_secret(make_store):
     from core.db import AuthError
 
     s = make_store()
-    s.create_user("Ismael", "ismael", "admin", "Segura2026")
+    s.create_user("Elena", "elena", "admin", "Segura2026")
     ana = s.create_user("Ana", "ana", "empleado", "482619")
     with pytest.raises(ValueError, match="actual"):
         s.change_own_secret(ana, "000000", "771930")
@@ -537,7 +537,7 @@ def test_backups_never_contain_accounts(store, make_store):
     import tempfile
     from pathlib import Path
 
-    store.create_user("Ismael", "ismael", "admin", "Segura2026")
+    store.create_user("Elena", "elena", "admin", "Segura2026")
     data = store.backup_bytes()
     with tempfile.TemporaryDirectory() as tmp:
         path = Path(tmp) / "b.db"
@@ -1101,7 +1101,7 @@ def test_catalog_edit_never_overwrites_stock_sold_meanwhile(store):
 
 def test_staff_discount_needs_a_manager(store):
     from core.db import AuthError
-    store.create_user("Ismael", "ismael", "admin", "Segura2026")
+    store.create_user("Elena", "elena", "admin", "Segura2026")
     store.create_user("Javier", "javier", "encargado", "582913")
     store.create_user("Lucía", "lucia", "empleado", "482619")
     cart = [{"product_id": product_id(store, "CAM-001"), "quantity": 1}]

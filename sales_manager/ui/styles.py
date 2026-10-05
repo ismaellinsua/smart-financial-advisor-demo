@@ -264,7 +264,7 @@ def topbar(business: str, today_total: str, today_count: int, next_up: str = "",
 
 
 def sidebar_copyright() -> None:
-    st.sidebar.caption("© 2026 Ismael Linsua · Todos los derechos reservados")
+    st.sidebar.caption("© 2026 NirKanA · Todos los derechos reservados")
 
 
 INSIGHT_TAGS = {"good": "Fortaleza", "warning": "Atención", "info": "Idea"}

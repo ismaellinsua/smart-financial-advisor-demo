@@ -12,11 +12,31 @@ const CONTACT = {
 };
 const MESSAGE = "Hola, me interesa NirKanA para mi negocio. ¿Podemos ver una demo?";
 
+// Visit counter (GoatCounter): your site code, e.g. "nirkana" for nirkana.goatcounter.com. Empty: nothing is counted.
+// No cookies, nothing stored on the visitor's device, no third-party script; visitors who ask not to be tracked
+// (Do Not Track or Global Privacy Control) are not counted.
+const ANALYTICS = { goatcounter: "" };
+
 (() => {
   "use strict";
   document.documentElement.classList.add("js");
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const finePointer = window.matchMedia("(pointer: fine)").matches;
+
+  // ------------------------------------------------------------ respectful visit counter
+  const counting = /^[a-z0-9][a-z0-9-]{1,49}$/.test(ANALYTICS.goatcounter)
+    && navigator.doNotTrack !== "1" && !navigator.globalPrivacyControl
+    && /(^|\.)nirkana\.es$/.test(location.hostname); // only the published site, never local copies
+  const countVisit = (path, title, event = false) => {
+    if (!counting) return;
+    let from = "";
+    try { from = document.referrer ? new URL(document.referrer).hostname : ""; } catch { /* no referrer */ }
+    const query = new URLSearchParams({ p: path, t: title, r: from === location.hostname ? "" : from,
+                                        s: `${screen.width},${screen.height}`, rnd: Math.random().toString(36).slice(2) });
+    if (event) query.set("e", "true");
+    new Image().src = `https://${ANALYTICS.goatcounter}.goatcounter.com/count?${query}`;
+  };
+  countVisit(location.pathname, document.title);
 
   // ------------------------------------------------------------ direct contact buttons
   const phone = String(CONTACT.whatsapp).replace(/\D/g, "");
@@ -92,6 +112,7 @@ const MESSAGE = "Hola, me interesa NirKanA para mi negocio. ¿Podemos ver una de
         if (!res.ok) throw new Error(String(res.status));
         form.reset();
         lastSent = Date.now();
+        countVisit("contacto-enviado", "Formulario de contacto enviado", true); // how many visits become requests
         say("¡Gracias! Te responderé en menos de 24 horas laborables.", "ok");
       } catch {
         say(email ? `No se pudo enviar. Inténtalo de nuevo o escríbenos a ${email}.` : "No se pudo enviar. Inténtalo de nuevo en unos minutos.", "err");
