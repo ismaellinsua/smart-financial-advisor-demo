@@ -788,6 +788,43 @@ def _history_invoices(c) -> None:
 
 
 # ---------------------------------------------------------------------- cash
+OFFLINE_TILL_URL = "https://ismaellinsua.github.io/smart-financial-advisor-demo/caja/"
+
+
+def _offline_till_panel(c) -> None:
+    """The till that works without internet: its catalogue file goes out from here and its sales come back."""
+    from core.store_offline import DEVICES, OfflineImportError
+
+    with st.expander("Caja sin conexión", icon=":material/wifi_off:"):
+        st.markdown(
+            "Si se cae internet, sigue cobrando con la **caja sin conexión**: se instala en el móvil o la tablet y "
+            "funciona sin red. Guarda las ventas en el dispositivo y aquí las importas cuando vuelva la conexión.")
+        a, b = st.columns([1, 2], vertical_alignment="bottom")
+        device = a.selectbox("Número de caja", list(DEVICES),
+                             help="Uno distinto por dispositivo: cada caja numera sus tickets en su propia serie.")
+        logged_download(b, "Descargar archivo de catálogo", c.store.offline_package(device),
+                        f"catalogo-caja{device}.json", mime="application/json", icon=":material/download:")
+        st.link_button("Abrir la caja sin conexión", OFFLINE_TILL_URL, icon=":material/open_in_new:")
+        st.caption("1) Abre la caja en el dispositivo e **instálala** (menú del navegador → Instalar o Añadir a pantalla "
+                   "de inicio). 2) Carga el archivo de catálogo. 3) Vuelve a descargarlo y cargarlo cuando cambies "
+                   "precios o productos. La caja sin conexión no aplica promociones, puntos ni clientes.")
+        st.markdown("**Importar ventas**")
+        upload = st.file_uploader("Archivo de ventas de la caja sin conexión", type=["json"], key="offline_upload")
+        if upload is not None and st.button("Importar", type="primary", icon=":material/upload:"):
+            try:
+                result = c.store.import_offline_sales(upload.getvalue(), c.who)
+            except OfflineImportError as exc:
+                st.error(str(exc))
+            else:
+                text = (f"{result['imported']} ventas importadas ({c.money(result['total'])})"
+                        + (f", {result['repeated']} ya estaban" if result["repeated"] else "")
+                        + (f", {result['rejected']} sin importar" if result["rejected"] else "") + ".")
+                (st.warning if result["rejected"] else st.success)(
+                    text + ("" if result["rejected"] else " Ya puedes borrarlas de la caja sin conexión."))
+                for note in result["notes"]:
+                    st.caption(note)
+
+
 def cash_page() -> None:
     c = ctx()
     if not _require(c, "encargado"):
@@ -796,6 +833,7 @@ def cash_page() -> None:
                 eyebrow="Caja")
     if "cash_flash" in st.session_state:
         st.success(st.session_state.pop("cash_flash"))
+    _offline_till_panel(c)
     day = st.date_input("Día", clock.today(), max_value=clock.today(), format="DD/MM/YYYY", key="cash_day")
     summary = c.store.day_summary(day)
     closing = c.store.cash_closing(day)
@@ -1877,6 +1915,13 @@ HELP = [
     ("encargado", "Cerrar la caja", [
         "Al final del día abre **Caja**, cuenta el efectivo y escribe lo contado: verás si hay descuadre.",
         "Descarga el cierre en PDF si lo necesitas para tu gestoría.",
+    ]),
+    ("encargado", "Si se cae internet", [
+        "Prepáralo antes: en **Caja → Caja sin conexión** descarga el archivo de catálogo, abre la caja sin conexión "
+        "en el móvil o la tablet, instálala y carga el archivo.",
+        "Sin internet, cobra desde esa caja: guarda las ventas en el dispositivo con su propia numeración.",
+        "Con internet otra vez: en la caja, «Guardar archivo de ventas»; en la app, **Caja → Importar ventas**; y "
+        "después bórralas de la caja. Importar dos veces el mismo archivo no duplica nada.",
     ]),
     ("encargado", "Reservas online", [
         "En **Agenda → Reservas online**, pon tu horario y los días cerrados, y activa «Aceptar reservas online».",

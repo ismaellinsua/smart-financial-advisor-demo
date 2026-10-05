@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'; worker-src 'self'; manifest-src 'self'; base-uri 'none'; object-src 'none'; form-action 'none'">
+  <meta name="referrer" content="no-referrer">
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#3B5BFD">
+  <title>Caja sin conexión · NirKanA</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icono.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icono.svg">
+  <link rel="stylesheet" href="caja.css">
+  <script src="caja.js" defer></script>
+</head>
+<body>
+  <header class="bar">
+    <img src="icono.svg" alt="" width="32" height="32">
+    <div class="who">
+      <strong id="business">Caja sin conexión</strong>
+      <span id="catalog-date" class="muted"></span>
+    </div>
+    <span id="net" class="pill" aria-live="polite"></span>
+    <button id="open-pending" class="pill pending" type="button" hidden>
+      <span id="pending-count">0</span> por enviar
+    </button>
+  </header>
+
+  <main>
+    <section id="setup" class="card setup" hidden>
+      <h1>Caja sin conexión</h1>
+      <p>Cobra aunque se caiga internet. Las ventas se guardan en este dispositivo y las pasas a NirKanA cuando
+        vuelva la conexión.</p>
+      <ol>
+        <li>En la app, ve a <strong>Caja → Caja sin conexión</strong> y descarga el <strong>archivo de catálogo</strong>
+          de esta caja.</li>
+        <li>Cárgalo aquí.</li>
+        <li>Instala esta página en el dispositivo (menú del navegador → <em>Instalar</em> o <em>Añadir a pantalla de
+          inicio</em>): así se abre aunque no haya internet.</li>
+      </ol>
+      <label class="button primary file">
+        Cargar archivo de catálogo
+        <input id="package-file" type="file" accept=".json,application/json">
+      </label>
+      <p id="setup-error" class="error" role="alert" hidden></p>
+    </section>
+
+    <section id="till" hidden>
+      <div class="products">
+        <input id="search" type="search" placeholder="Buscar producto…" autocomplete="off" aria-label="Buscar producto">
+        <div id="categories" class="chips" role="group" aria-label="Categorías"></div>
+        <div id="grid" class="grid"></div>
+      </div>
+
+      <aside class="card cart" aria-label="Ticket">
+        <h2>Ticket</h2>
+        <ul id="lines" class="lines"></ul>
+        <p id="empty" class="muted">Toca un producto para añadirlo.</p>
+        <div class="total"><span>Total</span><strong id="total">0,00 €</strong></div>
+        <div id="methods" class="chips methods" role="radiogroup" aria-label="Forma de pago"></div>
+        <label id="cash-row" class="cash" hidden>Entregado
+          <input id="tendered" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0,00">
+          <span id="change" class="muted"></span>
+        </label>
+        <button id="charge" class="button primary big" type="button" disabled>Cobrar</button>
+      </aside>
+    </section>
+  </main>
+
+  <button id="to-cart" class="button primary to-cart" type="button" hidden></button>
+
+  <dialog id="ticket-dialog" aria-labelledby="ticket-title">
+    <h2 id="ticket-title">Venta guardada</h2>
+    <div id="ticket" class="ticket"></div>
+    <div class="row">
+      <button id="print" class="button" type="button">Imprimir</button>
+      <button id="next-sale" class="button primary" type="button">Nueva venta</button>
+    </div>
+  </dialog>
+
+  <dialog id="pending-dialog" aria-labelledby="pending-title">
+    <h2 id="pending-title">Ventas por enviar a NirKanA</h2>
+    <p id="pending-summary" class="muted"></p>
+    <ul id="pending-list" class="pending-list"></ul>
+    <ol class="steps">
+      <li>Guarda el archivo de ventas (o compártelo contigo por email o WhatsApp).</li>
+      <li>En la app: <strong>Caja → Caja sin conexión → Importar ventas</strong>.</li>
+      <li>Cuando la app confirme la importación, bórralas de aquí.</li>
+    </ol>
+    <div class="row">
+      <button id="export" class="button primary" type="button">Guardar archivo de ventas</button>
+      <button id="share" class="button" type="button" hidden>Compartir</button>
+    </div>
+    <button id="clear" class="button danger" type="button" disabled>Ya las importé: borrarlas de este dispositivo</button>
+    <hr>
+    <label class="button file small">Cambiar el catálogo
+      <input id="package-file-2" type="file" accept=".json,application/json">
+    </label>
+    <p id="pending-error" class="error" role="alert" hidden></p>
+    <button id="close-pending" class="button" type="button">Cerrar</button>
+  </dialog>
+
+  <section id="print-area" aria-hidden="true"></section>
+</body>
+</html>

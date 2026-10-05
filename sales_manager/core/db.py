@@ -29,6 +29,7 @@ from .store_privacy import PrivacyMixin
 from .store_errors import ErrorsMixin
 from .accounting import AccountingMixin
 from .store_bookings import AGENDA_LOCK, BookingMixin, clean_phone
+from .store_offline import OfflineMixin
 from .security import (
     DUMMY_HASH, RECOVERY_CODE_COUNT, RECOVERY_ITERATIONS, ROLE_RANK, ROLES, USERNAME_RE, check_secret_strength,
     clean_text, hash_secret, is_safe_identifier, new_recovery_code, normalize_recovery_code, verify_secret, verify_totp,
@@ -420,6 +421,8 @@ MIGRATIONS = [
     ("appointments", "source", "TEXT NOT NULL DEFAULT 'equipo'"),
     ("appointments", "cancel_hash", "TEXT NOT NULL DEFAULT ''"),
     ("appointments", "reminded_at", "TEXT NOT NULL DEFAULT ''"),
+    # Sales made on the offline till: its own id, so importing the same file twice never duplicates a sale.
+    ("sales", "offline_id", "TEXT NOT NULL DEFAULT ''"),
 ]
 
 # An account locks for a fixed, short time after many failures. A long or growing lock would let anyone who knows a
@@ -695,7 +698,7 @@ def _is_postgres(target) -> bool:
 
 # ----------------------------------------------------------------------------- store
 class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin, BillingMixin, SessionsMixin,
-            PrivacyMixin, ErrorsMixin, AccountingMixin, BookingMixin):
+            PrivacyMixin, ErrorsMixin, AccountingMixin, BookingMixin, OfflineMixin):
     SaleError = SaleError
     def __init__(self, path=DEFAULT_DB_PATH, schema: str | None = None):
         """`schema`: on PostgreSQL, the business's own schema when one database serves several businesses."""
@@ -706,6 +709,7 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin, Billin
             for table, column, ddl in MIGRATIONS:
                 if column not in self.db.columns(cur, table):
                     cur.execute(f"ALTER TABLE {table} ADD COLUMN {column} {ddl.format(real=self.db.real)}")
+            cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS sales_offline_id ON sales(offline_id) WHERE offline_id <> ''")
             self.db.make_append_only(cur, "billing_records")
             self._backfill_payments(cur)
             had_mode = "demo_mode" in self._settings(cur)

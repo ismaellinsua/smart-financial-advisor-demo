@@ -1,0 +1,15 @@
+{
+  "name": "NirKanA · Caja sin conexión",
+  "short_name": "Caja NirKanA",
+  "description": "Cobra sin internet y envía las ventas a NirKanA cuando vuelva la conexión.",
+  "lang": "es",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#F6F7FB",
+  "theme_color": "#3B5BFD",
+  "icons": [
+    {"src": "icono.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any"}
+  ]
+}
