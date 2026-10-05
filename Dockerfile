@@ -3,7 +3,8 @@
 FROM caddy:2 AS caddy
 
 FROM python:3.12-slim
-ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 PORT=8080
+# REQUIRE_DATABASE: the container's disk is wiped on every deploy, so the app refuses to keep data on it.
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 PORT=8080 REQUIRE_DATABASE=1
 COPY --from=caddy /usr/bin/caddy /usr/local/bin/caddy
 WORKDIR /app
 COPY requirements.txt .

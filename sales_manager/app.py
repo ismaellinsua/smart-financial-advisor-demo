@@ -15,7 +15,7 @@ from core.presets import PRESETS
 from core.security import ROLES
 from ui import booking, pages, pages_billing, pages_intel, pages_management, pages_promos, pages_tables, tenancy
 from ui.auth import logout_button, require_user
-from ui.context import PAGES, ctx, stripe_client
+from ui.context import PAGES, MissingDatabase, ctx, stripe_client
 from ui.styles import inject_css, installable, sidebar_brand, sidebar_copyright, topbar
 from core import clock
 
@@ -31,6 +31,11 @@ if not tenancy.gate():
 
 try:
     c = ctx()
+except MissingDatabase:
+    st.error("Este servidor no tiene base de datos configurada. Añade `DATABASE_URL` (la cadena de conexión de Neon) "
+             "en las variables de entorno del servidor y vuelve a desplegar. La app no guarda datos en el disco del "
+             "servidor porque se borra en cada despliegue.", icon=":material/database_off:")
+    st.stop()
 except Exception as exc:  # the database is unreachable or the URL is wrong; retried on the next visit
     st.error(
         "No se pudo conectar con la base de datos. Revisa que `database_url` en los *Secrets* de Streamlit "

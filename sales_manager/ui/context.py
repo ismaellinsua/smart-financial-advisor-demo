@@ -49,9 +49,19 @@ def tenant_code() -> str:
     return st.session_state.get("tenant", "")
 
 
+class MissingDatabase(RuntimeError):
+    """A server whose disk is wiped on every deploy (the container) must keep the data in an external database."""
+
+
+def require_external_database() -> bool:
+    return os.environ.get("REQUIRE_DATABASE", "").lower() in ("1", "true", "si", "sí", "yes")
+
+
 @st.cache_resource(show_spinner="Conectando con la base de datos…")
 def _single_store() -> Store:
     url = database_url()
+    if not url and require_external_database():
+        raise MissingDatabase("DATABASE_URL no está definida")
     return Store(url) if url else Store()
 
 
