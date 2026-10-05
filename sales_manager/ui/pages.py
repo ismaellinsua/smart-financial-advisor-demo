@@ -1797,6 +1797,11 @@ HELP = [
         "Al final del día abre **Caja**, cuenta el efectivo y escribe lo contado: verás si hay descuadre.",
         "Descarga el cierre en PDF si lo necesitas para tu gestoría.",
     ]),
+    ("encargado", "Papeles para la gestoría", [
+        "Abre **Gestoría**, elige el trimestre y descarga el Excel: libro de facturas emitidas, IVA por tipo, "
+        "retenciones, tickets anulados y gastos.",
+        "Envíaselo a tu gestoría antes del día 20 del mes siguiente al trimestre (plazo del IVA trimestral).",
+    ]),
     ("encargado", "Stock y precios", [
         "En el catálogo, cambia precios (con IVA incluido) y el IVA de cada producto.",
         "Para el stock usa **ajustes** (+ o −) con su motivo: nunca se pisan las ventas hechas mientras tanto.",

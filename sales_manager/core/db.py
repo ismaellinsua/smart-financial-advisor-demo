@@ -27,6 +27,7 @@ from .store_billing import BillingMixin
 from .store_sessions import SessionsMixin
 from .store_privacy import PrivacyMixin
 from .store_errors import ErrorsMixin
+from .accounting import AccountingMixin
 from .security import (
     DUMMY_HASH, RECOVERY_CODE_COUNT, RECOVERY_ITERATIONS, ROLE_RANK, ROLES, USERNAME_RE, check_secret_strength,
     clean_text, hash_secret, is_safe_identifier, new_recovery_code, normalize_recovery_code, verify_secret, verify_totp,
@@ -406,6 +407,11 @@ MIGRATIONS = [
     ("customers", "marketing_consent", "INTEGER NOT NULL DEFAULT 0"),
     ("customers", "consent_at", "TEXT NOT NULL DEFAULT ''"),
     ("customers", "anonymized_at", "TEXT NOT NULL DEFAULT ''"),
+    # The supplier's invoice behind an expense, for the register of invoices received (deductible VAT).
+    ("expenses", "invoice_number", "TEXT NOT NULL DEFAULT ''"),
+    ("expenses", "issuer_tax_id", "TEXT NOT NULL DEFAULT ''"),
+    ("expenses", "issuer_name", "TEXT NOT NULL DEFAULT ''"),
+    ("expenses", "tax_rate", "{real}"),
 ]
 
 # An account locks for a fixed, short time after many failures. A long or growing lock would let anyone who knows a
@@ -681,7 +687,7 @@ def _is_postgres(target) -> bool:
 
 # ----------------------------------------------------------------------------- store
 class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin, BillingMixin, SessionsMixin,
-            PrivacyMixin, ErrorsMixin):
+            PrivacyMixin, ErrorsMixin, AccountingMixin):
     SaleError = SaleError
     def __init__(self, path=DEFAULT_DB_PATH, schema: str | None = None):
         """`schema`: on PostgreSQL, the business's own schema when one database serves several businesses."""

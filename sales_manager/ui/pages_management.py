@@ -276,9 +276,20 @@ def expenses_page() -> None:
         a, b = st.columns(2)
         amount = a.number_input(f"Importe ({c.symbol})", 0.0, 10_000_000.0, 0.0, step=10.0)
         method = b.selectbox("Pagado por", PAYMENT_METHODS, index=PAYMENT_METHODS.index("Transferencia"))
+        with st.expander("Factura del proveedor (para deducir el IVA)", icon=":material/receipt:"):
+            st.caption("Con estos datos el gasto entra en el libro de facturas recibidas del Excel para la gestoría.")
+            a, b = st.columns(2)
+            issuer = a.text_input("Proveedor", max_chars=120)
+            issuer_tax_id = b.text_input("NIF del proveedor", max_chars=20)
+            invoice_number = a.text_input("Nº de factura", max_chars=40)
+            rates = [None, 21.0, 10.0, 5.0, 4.0, 0.0]
+            tax_rate = b.selectbox("IVA de la factura", rates, format_func=lambda r: "Sin factura" if r is None
+                                   else f"{r:g} %", help="El importe de arriba es el total de la factura, con IVA.")
         if st.form_submit_button("Apuntar gasto", type="primary", icon=":material/add:"):
             try:
-                c.store.add_expense(day, category, description, amount, method, created_by=c.who)
+                c.store.add_expense(day, category, description, amount, method, created_by=c.who,
+                                    invoice_number=invoice_number, issuer_tax_id=issuer_tax_id, issuer_name=issuer,
+                                    tax_rate=tax_rate)
             except ValueError as exc:
                 st.error(str(exc))
             else:
@@ -309,3 +320,65 @@ def expenses_page() -> None:
                 else:
                     st.session_state["expense_flash"] = "Gasto fijo añadido."
                     st.rerun()
+
+
+# ------------------------------------------------------------------ gestoría
+def accounting_page() -> None:
+    from core.accounting import quarter
+
+    c = ctx()
+    if not c.can("encargado"):
+        st.error("No tienes permiso para ver esta sección.", icon=":material/lock:")
+        return
+    page_header("Gestoría", "Todo lo que pide tu gestoría cada trimestre: libro de facturas emitidas, resumen de IVA "
+                "por tipo, retenciones y gastos, en un Excel.", eyebrow="Gestión")
+    first, _ = quarter(clock.today())
+    quarters = []
+    for _ in range(8):  # this quarter and the seven before
+        start, end = quarter(first)
+        quarters.append((start, end))
+        first = (start - timedelta(days=1)).replace(day=1)
+    labels = {q: f"{(q[0].month - 1) // 3 + 1}T {q[0].year}" for q in quarters}
+    a, b = st.columns([1, 2])
+    today = clock.today()
+    filing = (today.month - 1) % 3 == 0 and today.day <= 20  # first 20 days: the previous quarter is being filed
+    chosen = a.selectbox("Trimestre", quarters, format_func=labels.get, index=1 if filing else 0,
+                         help="El IVA trimestral (modelo 303) se presenta del 1 al 20 del mes siguiente al trimestre.")
+    start, end = chosen
+    b.caption(f"Del {start:%d/%m/%Y} al {end - timedelta(days=1):%d/%m/%Y}.")
+    book, voided = c.store.issued_book(start, end)
+    summary = c.store.vat_summary(book)
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("Facturación", c.money(book["Total"].sum() if not book.empty else 0))
+    m2.metric("Base imponible", c.money(book["Base imponible"].sum() if not book.empty else 0))
+    m3.metric("IVA repercutido", c.money(book["Cuota IVA"].sum() if not book.empty else 0))
+    m4.metric("IRPF retenido", c.money(book["Retención IRPF"].sum() if not book.empty else 0),
+              help="Lo que te retuvieron tus clientes en facturas con IRPF (para el modelo 130 si eres autónomo).")
+    st.markdown("##### IVA por tipo")
+    if summary.empty:
+        st.info("No hay ventas en este trimestre.")
+    else:
+        st.dataframe(summary, hide_index=True, width="stretch", column_config={
+            "Tipo IVA %": st.column_config.NumberColumn(format="%.0f %%"),
+            **{col: st.column_config.NumberColumn(format=f"%.2f {c.symbol}")
+               for col in ("Base imponible", "Cuota IVA", "Total")}})
+    received = c.store.received_book(start, end)
+    deductible = float(received["Cuota IVA"].sum()) if not received.empty else 0.0
+    charged = float(book["Cuota IVA"].sum()) if not book.empty else 0.0
+    st.caption(f"IVA soportado en facturas recibidas: **{c.money(deductible)}** ({len(received)} facturas) · "
+               f"diferencia orientativa a ingresar: **{c.money(charged - deductible)}**. Es una orientación: "
+               "tu gestoría revisa qué IVA es deducible.")
+    with st.expander(f"Libro de facturas emitidas ({len(book)} líneas)", icon=":material/menu_book:"):
+        st.caption("Los tickets van en un apunte por día y tipo de IVA (con su primer y último número); los de más de "
+                   "3.000 € van uno a uno. Un ticket que se cambió por factura se cuenta solo en la factura. Las "
+                   "devoluciones y rectificativas restan.")
+        st.dataframe(book, hide_index=True, width="stretch")
+    if not voided.empty:
+        st.caption(f"{len(voided)} ticket(s) anulados en el trimestre: van en una hoja aparte del Excel para que la "
+                   "numeración cuadre.")
+    name = f"gestoria-{labels[chosen].replace(' ', '-')}.xlsx"
+    logged_download(st, "Descargar Excel para la gestoría", lambda: c.store.gestoria_workbook(start, end), name,
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", type="primary",
+                    icon=":material/download:")
+    st.caption("Incluye: resumen, libro de facturas emitidas, libro de facturas recibidas (los gastos apuntados con la "
+               "factura del proveedor), tickets anulados y todos los gastos.")

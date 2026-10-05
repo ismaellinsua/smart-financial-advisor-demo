@@ -62,6 +62,8 @@ PAGES.update(
     automations=st.Page(pages.automations_page, title="Automatizaciones", icon=":material/bolt:",
                         url_path="automatizaciones"),
     help=st.Page(pages.help_page, title="Ayuda", icon=":material/help:", url_path="ayuda"),
+    accounting=st.Page(pages_management.accounting_page, title="Gestoría", icon=":material/request_page:",
+                       url_path="gestoria"),
     intelligence=st.Page(pages_intel.intelligence_page, title="Alertas y análisis", icon=":material/insights:",
                          url_path="inteligencia"),
     settings=st.Page(pages.settings_page, title="Configuración", icon=":material/settings:", url_path="ajustes"),
@@ -87,7 +89,8 @@ sections = {"Operación": [*([P["dashboard"]] if c.can("encargado") else []),
                           *([P["agenda"]] if show_agenda else []),
                           *([P["cash"]] if c.can("encargado") else []), P["history"]]}
 if c.can("encargado"):
-    sections["Gestión"] = [P["products"], P["customers"], P["promos"], P["purchases"], P["expenses"]]
+    sections["Gestión"] = [P["products"], P["customers"], P["promos"], P["purchases"], P["expenses"],
+                           P["accounting"]]
     sections["Inteligencia"] = [P["intelligence"], P["automations"]]
 if c.can("admin"):
     sections["Ajustes"] = [P["settings"], P["team"], P["help"]]

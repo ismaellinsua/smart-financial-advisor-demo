@@ -11,7 +11,8 @@ APP = str(Path(__file__).resolve().parent.parent / "app.py")
 ROOT = str(Path(APP).parent)
 PAGES = ["dashboard", "intelligence_page", "point_of_sale", "history", "products_page", "customers_page", "automations_page",
          "settings_page", "cash_page", "agenda_page", "team_page", "promotions_page", "tables_page",
-         "kitchen_page", "purchases_page", "expenses_page", "help_page"]
+         "kitchen_page", "purchases_page", "expenses_page", "help_page",
+         "accounting_page"]
 
 # Renders a single page function against a given database file.
 SCRIPT = """
@@ -25,6 +26,7 @@ ui.pages_tables.get_store = lambda: store
 import ui.pages_management
 ui.pages.purchases_page = ui.pages_management.purchases_page
 ui.pages.expenses_page = ui.pages_management.expenses_page
+ui.pages.accounting_page = ui.pages_management.accounting_page
 import ui.pages_intel
 ui.pages.intelligence_page = ui.pages_intel.intelligence_page
 from core.db import Store
@@ -364,7 +366,7 @@ PAGE_ROLES = {
     "kitchen_page": "empleado", "help_page": "empleado",
     "dashboard": "encargado", "cash_page": "encargado", "products_page": "encargado", "customers_page": "encargado",
     "automations_page": "encargado", "intelligence_page": "encargado", "promotions_page": "encargado",
-    "purchases_page": "encargado", "expenses_page": "encargado",
+    "purchases_page": "encargado", "expenses_page": "encargado", "accounting_page": "encargado",
     "team_page": "admin", "settings_page": "admin",
 }
 RANK = {"empleado": 0, "encargado": 1, "admin": 2}
@@ -413,3 +415,36 @@ def test_a_failing_page_shows_a_reference_and_is_logged(tmp_path, monkeypatch):
     row = errors.iloc[0]
     assert (row["kind"], row["page"], row["username"]) == ("KeyError", "Panel", "ana")
     assert "broken" in row["where_"] and "example.com" not in " ".join(map(str, row.values))
+
+
+def test_expense_with_supplier_invoice_reaches_the_gestoria_page(module_targets):
+    from core import clock
+    from core.accounting import quarter
+
+    target = module_targets.new()
+    store = Store(target)
+    store.load_preset("retail", with_demo_sales=False)
+    store.close()
+    at = AppTest.from_string(SCRIPT.format(root=ROOT, db=target, fn="expenses_page", role="admin"),
+                             default_timeout=30).run()
+    def first(label):  # the page also has a «Gastos fijos» form with its own «Concepto»
+        return next(t for t in at.text_input if t.label == label)
+
+    first("Concepto").input("Luz de septiembre")
+    next(n for n in at.number_input if n.label.startswith("Importe")).set_value(121.0)
+    first("Proveedor").input("Eléctrica S.A.")
+    first("NIF del proveedor").input("A81948077")
+    first("Nº de factura").input("F-2026-881")
+    next(s for s in at.selectbox if s.label == "IVA de la factura").set_value(21.0)
+    next(b for b in at.button if b.label == "Apuntar gasto").click().run()
+    assert not at.exception, at.exception
+
+    store = Store(target)
+    received = store.received_book(*quarter(clock.today()))
+    assert list(received["Cuota IVA"]) == [21.0] and received.iloc[0]["Nº factura"] == "F-2026-881"
+    store.close()
+    at = AppTest.from_string(SCRIPT.format(root=ROOT, db=target, fn="accounting_page", role="admin"),
+                             default_timeout=30).run()
+    at.selectbox[0].set_value(quarter(clock.today())).run()
+    assert not at.exception, at.exception
+    assert any("IVA soportado en facturas recibidas: **21,00 €** (1 facturas)" in str(c.value) for c in at.caption)
