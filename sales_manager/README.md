@@ -343,6 +343,16 @@ cd sales_manager && python -m pytest -q
 TEST_DATABASE_URL=postgresql://usuario:clave@localhost:5432/pruebas python -m pytest -q
 ```
 
+## Capturas de pantalla
+
+Las capturas del README, de la web y de los anuncios se rehacen solas, con negocios y personas ficticios (Café Aurora,
+Ana García · Consultoría; Marta y Lucía), sobre una base de datos de PostgreSQL que se pueda vaciar:
+
+```bash
+python ops/capturas.py postgresql://usuario:clave@localhost:5432/capturas
+python marketing/anuncios/generar.py && python marketing/anuncios/video.py && python marketing/anuncios/tresd.py
+```
+
 ## Licencia
 
 Software propietario. © 2025-2026 NirKanA. Todos los derechos reservados.
