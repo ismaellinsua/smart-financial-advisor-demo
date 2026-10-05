@@ -12,9 +12,9 @@ import streamlit as st
 
 from core.presets import PRESETS
 from core.security import ROLES
-from ui import booking, pages, pages_intel, pages_management, pages_promos, pages_tables, tenancy
+from ui import booking, pages, pages_billing, pages_intel, pages_management, pages_promos, pages_tables, tenancy
 from ui.auth import logout_button, require_user
-from ui.context import PAGES, ctx
+from ui.context import PAGES, ctx, stripe_client
 from ui.styles import inject_css, installable, sidebar_brand, sidebar_copyright, topbar
 from core import clock
 
@@ -87,7 +87,11 @@ PAGES.update(
     cash=st.Page(pages.cash_page, title="Caja", icon=":material/account_balance_wallet:", url_path="caja"),
     agenda=st.Page(pages.agenda_page, title=pages.agenda_config(c.preset)["title"], icon=":material/event:",
                    url_path="agenda"),
+    billing=st.Page(pages_billing.billing_page, title="Suscripción", icon=":material/workspace_premium:",
+                    url_path="suscripcion"),
 )
+billing_access = st.session_state.get("billing_access")
+charged = stripe_client() is not None
 
 # Each role only gets the pages it may use; a hidden page cannot be opened by typing its address.
 P = PAGES
@@ -100,9 +104,12 @@ if c.can("encargado"):
                            P["accounting"]]
     sections["Inteligencia"] = [P["intelligence"], P["automations"]]
 if c.can("admin"):
-    sections["Ajustes"] = [P["settings"], P["team"], P["help"]]
+    sections["Ajustes"] = [P["settings"], P["team"], *([P["billing"]] if charged else []), P["help"]]
 else:
     sections["Ayuda"] = [P["help"]]
+if billing_access is not None and billing_access.level == "readonly":
+    # Not paid: look up and download only. Pages left out of the navigation cannot be opened by address either.
+    sections = {"Tu cuenta": [P["billing"], P["history"], P["help"]]}
 
 sidebar_brand(c.settings["business_name"], PRESETS[c.settings["business_type"]]["label"])
 if c.multi_location:
@@ -153,6 +160,10 @@ topbar(c.settings["business_name"] + (f" · {c.location_name}" if c.multi_locati
        alerts=pages_intel.alert_counts(c) if c.can("encargado") else None)
 if c.settings.get("demo_mode") == "si":
     pages.demo_banner(c)
+if flash := st.session_state.pop("billing_flash", None):
+    st.info(flash, icon=":material/workspace_premium:")
+if billing_access is not None and billing_access.level == "warn" and c.can("encargado"):
+    st.warning(billing_access.message, icon=":material/credit_card:")
 try:
     nav.run()
 except Exception as exc:  # noqa: BLE001 - st.rerun/st.stop are BaseException and pass through untouched

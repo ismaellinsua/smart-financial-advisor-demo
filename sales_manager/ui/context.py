@@ -168,3 +168,22 @@ def _log_export(file_name: str) -> None:
 def logged_download(where, label: str, data, file_name: str, *args, **kwargs):
     """A download of business data that leaves a line in the activity log (who took what, and when)."""
     return where.download_button(label, data, file_name, *args, on_click=_log_export, args=(file_name,), **kwargs)
+
+
+def stripe_client():
+    """The service's Stripe account, or None while billing is off (single business, or no Stripe secrets)."""
+    from core.billing import Stripe
+
+    key, price = _secret("stripe_secret_key"), _secret("stripe_price_id")
+    if not (multi_tenant() and key and price):
+        return None
+    return Stripe(key, price)
+
+
+def trial_days() -> int:
+    from core.billing import TRIAL_DAYS
+
+    try:
+        return max(0, min(365, int(_secret("trial_days") or TRIAL_DAYS)))
+    except ValueError:
+        return TRIAL_DAYS

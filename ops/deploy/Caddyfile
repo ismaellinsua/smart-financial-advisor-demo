@@ -20,5 +20,11 @@
 		Cross-Origin-Opener-Policy "same-origin"
 		-Server
 	}
-	reverse_proxy 127.0.0.1:8501
+	# Stripe's signed notices go to the small webhook service; everything else to Streamlit.
+	handle /stripe/webhook {
+		reverse_proxy 127.0.0.1:8502
+	}
+	handle {
+		reverse_proxy 127.0.0.1:8501
+	}
 }

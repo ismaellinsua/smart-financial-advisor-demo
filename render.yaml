@@ -21,3 +21,16 @@ services:
         sync: false
       - key: SMTP_FROM
         sync: false
+      # Several businesses in one app, and charging them with Stripe (see the README).
+      - key: MULTI_TENANT
+        sync: false
+      - key: OPERATOR_PASSWORD
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_PRICE_ID
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: APP_URL
+        sync: false
