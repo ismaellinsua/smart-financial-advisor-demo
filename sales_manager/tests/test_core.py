@@ -1129,8 +1129,9 @@ def test_existing_prices_without_vat_are_converted_once(make_store, tmp_path):
     s.save_settings({"tax_rate": "21"})
     pid = s.upsert_product({"sku": "X-1", "name": "Viejo", "category": "General", "price": 10, "cost": 4,
                             "stock": 5, "min_stock": 0, "track_stock": 1, "active": 1})
-    with s.db.tx() as cur:  # a database from before prices included VAT
+    with s.db.tx() as cur:  # a database from before prices included VAT (and before schema_state existed)
         cur.execute("DELETE FROM settings WHERE key = 'prices_include_tax'")
+        cur.execute("DROP TABLE schema_state")
     s.close()
     again = Store(path)
     assert again.products().set_index("id").loc[pid, "price"] == 12.10

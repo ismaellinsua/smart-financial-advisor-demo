@@ -8,6 +8,7 @@ import os
 import socket
 import subprocess
 import sys
+import threading
 import time
 import urllib.request
 from pathlib import Path
@@ -149,7 +150,7 @@ def _create_business(page, base, code, name):
     page.get_by_role("textbox", name="Nombre del negocio").fill(name)
     page.get_by_role("button", name="Crear negocio").click()
     page.get_by_text("Código de instalación:").wait_for()
-    return page.locator("code").inner_text().split("Código de instalación:")[1].strip()
+    return page.locator("code", has_text="Código de instalación:").inner_text().split("Código de instalación:")[1].strip()
 
 
 def _first_admin(page, base, code, setup, username):
@@ -204,4 +205,144 @@ def test_operator_creates_businesses_that_stay_apart(multi_server):
         page.wait_for_timeout(1500)
         page.goto(f"{multi_server}/?negocio=cafe-aurora", wait_until="networkidle")
         page.get_by_text("está suspendido").wait_for()
+        browser.close()
+
+
+# ------------------------------------------------------------------ charging for the service (fake Stripe)
+class _FakeStripe:
+    """Just enough of Stripe's API and hosted checkout to walk a subscription end to end."""
+
+    def __init__(self):
+        import json
+        from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+        from urllib.parse import parse_qs, urlsplit
+
+        sessions, fake = {}, self
+
+        class Handler(BaseHTTPRequestHandler):
+            def _json(self, body):
+                data = json.dumps(body).encode()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(data)))
+                self.end_headers()
+                self.wfile.write(data)
+
+            def do_POST(self):  # noqa: N802
+                form = {k: v[0] for k, v in parse_qs(self.rfile.read(int(self.headers["Content-Length"]))
+                                                     .decode()).items()}
+                if self.path == "/v1/checkout/sessions":
+                    sid = f"cs_test_{len(sessions) + 1}"
+                    sessions[sid] = form
+                    return self._json({"id": sid, "url": f"{fake.base}/pay/{sid}"})
+                if self.path == "/v1/billing_portal/sessions":
+                    return self._json({"url": f"{fake.base}/portal"})
+                self.send_error(404)
+
+            def do_GET(self):  # noqa: N802
+                path = urlsplit(self.path).path
+                if path.startswith("/pay/"):  # the customer «pays» and Stripe sends them back
+                    sid = path.rsplit("/", 1)[1]
+                    self.send_response(303)
+                    self.send_header("Location", sessions[sid]["success_url"].replace("{CHECKOUT_SESSION_ID}", sid))
+                    return self.end_headers()
+                if path.startswith("/v1/checkout/sessions/"):
+                    sid = path.rsplit("/", 1)[1]
+                    code = sessions[sid]["client_reference_id"]
+                    return self._json({"id": sid, "client_reference_id": code, "subscription": fake.sub(code)})
+                if path == "/v1/subscriptions":
+                    return self._json({"data": [fake.sub("cafe-pago")]})
+                self.send_error(404)
+
+            def log_message(self, *args):
+                pass
+
+        self.http = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        self.base = f"http://127.0.0.1:{self.http.server_address[1]}"
+        threading.Thread(target=self.http.serve_forever, daemon=True).start()
+
+    @staticmethod
+    def sub(code):
+        return {"id": "sub_1", "customer": "cus_1", "status": "active", "cancel_at_period_end": False,
+                "current_period_end": int(time.time()) + 30 * 86400, "metadata": {"tenant": code}}
+
+
+@pytest.fixture(scope="module")
+def billing_server():
+    import uuid
+    from urllib.parse import urlsplit, urlunsplit
+
+    import psycopg
+
+    stripe = _FakeStripe()
+    name = f"nk_e2e_{uuid.uuid4().hex[:8]}"
+    with psycopg.connect(PG_URL, autocommit=True) as admin:
+        admin.execute(f'CREATE DATABASE "{name}"')
+    url = urlunsplit(urlsplit(PG_URL)._replace(path=f"/{name}"))
+    port = _free_port()
+    env = {**os.environ, "DATABASE_URL": url, "TZ": "UTC", "MULTI_TENANT": "true",
+           "OPERATOR_PASSWORD": "operador-de-prueba-2026", "STRIPE_SECRET_KEY": "sk_test_e2e",
+           "STRIPE_PRICE_ID": "price_e2e", "STRIPE_API_BASE": f"{stripe.base}/v1"}
+    proc = subprocess.Popen([sys.executable, "-m", "streamlit", "run", str(APP), "--server.port", str(port),
+                             "--server.headless", "true", "--browser.gatherUsageStats", "false"],
+                            env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    base = f"http://127.0.0.1:{port}"
+    for _ in range(60):
+        try:
+            urllib.request.urlopen(f"{base}/_stcore/health", timeout=1)
+            break
+        except OSError:
+            time.sleep(0.5)
+    yield base, url
+    proc.terminate()
+    proc.wait(timeout=10)
+    stripe.http.shutdown()
+    with psycopg.connect(PG_URL, autocommit=True) as admin:
+        admin.execute(f'DROP DATABASE "{name}" WITH (FORCE)')
+
+
+def test_unpaid_business_can_only_look_up_until_it_subscribes(billing_server):
+    import psycopg
+
+    from core.tenants import DIRECTORY_SCHEMA, Directory
+
+    base, url = billing_server
+    directory = Directory(url)
+    setup = directory.create("cafe-pago", "Café Pago", trial_days=0)
+    with psycopg.connect(url, autocommit=True) as conn:  # the trial ended three weeks ago, grace days included
+        conn.execute(f"UPDATE {DIRECTORY_SCHEMA}.tenants SET trial_ends = '2020-01-01T00:00:00'")
+
+    with playwright.sync_playwright() as p:
+        executable = os.environ.get("E2E_CHROMIUM")
+        browser = p.chromium.launch(**({"executable_path": executable} if executable else {}))
+        context = browser.new_context(viewport={"width": 1280, "height": 900})
+        page = context.new_page()
+        page.set_default_timeout(20_000)
+        _first_admin(page, base, "cafe-pago", setup, "ana")
+        store = directory.store("cafe-pago")
+        store.load_preset("retail", with_demo_sales=False)
+        store.close()
+
+        page.reload(wait_until="networkidle")
+        page.get_by_text("puedes consultar y descargar tus datos").first.wait_for()
+        nav = page.get_by_test_id("stSidebarNav")
+        assert nav.get_by_text("Suscripción").count() and nav.get_by_text("Historial").count()
+        assert not nav.get_by_text("Vender").count() and not nav.get_by_text("Configuración").count()
+        page.goto(f"{base}/vender?negocio=cafe-pago", wait_until="networkidle")  # typing the address won't do
+        page.get_by_text("puedes consultar y descargar tus datos").first.wait_for()
+        assert not page.get_by_role("button", name="Cobrar").count()
+        page.keyboard.press("Escape")  # Streamlit's «Page not found» notice
+
+        page.get_by_test_id("stSidebarNav").get_by_text("Suscripción").click()
+        page.get_by_role("button", name="Suscribirme").click()
+        with context.expect_page() as paying:
+            page.get_by_role("link", name="Ir al pago seguro de Stripe").click()
+        back = paying.value
+        back.wait_for_url("**negocio=cafe-pago**")
+        back.get_by_text("Tu suscripción está activa").wait_for()
+        assert "session_id" not in back.url  # the payment reference does not stay in the address
+
+        tenant = directory.get("cafe-pago")
+        assert (tenant["billing_status"], tenant["stripe_customer"]) == ("active", "cus_1")
+        back.get_by_test_id("stSidebarNav").get_by_text("Vender").wait_for()
         browser.close()

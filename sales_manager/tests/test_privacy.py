@@ -60,3 +60,30 @@ def test_marketing_only_reaches_customers_who_agreed(store):
     store.set_marketing_consent(yes, False, by="ana")
     assert store.customers().set_index("id").loc[yes, "consent_at"]
     assert not store.customers().set_index("id").loc[no, "consent_at"]
+
+
+def test_old_logs_errors_and_sessions_are_deleted_on_schedule(store):
+    from datetime import timedelta
+
+    from core import clock
+    from core.store_privacy import RETENTION_DAYS
+
+    now = clock.now()
+    uid = store.create_user("Ana", "ana", "admin", "Segura2026!")
+    old, recent = store.create_session(uid), store.create_session(uid)
+    long_ago = (now - timedelta(days=RETENTION_DAYS["audit_log"] + 1)).isoformat(timespec="seconds")
+    stale = (now - timedelta(days=RETENTION_DAYS["sessions"] + 1)).isoformat(timespec="seconds")
+    with store.db.tx() as cur:
+        cur.execute("INSERT INTO audit_log(happened_at, username, action, detail) VALUES (?, 'ana', 'acceso', '')",
+                    (long_ago,))
+        cur.execute("INSERT INTO app_errors(happened_at, ref, kind) VALUES (?, 'E1', 'KeyError')", (long_ago,))
+        cur.execute("UPDATE sessions SET last_seen = ? WHERE id = (SELECT MIN(id) FROM sessions)", (stale,))
+    before = len(store.audit_log(limit=10_000))
+
+    done = store.apply_retention(now)
+    assert done == {"audit_log": 1, "app_errors": 1, "sessions": 1}
+    log = store.audit_log(limit=10_000)
+    assert len(log) == before  # the old line went, the note of what was deleted came in
+    assert log.iloc[0]["action"] == "datos_caducados_borrados"
+    assert store.resume_session(recent, 60) is not None and store.resume_session(old, 10**6) is None
+    assert store.apply_retention(now) == {"audit_log": 0, "app_errors": 0, "sessions": 0}

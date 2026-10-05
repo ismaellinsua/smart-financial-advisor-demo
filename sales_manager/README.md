@@ -136,6 +136,26 @@ La app usa PostgreSQL cuando encuentra `database_url` en los *Secrets*; si no, u
 El plan gratuito de Neon basta para un negocio pequeño. La base se duerme tras unos minutos sin uso y tarda uno o dos
 segundos en despertar la primera vez; la app se reconecta sola.
 
+## Publicar en un servidor propio en la UE (Render, Frankfurt)
+
+Para clientes de pago: la app en Frankfurt, junto a la base de Neon (también en Frankfurt), sin que se duerma y con
+cabeceras de seguridad. El `Dockerfile` de la raíz pone [Caddy](https://caddyserver.com) delante de Streamlit, que solo
+escucha dentro del contenedor, y añade HSTS, `X-Frame-Options`/`frame-ancestors` (nadie puede incrustar la app en otra
+web), `nosniff`, `Referrer-Policy` y `Permissions-Policy`. La app no corre como administrador del sistema.
+
+1. Crea la base en Neon (sección anterior) y copia su cadena de conexión.
+2. En [render.com](https://render.com): **New → Blueprint** y elige este repositorio. Lee `render.yaml`: servicio
+   `nirkana` en **Frankfurt**, plan *Starter* (de pago, no se duerme).
+3. Render te pide las variables marcadas como secretas: `DATABASE_URL` (la de Neon), `APP_PASSWORD` (la contraseña de
+   instalación) y, si quieres emails, `SMTP_HOST`, `SMTP_USER`, `SMTP_PASSWORD` y `SMTP_FROM`. Se guardan en Render,
+   nunca en el repositorio.
+4. Cuando el despliegue diga *Live*, en el servicio → **Settings → Custom Domains** añade, por ejemplo,
+   `app.nirkana.es`. Render te dirá qué registro **CNAME** crear en IONOS; el HTTPS lo pone Render.
+5. Los despliegues son manuales (`autoDeploy: false`): pulsa **Manual Deploy** cuando los tests de GitHub estén en verde.
+
+Probarlo en tu ordenador: `docker build -t nirkana . && docker run -p 8080:8080 -e APP_PASSWORD=... nirkana` y abre
+http://localhost:8080.
+
 ## Varios negocios en una sola app (modo multinegocio)
 
 En vez de una app y una base de datos por cliente, una sola app y una sola base de datos pueden atender a muchos
@@ -160,6 +180,39 @@ abre otro negocio, la sesión anterior se borra entera. Las copias automáticas 
 cifrada por negocio** (más el directorio), cada una restaurable por separado.
 
 Sin `multi_tenant`, la app funciona como siempre: un negocio por app.
+
+## Cobrar el servicio con Stripe (modo multinegocio)
+
+Mientras no haya claves de Stripe, nadie paga y todo funciona como siempre. Con ellas:
+
+| Momento | Qué pasa |
+|---|---|
+| Alta | Cada negocio nuevo empieza con **30 días de prueba** (`trial_days` para cambiarlo). Los negocios que ya existían empiezan su prueba el día que se activa el cobro. |
+| Suscribirse | El administrador del negocio va a **Ajustes → Suscripción → Suscribirme** y paga en la página segura de Stripe (tarjeta, datos fiscales y NIF). NirKanA nunca ve la tarjeta. |
+| Gestionar | En la misma página, **Gestionar tarjeta, facturas o baja** abre el portal de cliente de Stripe. |
+| Pago fallido | Stripe reintenta el cobro y el negocio ve un aviso. Si la suscripción termina (o acaba la prueba sin suscribirse), quedan **7 días de margen**. |
+| Sin pagar | Después solo se puede **consultar el historial y descargar los datos**. Nunca se borra nada; al suscribirse vuelve todo. |
+| Operador | En `?operador` ves el estado de pago de cada negocio y puedes dejarlo **sin cargo (cortesía)**, **ampliar la prueba** o **comprobarlo en Stripe**. |
+
+Configuración (primero en **modo de prueba** de Stripe, con la tarjeta 4242 4242 4242 4242):
+
+1. En Stripe, **Catálogo de productos → Añadir producto**: «NirKanA», precio **recurrente mensual**. Copia el ID del
+   precio (`price_…`).
+2. **Desarrolladores → Claves de API**: crea una **clave restringida** (`rk_…`) con permiso de escritura en
+   *Checkout Sessions* y *Customer portal*, y de lectura en *Customers* y *Subscriptions*. Mejor que la clave secreta completa.
+3. **Configuración → Facturación → Portal de clientes**: actívalo (cambiar tarjeta, ver facturas, cancelar).
+4. **Desarrolladores → Webhooks → Añadir destino**: `https://app.nirkana.es/stripe/webhook`, con los eventos
+   `checkout.session.completed` y `customer.subscription.created`, `.updated` y `.deleted`. Copia el secreto
+   (`whsec_…`). Los avisos solo llegan con el contenedor (`Dockerfile`, Render); en Streamlit Cloud la app consulta a
+   Stripe al volver del pago y cada 6 horas, sin webhook.
+5. Secrets (o variables de entorno en Render, en mayúsculas):
+   ```toml
+   stripe_secret_key = "rk_test_…"
+   stripe_price_id = "price_…"
+   app_url = "https://app.nirkana.es"
+   ```
+   En el contenedor, además, `STRIPE_WEBHOOK_SECRET` con el `whsec_…` del paso 4.
+Cuando todo funcione en modo de prueba, repite los pasos 1-4 en **modo real** y cambia las claves.
 
 ## Copias de seguridad automáticas
 
@@ -256,7 +309,7 @@ una app aparece el botón para despertarla, se resuelve pulsándolo.
 | Copias de seguridad | No incluyen usuarios ni registro: las credenciales no salen del servidor. Al restaurar solo se aceptan tablas y columnas conocidas (sin inyección SQL por nombres de columna) y se valida el archivo. |
 | Exportaciones | Los CSV neutralizan fórmulas de hoja de cálculo (`=`, `+`, `-`, `@`). Los textos de usuario se escapan en pantallas, tickets y PDF. |
 | Base de datos | Consultas siempre parametrizadas. Conexión a PostgreSQL remoto con TLS obligatorio (`sslmode=require`). Límites de longitud en todos los textos. En PostgreSQL los importes se guardan como decimales exactos (`NUMERIC`), y los cambios de estructura se aplican una sola vez, numerados y registrados en `schema_migrations`. |
-| Servidor | Subidas limitadas a 20 MB, protección XSRF activa y errores sin detalles internos para el usuario. |
+| Servidor | Subidas limitadas a 20 MB, protección XSRF activa y errores sin detalles internos para el usuario. En el contenedor (`Dockerfile`), Caddy añade HSTS, protección contra incrustar la app en otras webs (*clickjacking*), `nosniff`, `Referrer-Policy` y `Permissions-Policy`. |
 
 **Lo que no depende de la app:** la seguridad de la cuenta de Streamlit y de GitHub (activa la verificación en dos pasos en ambas), la de Neon y la custodia de los *Secrets*. En la versión gratuita de Streamlit sin base de datos externa, un reinicio borra datos **y cuentas**: para un equipo real usa Neon.
 

@@ -6,13 +6,15 @@ Only active in multi-business mode (secret `multi_tenant = true`). Each business
 
 import hmac
 import time as _time
+from datetime import timedelta
 
 import pandas as pd
 import streamlit as st
 
+from core import billing
 from core.tenants import CODE_RE, STATUSES, normalize_code
 from ui.auth import client_blocked_minutes, client_failed, client_key, client_succeeded
-from ui.context import _secret, get_directory, multi_tenant
+from ui.context import _secret, get_directory, multi_tenant, stripe_client, trial_days
 from ui.styles import page_header
 
 OPERATOR_SESSION_HOURS = 2
@@ -53,11 +55,44 @@ def gate() -> bool:
                    "resolvemos.", icon=":material/pause_circle:")
         return False
     st.session_state["tenant"] = code
+    st.session_state["billing_access"] = _billing_access(tenant)
     if params.get("negocio") != code:
         st.query_params["negocio"] = code  # keep it in the address, so reloads and bookmarks land here
     if _remembered() != code:
         _remember(code)
     return True
+
+
+SYNC_EVERY = timedelta(hours=6)
+
+
+def _billing_access(tenant: dict) -> billing.Access:
+    """Billing state of this visit's business: returning from Stripe Checkout, a periodic check with Stripe (in case
+    a webhook was lost), then what the business may do. Always full access while billing is off."""
+    stripe = stripe_client()
+    if stripe is None:
+        return billing.Access("full")
+    params = st.query_params
+    if params.get("pago") == "ok" and params.get("session_id"):
+        try:
+            session = stripe.checkout_session(params["session_id"])
+            if session.get("client_reference_id") == tenant["code"] and isinstance(session.get("subscription"), dict):
+                get_directory().record_subscription(tenant["code"], session["subscription"], "suscripcion_contratada")
+                st.session_state["billing_flash"] = "¡Gracias! Tu suscripción está activa."
+        except billing.BillingError as exc:
+            st.session_state["billing_flash"] = str(exc)
+        for key in ("pago", "session_id"):
+            params.pop(key, None)
+        _tenant.clear()
+        tenant = _tenant(tenant["code"]) or tenant
+    synced = billing._when(tenant.get("billing_synced_at"))
+    if tenant.get("stripe_customer") and (synced is None or billing.utc_now() - synced > SYNC_EVERY):
+        try:
+            tenant = get_directory().sync_subscription(tenant["code"], stripe) or tenant
+            _tenant.clear()
+        except billing.BillingError:
+            pass  # Stripe unreachable: keep what we know and try again on a later visit
+    return billing.access(tenant, billing.utc_now())
 
 
 REMEMBER_COOKIE = "nk_negocio"
@@ -123,7 +158,7 @@ def operator_panel() -> None:
         if st.form_submit_button("Crear negocio", type="primary"):
             try:
                 with st.spinner("Creando el negocio…"):
-                    setup = directory.create(code, name, contact)
+                    setup = directory.create(code, name, contact, trial_days=trial_days())
             except ValueError as exc:
                 st.error(str(exc))
             else:
@@ -140,12 +175,18 @@ def operator_panel() -> None:
     else:
         overview["estado"] = overview["status"].map(STATUSES)
         overview["administrador"] = overview["setup_used_at"].map(lambda v: "Creado" if v else "Pendiente")
-        st.dataframe(overview[["code", "name", "estado", "administrador", "users", "sales", "last_sale", "errors",
-                               "contact", "created_at"]], hide_index=True, width="stretch",
-                     column_config={"code": "Código", "name": "Nombre", "estado": "Estado",
+        overview["pago"] = [billing.STATUS_LABELS["cortesia"] if exempt else billing.STATUS_LABELS.get(status, status)
+                            for status, exempt in zip(overview["billing_status"], overview["billing_exempt"])]
+        overview["hasta"] = [(end or trial)[:10] for end, trial in zip(overview["period_end"], overview["trial_ends"])]
+        st.dataframe(overview[["code", "name", "estado", "pago", "hasta", "administrador", "users", "sales",
+                               "last_sale", "errors", "contact", "created_at"]], hide_index=True, width="stretch",
+                     column_config={"code": "Código", "name": "Nombre", "estado": "Estado", "pago": "Suscripción",
+                                    "hasta": "Prueba o periodo hasta (UTC)",
                                     "administrador": "Administrador", "users": "Personas", "sales": "Ventas",
                                     "last_sale": "Última venta", "errors": "Errores 7 días",
                                     "contact": "Contacto", "created_at": "Alta"})
+        if stripe_client() is None:
+            st.caption("Cobro desactivado: sin `stripe_secret_key` y `stripe_price_id` en los Secrets, nadie paga.")
         with st.container(border=True):
             chosen = st.selectbox("Gestionar", list(overview["code"]), format_func=lambda c: f"{c} · " + str(
                 overview.set_index("code").loc[c, "name"]))
@@ -161,6 +202,28 @@ def operator_panel() -> None:
                         help="Si el negocio perdió el suyo antes de crear su administrador."):
                 st.session_state["operator_created"] = (chosen, directory.new_setup_code(chosen))
                 st.rerun()
+            row = overview.set_index("code").loc[chosen]
+            x, y, z = st.columns(3)
+            exempt = bool(row["billing_exempt"])
+            if x.button("Quitar cortesía" if exempt else "Sin cargo (cortesía)", width="stretch",
+                        icon=":material/redeem:", help="Negocios piloto o amigos: nunca se les pide pagar."):
+                directory.set_billing_exempt(chosen, not exempt)
+                _tenant.clear()
+                st.rerun()
+            if y.button("Ampliar prueba 14 días", width="stretch", icon=":material/more_time:"):
+                directory.extend_trial(chosen, 14)
+                _tenant.clear()
+                st.rerun()
+            stripe = stripe_client()
+            if z.button("Comprobar en Stripe", width="stretch", icon=":material/sync:",
+                        disabled=stripe is None or not row["stripe_customer"]):
+                try:
+                    directory.sync_subscription(chosen, stripe)
+                except billing.BillingError as exc:
+                    st.error(str(exc))
+                else:
+                    _tenant.clear()
+                    st.rerun()
 
     with st.expander("Registro del operador"):
         st.dataframe(pd.DataFrame(directory.log()), hide_index=True, width="stretch")

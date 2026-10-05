@@ -473,3 +473,13 @@ def test_expense_with_supplier_invoice_reaches_the_gestoria_page(module_targets)
     at.selectbox[0].set_value(quarter(clock.today())).run()
     assert not at.exception, at.exception
     assert any("IVA soportado en facturas recibidas: **21,00 €** (1 facturas)" in str(c.value) for c in at.caption)
+
+
+def test_setup_password_from_the_environment(monkeypatch):
+    """In a container there is no secrets file: APP_PASSWORD from the environment protects the first run."""
+    from ui.auth import configured_password
+
+    monkeypatch.delenv("APP_PASSWORD", raising=False)
+    assert configured_password() is None
+    monkeypatch.setenv("APP_PASSWORD", "clave-de-instalacion")
+    assert configured_password() == "clave-de-instalacion"

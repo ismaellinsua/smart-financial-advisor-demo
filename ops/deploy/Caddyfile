@@ -1,0 +1,33 @@
+{
+	admin off
+	# The host (Render, a load balancer…) terminates HTTPS and forwards plain HTTP to $PORT.
+	auto_https off
+	servers {
+		trusted_proxies static private_ranges
+	}
+}
+
+:{$PORT:8080} {
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		# Only the app itself may frame its pages (Streamlit shows tickets in a same-origin frame): no clickjacking.
+		X-Frame-Options "SAMEORIGIN"
+		Content-Security-Policy "frame-ancestors 'self'; base-uri 'self'; object-src 'none'; form-action 'self'"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(self), microphone=(), geolocation=(), payment=(), usb=()"
+		Cross-Origin-Opener-Policy "same-origin"
+		-Server
+	}
+	# Stripe's signed notices go to the small webhook service; everything else to Streamlit.
+	handle /stripe/webhook {
+		request_body {
+			max_size 512KB
+		}
+		reverse_proxy 127.0.0.1:8502
+	}
+	handle {
+		reverse_proxy 127.0.0.1:8501
+	}
+}

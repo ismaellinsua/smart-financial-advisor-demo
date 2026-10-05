@@ -7,13 +7,23 @@ import plotly.graph_objects as go
 import streamlit as st
 
 
+# Inter served by the app itself (static/fonts, SIL Open Font License): no visitor's address is sent to Google.
+_LATIN = "U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD"
+_LATIN_EXT = "U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF"
+FONT_FACES = "".join(
+    f"@font-face {{ font-family: 'Inter'; font-style: normal; font-weight: {weight}; font-display: swap; "
+    f"src: url('/app/static/fonts/inter-{subset}-{weight}-normal.woff2') format('woff2'); unicode-range: {rng}; }}\n"
+    for weight in (400, 500, 600, 700) for subset, rng in (("latin", _LATIN), ("latin-ext", _LATIN_EXT))
+)
+
+
 def inject_css(accent: str) -> None:
     # Only a plain hex colour may reach the stylesheet.
     accent = accent if re.fullmatch(r"#[0-9A-Fa-f]{6}", accent or "") else "#1F4E79"
     st.markdown(
         f"""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+{FONT_FACES}
 :root {{ --accent: {accent}; }}
 html, body, [class*="css"], .stMarkdown, .stButton button, input, textarea {{
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
@@ -133,6 +143,24 @@ button[kind="primary"]:disabled, button[data-testid^="stBaseButton-primary"]:dis
                      border-radius: 999px; background: #FEE4E2; color: #B42318; }}
 .sm-topbar .alerts.calm {{ background: #FEF0C7; color: #93370D; }}
 @media (max-width: 640px) {{ .sm-topbar .next, .sm-topbar .sep.n, .sm-topbar .biz {{ display: none; }} }}
+/* Phones: every button big enough for a thumb (44 px), on every page. */
+@media (max-width: 640px) {{
+  .stButton button, .stDownloadButton button, .stFormSubmitButton button, [data-testid="stPopover"] button,
+  .stLinkButton a {{ min-height: 44px; }}
+  [data-testid="stExpandSidebarButton"], [data-testid="stSidebarCollapseButton"] button {{
+      min-height: 44px; min-width: 44px; }}
+  /* Floor plan: the three figures in one row, and tables two by two in their order. */
+  .st-key-floor_stats [data-testid="stHorizontalBlock"] {{ flex-wrap: nowrap !important; gap: .4rem !important; }}
+  .st-key-floor_stats [data-testid="stColumn"] {{ min-width: 0 !important; flex: 1 1 0 !important; }}
+  .st-key-floor_stats [data-testid="stMetric"] {{ padding: .45rem .55rem !important; }}
+  .st-key-floor_stats [data-testid="stMetricValue"] {{ font-size: 1.1rem !important; }}
+  .st-key-floor_stats [data-testid="stMetricLabel"] p {{ font-size: .6rem !important; white-space: normal; }}
+  .st-key-floor [data-testid="stHorizontalBlock"] {{ flex-wrap: wrap !important; gap: .5rem !important; }}
+  .st-key-floor [data-testid="stColumn"] {{ flex: 1 1 calc(50% - .25rem) !important;
+                                            min-width: calc(50% - .25rem) !important; }}
+  .st-key-floor [data-testid="stVerticalBlockBorderWrapper"] {{ padding: .55rem !important; }}
+  .st-key-floor .sm-table {{ font-size: .85rem; }}
+}}
 
 /* Agenda cards */
 .sm-appt {{ display: flex; align-items: center; gap: .9rem; }}

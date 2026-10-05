@@ -18,11 +18,18 @@ concurrency:
 jobs:
   tests:
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    # One job, one runner: a second parallel job waited for a free runner until it timed out.
+    timeout-minutes: 30
     env:
       TZ: UTC
       TEST_DATABASE_URL: postgresql://postgres:tests@localhost:5432/postgres
+      STRIPE_MOCK_URL: http://localhost:12111/v1
     services:
+      # Stripe's official simulator: every Stripe call the app makes is checked against Stripe's API description.
+      stripe:
+        image: stripe/stripe-mock:latest
+        ports:
+          - 12111:12111
       postgres:
         image: postgres:16
         env:
@@ -54,3 +61,21 @@ jobs:
       - name: Tests (SQLite y PostgreSQL)
         working-directory: sales_manager
         run: python -m pytest -q -p no:cacheprovider
+
+      # The image that goes to production: it must build, answer its health check and send the security headers.
+      - name: Construir la imagen del contenedor
+        run: docker build -t nirkana:ci .
+
+      - name: Arrancar el contenedor y comprobarlo
+        run: |
+          docker run -d --name app -p 8080:8080 -e APP_PASSWORD=ci-solo-prueba nirkana:ci
+          for i in $(seq 1 60); do curl -sf http://localhost:8080/_stcore/health && break; sleep 1; done
+          curl -sf http://localhost:8080/_stcore/health
+          headers=$(curl -sI http://localhost:8080/)
+          echo "$headers"
+          for h in "Strict-Transport-Security" "X-Frame-Options: SAMEORIGIN" "X-Content-Type-Options: nosniff" \
+                   "Content-Security-Policy: frame-ancestors 'self'" "Referrer-Policy" "Permissions-Policy"; do
+            echo "$headers" | grep -qi "^$h" || { echo "::error::Falta la cabecera $h"; exit 1; }
+          done
+          ! echo "$headers" | grep -qi "^Server:" || { echo "::error::La cabecera Server delata el software"; exit 1; }
+          test "$(docker exec app id -u)" != "0" || { echo "::error::La app corre como root"; exit 1; }

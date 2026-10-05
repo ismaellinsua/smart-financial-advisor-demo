@@ -7,6 +7,7 @@ customer's fiscal data they were issued with, because the law requires keeping i
 """
 
 import json
+from datetime import datetime, timedelta
 
 import pandas as pd
 
@@ -14,8 +15,36 @@ from . import clock
 
 ANONYMOUS = "Cliente eliminado"
 
+# How long records about people are kept before the daily job deletes them (data minimisation, RGPD art. 5.1.e).
+# Sales, invoices and the VERI*FACTU register are kept: the law requires them.
+RETENTION_DAYS = {
+    "audit_log": 730,  # who did what: two years, enough to look into any incident
+    "app_errors": 180,  # failure reports (page, user, kind of error)
+    "sessions": 90,  # ended sign-ins and the device they came from
+}
+
 
 class PrivacyMixin:
+    def apply_retention(self, now: datetime | None = None) -> dict:
+        """Delete activity log lines, error reports and ended sessions older than RETENTION_DAYS. Returns counts."""
+        now = now or clock.now()
+        cut = {table: (now - timedelta(days=days)).isoformat(timespec="seconds")
+               for table, days in RETENTION_DAYS.items()}
+        with self.db.tx() as cur:
+            done = {
+                "audit_log": cur.execute("DELETE FROM audit_log WHERE happened_at < ?", (cut["audit_log"],)).rowcount,
+                "app_errors": cur.execute("DELETE FROM app_errors WHERE happened_at < ?",
+                                          (cut["app_errors"],)).rowcount,
+                # Ended ones, and ones abandoned long ago (never signed out, unused since).
+                "sessions": cur.execute("DELETE FROM sessions WHERE (ended_at <> '' AND ended_at < ?) "
+                                        "OR (ended_at = '' AND last_seen < ?)",
+                                        (cut["sessions"], cut["sessions"])).rowcount,
+            }
+            if any(done.values()):
+                self._audit(cur, "sistema", "datos_caducados_borrados",
+                            ", ".join(f"{table}: {n}" for table, n in done.items() if n))
+        return done
+
     def set_marketing_consent(self, customer_id: int, consent: bool, by: str = "") -> None:
         stamp = clock.now().isoformat(timespec="seconds")
         with self.db.tx() as cur:
