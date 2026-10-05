@@ -2,7 +2,7 @@
 
 Ejecutar desde la raíz del repositorio:  streamlit run sales_manager/app.py
 
-Copyright (c) 2025-2026 Ismael Linsua. Todos los derechos reservados. Software propietario: ver LICENSE.
+Copyright (c) 2025-2026 NirKanA. Todos los derechos reservados. Software propietario: ver LICENSE.
 """
 
 import traceback

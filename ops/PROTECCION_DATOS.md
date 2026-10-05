@@ -9,7 +9,7 @@ debe redactar un abogado. **Revísalo cada vez que cambie el hosting o un provee
 | Quién | Papel | Sobre qué datos |
 |---|---|---|
 | Cada negocio cliente | Responsable del tratamiento | Sus clientes, su equipo, sus ventas y facturas |
-| NirKanA (Ismael Linsua) | Encargado del tratamiento | Lo anterior, solo para prestar el servicio |
+| NirKanA (su titular) | Encargado del tratamiento | Lo anterior, solo para prestar el servicio |
 | NirKanA | Responsable | Datos de contacto y de facturación de los negocios (alta, Stripe, soporte) |
 
 ## Qué datos trata la app

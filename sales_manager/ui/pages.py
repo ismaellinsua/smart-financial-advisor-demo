@@ -830,7 +830,7 @@ def _history_invoices(c) -> None:
 
 
 # ---------------------------------------------------------------------- cash
-OFFLINE_TILL_URL = "https://ismaellinsua.github.io/smart-financial-advisor-demo/caja/"
+OFFLINE_TILL_URL = "https://nirkana.es/caja/"
 
 
 def _offline_till_panel(c) -> None:

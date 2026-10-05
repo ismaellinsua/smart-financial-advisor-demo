@@ -169,8 +169,8 @@ def test_first_run_creates_admin_then_business(tmp_path, monkeypatch):
     assert not at.exception
     fields = at.text_input
     fields[0].input("NO-ES-EL-CODIGO")
-    fields[1].input("Ismael")
-    fields[2].input("ismael")
+    fields[1].input("Elena")
+    fields[2].input("elena")
     fields[3].input("Segura2026")
     fields[4].input("Segura2026")
     at.button[0].click().run()
@@ -208,8 +208,8 @@ def test_first_admin_requires_setup_password(tmp_path, monkeypatch):
     at = _app(store, monkeypatch, secrets={"app_password": "clave-de-instalacion"})
     fields = at.text_input
     fields[0].input("mala")
-    fields[1].input("Ismael")
-    fields[2].input("ismael")
+    fields[1].input("Elena")
+    fields[2].input("elena")
     fields[3].input("Segura2026")
     fields[4].input("Segura2026")
     at.button[0].click().run()
@@ -224,11 +224,11 @@ def test_first_admin_requires_setup_password(tmp_path, monkeypatch):
 def test_staff_login_and_permissions(tmp_path, monkeypatch):
     store = Store(tmp_path / "team.db")
     store.load_preset("restaurant", with_demo_sales=False)
-    store.create_user("Ismael", "ismael", "admin", "Segura2026")
+    store.create_user("Elena", "elena", "admin", "Segura2026")
     store.create_user("Lucía Pérez", "lucia", "empleado", "482619")
     at = _app(store, monkeypatch)
     page = " ".join(str(e.value) for e in at.markdown) + " ".join(str(s.label) for s in at.selectbox)
-    assert "Lucía" not in page and "Ismael" not in page and not at.selectbox  # no public list of the team
+    assert "Lucía" not in page and "Elena" not in page and not at.selectbox  # no public list of the team
     at.text_input[0].input("lucia")
     at.text_input[1].input("000000")
     at.button[0].click().run()
@@ -250,7 +250,7 @@ def test_staff_login_and_permissions(tmp_path, monkeypatch):
 def test_deactivated_user_is_signed_out(tmp_path, monkeypatch):
     store = Store(tmp_path / "out.db")
     store.load_preset("retail", with_demo_sales=False)
-    store.create_user("Ismael", "ismael", "admin", "Segura2026")
+    store.create_user("Elena", "elena", "admin", "Segura2026")
     uid = store.create_user("Diego", "diego", "empleado", "739104")
     at = _app(store, monkeypatch, user={"id": uid, "username": "diego", "name": "Diego", "role": "empleado"})
     assert at.session_state["user"]["username"] == "diego"
@@ -263,8 +263,8 @@ def test_switch_business_button_opens_dialog(tmp_path, monkeypatch):
     # AppTest reruns the whole script, which closes dialogs, so the switch itself is checked in a real browser.
     store = Store(tmp_path / "switch.db")
     store.load_preset("restaurant", with_demo_sales=False)
-    uid = store.create_user("Ismael", "ismael", "admin", "Segura2026")
-    at = _app(store, monkeypatch, user={"id": uid, "username": "ismael", "name": "Ismael", "role": "admin"})
+    uid = store.create_user("Elena", "elena", "admin", "Segura2026")
+    at = _app(store, monkeypatch, user={"id": uid, "username": "elena", "name": "Elena", "role": "admin"})
     next(b for b in at.sidebar.button if b.label == "Cambiar de negocio").click().run()
     assert not at.exception, at.exception
     radio = at.radio(key="switch_type")
@@ -326,7 +326,7 @@ def test_weak_pin_from_before_must_be_changed_at_login(tmp_path, monkeypatch):
 
     store = Store(tmp_path / "weak.db")
     store.load_preset("retail", with_demo_sales=False)
-    store.create_user("Ismael", "ismael", "admin", "Segura2026")
+    store.create_user("Elena", "elena", "admin", "Segura2026")
     uid = store.create_user("Ana", "ana", "empleado", "582913")
     with store.db.tx() as cur:  # a 4-digit PIN set under the old rules
         cur.execute("UPDATE users SET secret_hash = ? WHERE id = ?", (hash_secret("4826"), uid))
