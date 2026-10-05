@@ -2,12 +2,14 @@
 signs staff out nor loses the sale being rung up. Mixed into `Store`.
 
 The browser keeps only a random token; the database keeps its SHA-256, so a copy of the database cannot be used to
-sign in. A session ends after the business's idle time, on logout, and when the person's PIN changes or their
-account is deactivated.
+sign in. A session ends after the business's idle time, after SESSION_MAX_AGE whatever the use, on logout, and when
+the person's PIN changes or their account is deactivated. Streamlit can only write the cookie from the page, so it
+cannot be HttpOnly: a token copied out of the browser is also refused on another kind of browser.
 """
 
 import hashlib
 import json
+import re
 import secrets
 from datetime import datetime, timedelta
 
@@ -15,6 +17,7 @@ from . import clock
 from .security import check_secret_strength, hash_secret, verify_secret
 
 TOUCH_EVERY = timedelta(minutes=1)  # last_seen is written at most once a minute, not on every click
+SESSION_MAX_AGE = timedelta(days=7)  # a remembered sign-in never outlives this, however often it is used
 RESET_VALID = timedelta(minutes=15)
 RESET_MAX_ATTEMPTS = 5
 RESET_MAX_PER_HOUR = 3
@@ -22,6 +25,11 @@ RESET_MAX_PER_HOUR = 3
 
 def _digest(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
+
+
+def browser_family(user_agent: str) -> str:
+    """The browser and system without version numbers, so automatic browser updates keep the session."""
+    return re.sub(r"[\d._]+", "", str(user_agent or "")[:200]).strip()
 
 
 class SessionsMixin:
@@ -33,20 +41,25 @@ class SessionsMixin:
                         "VALUES (?, ?, ?, ?, ?)", (int(user_id), _digest(token), stamp, stamp, str(user_agent)[:200]))
         return token
 
-    def resume_session(self, token: str, idle_minutes: int) -> dict | None:
-        """The active user behind a remembered sign-in, or None if it ended, expired or is unknown."""
+    def resume_session(self, token: str, idle_minutes: int, user_agent: str | None = None) -> dict | None:
+        """The active user behind a remembered sign-in, or None if it ended, expired, is unknown or comes from
+        another kind of browser than the one that signed in (an unknown `user_agent` skips that check)."""
         if not isinstance(token, str) or not token or len(token) > 100:
             return None
         now = clock.now()
         with self.db.tx() as cur:
             row = cur.execute(
-                "SELECT s.id, s.last_seen, u.id AS user_id, u.username, u.name, u.role FROM sessions s "
+                "SELECT s.id, s.last_seen, s.created_at, s.user_agent, u.id AS user_id, u.username, u.name, u.role "
+                "FROM sessions s "
                 "JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.ended_at = '' AND u.active = 1",
                 (_digest(token),)).fetchone()
             if row is None:
                 return None
+            if user_agent and row["user_agent"] and browser_family(row["user_agent"]) != browser_family(user_agent):
+                return None  # a copied token: refused, without ending the real session
             seen = datetime.fromisoformat(row["last_seen"])
-            if now - seen > timedelta(minutes=max(5, int(idle_minutes))):
+            too_old = now - datetime.fromisoformat(row["created_at"]) > SESSION_MAX_AGE
+            if too_old or now - seen > timedelta(minutes=max(5, int(idle_minutes))):
                 cur.execute("UPDATE sessions SET ended_at = ? WHERE id = ?",
                             (now.isoformat(timespec="seconds"), row["id"]))
                 return None

@@ -191,7 +191,7 @@ def _order_view(c, order: dict) -> None:
             note = f"<div class='note'>{escape(item['notes'])}</div>" if item["notes"] else ""
             n, minus, plus = st.columns([6, 1, 1], vertical_alignment="center")
             n.markdown(
-                f"<div class='sm-oline {'paid' if paid else item['kitchen']}'><b>{item['quantity']} × "
+                f"<div class='sm-oline {'paid' if paid else escape(str(item['kitchen']))}'><b>{int(item['quantity'])} × "
                 f"{escape(item['name'])}</b> <span class='chip'>{escape(chip)}</span>{note}"
                 f"<div class='by'>{escape(item['added_by'])}</div></div>", unsafe_allow_html=True)
             if not paid:

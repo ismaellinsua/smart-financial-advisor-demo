@@ -40,6 +40,33 @@ def test_sessions_expire_when_idle(store, monkeypatch):
     assert store.resume_session(token, 30) is None  # an expired session stays ended
 
 
+def test_a_session_never_outlives_seven_days_however_often_it_is_used(store, monkeypatch):
+    from core.store_sessions import SESSION_MAX_AGE
+
+    token = store.create_session(_uid(store, "luis"))
+    start = clock.now()
+    day = start
+    while day - start < SESSION_MAX_AGE - timedelta(days=1):  # used every day, never idle
+        day += timedelta(days=1)
+        monkeypatch.setattr(clock, "now", lambda d=day: d)
+        assert store.resume_session(token, 2 * 24 * 60) is not None
+    monkeypatch.setattr(clock, "now", lambda: start + SESSION_MAX_AGE + timedelta(minutes=1))
+    assert store.resume_session(token, 2 * 24 * 60) is None  # not idle: too old
+
+
+CHROME_129 = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.6668.89"
+CHROME_130 = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.6723.58"
+FIREFOX = "Mozilla/5.0 (X11; Linux x86_64; rv:131.0) Gecko/20100101 Firefox/131.0"
+
+
+def test_a_copied_token_does_not_work_on_another_browser(store):
+    token = store.create_session(_uid(store, "luis"), CHROME_129)
+    assert store.resume_session(token, 720, CHROME_130)["username"] == "luis"  # the browser updated itself
+    assert store.resume_session(token, 720, FIREFOX) is None  # the token taken elsewhere
+    assert store.resume_session(token, 720, CHROME_129) is not None  # …without signing the real person out
+    assert store.resume_session(token, 720, "") is not None  # unknown browser: nothing to compare
+
+
 @pytest.mark.parametrize("change", ["admin_reset", "own_change", "deactivated"])
 def test_pin_changes_and_deactivation_sign_out_every_device(store, change):
     uid = _uid(store, "luis")

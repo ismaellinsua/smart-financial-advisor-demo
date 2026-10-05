@@ -102,7 +102,8 @@ def _cookie_name() -> str:
 
 def _cookie_token() -> str:
     try:
-        value = st.context.cookies.get(_cookie_name())
+        cookies = st.context.cookies
+        value = cookies.get(f"__Host-{_cookie_name()}") or cookies.get(_cookie_name())
     except Exception:  # no request context (tests, bare mode)
         return ""
     return value if isinstance(value, str) else ""
@@ -122,9 +123,15 @@ def _write_cookie() -> None:
     if token is None and not clear:
         return
     value, age = (token, COOKIE_DAYS * 86400) if token else ("", 0)
+    # Over HTTPS the name carries the __Host- prefix: the browser then refuses it unless it is Secure, for this
+    # exact host and path /, so no other subdomain or plain-HTTP page can plant or overwrite it.
     st.html(f"""<script>
-document.cookie = "{_cookie_name()}={value}; Path=/; Max-Age={age}; SameSite=Strict"
-  + (location.protocol === "https:" ? "; Secure" : "");
+(() => {{
+  const name = "{_cookie_name()}", secure = location.protocol === "https:";
+  document.cookie = (secure ? "__Host-" : "") + name + "={value}; Path=/; Max-Age={age}; SameSite=Strict"
+    + (secure ? "; Secure" : "");
+  if (secure) document.cookie = name + "=; Path=/; Max-Age=0; SameSite=Strict";  // the old, unprefixed one
+}})();
 </script>""", unsafe_allow_javascript=True)
 
 
@@ -420,7 +427,7 @@ def require_user(store: Store, settings: dict) -> dict | None:
     user = current_user()
     if user is None and not st.session_state.get(_COOKIE_CLEAR):
         token = _cookie_token()
-        resumed = store.resume_session(token, idle_minutes) if token else None
+        resumed = store.resume_session(token, idle_minutes, _user_agent()) if token else None
         if resumed is not None:  # a reload or a reopened tab: carry on where they were
             user = st.session_state[SESSION_USER] = resumed
             st.session_state[SESSION_SEEN] = _time.time()
@@ -429,7 +436,7 @@ def require_user(store: Store, settings: dict) -> dict | None:
         fresh = store.user(user["id"])  # role or access changes apply on the next click
         expired = _time.time() - st.session_state.get(SESSION_SEEN, 0) > idle_minutes * 60
         token = st.session_state.get(SESSION_TOKEN)
-        ended = token is not None and store.resume_session(token, idle_minutes) is None  # PIN changed elsewhere
+        ended = token is not None and store.resume_session(token, idle_minutes, _user_agent()) is None  # PIN changed
         if fresh is None or not fresh["active"] or expired or ended:
             st.session_state.pop(SESSION_USER, None)
             st.session_state.pop("cart", None)
