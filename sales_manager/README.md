@@ -38,6 +38,7 @@ En el móvil:
 | **Mesas y comandas** | Plano de mesas por zonas, comandas compartidas entre camareros (cada línea firmada), notas para cocina, comensales, cambio de mesa y pedidos para llevar. Se cobra toda la mesa o **solo los productos que paga cada persona**. |
 | **Cocina** | Pantalla que se actualiza sola: pendiente → preparando → listo → servido, con aviso de los platos que esperan demasiado. |
 | **Agenda** | Citas (autónomos) o reservas (restaurantes), sin solapes, cobro de la cita con un toque. |
+| **Reservas online** | Página pública (`…/?reservar`, o `…/?negocio=código&reservar` con varios negocios) donde el cliente elige una hora libre según tu horario, recibe confirmación con archivo de calendario y un enlace para cancelar, y un recordatorio por email la víspera (el trabajo diario «Avisos por email»). Recordatorio por WhatsApp con un toque. Teléfono y email se borran 90 días después de la cita. |
 | **Caja** | Cierre diario por forma de pago (pagos mixtos repartidos), devoluciones descontadas, arqueo de efectivo e informe PDF. |
 | **Historial** | Tickets, **facturas en PDF** (`FAC-2026-0001`), **devoluciones parciales** con su ticket y **facturas rectificativas** automáticas (`FACR-2026-0001`), anulaciones y exportación CSV. |
 
@@ -194,7 +195,8 @@ Gratis con una cuenta de Gmail (por ejemplo nirkana.oficial@gmail.com):
 
 1. En esa cuenta de Google activa la verificación en dos pasos y crea una **contraseña de aplicación**
    (Cuenta de Google → Seguridad → Contraseñas de aplicaciones).
-2. **Para la app** (recuperar la contraseña del administrador por email), en los *Secrets* de Streamlit:
+2. **Para la app** (recuperar la contraseña del administrador por email y confirmar las reservas online), en los
+   *Secrets* de Streamlit:
    ```toml
    smtp_host = "smtp.gmail.com"
    smtp_port = 587
@@ -205,7 +207,8 @@ Gratis con una cuenta de Gmail (por ejemplo nirkana.oficial@gmail.com):
    `SMTP_USER`, `SMTP_PASSWORD` (y opcional `SMTP_FROM`). Usa las bases de `BACKUP_DATABASES`, o
    `NOTIFY_DATABASES` si quieres otra lista. Cada mañana, el flujo **Avisos por email** envía:
    - el **informe semanal en PDF** cada lunes, a los negocios que lo activen;
-   - un aviso cuando aparecen **alertas importantes nuevas** (caída de ventas, productos agotados, pérdidas…).
+   - un aviso cuando aparecen **alertas importantes nuevas** (caída de ventas, productos agotados, pérdidas…);
+   - el **recordatorio de cita** a los clientes que reservaron para el día siguiente y dejaron su email.
 4. Cada negocio decide en **Configuración → Avisos por email** si los quiere, y los recibe en el email del negocio.
    Nunca se envía nada en modo demostración ni dos veces lo mismo, aunque el flujo se ejecute de nuevo.
 

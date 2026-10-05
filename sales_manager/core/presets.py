@@ -164,6 +164,19 @@ DEFAULT_SETTINGS = {
     "invoice_series": "FAC",
     "refund_prefix": "DEV",
     "agenda_enabled": "auto",
+    # Online booking (public page …/?reservar): off until the business opens it from the Agenda.
+    "booking_online": "no",
+    "booking_hours": '{"0": "09:00-14:00, 16:00-20:00", "1": "09:00-14:00, 16:00-20:00", '
+                     '"2": "09:00-14:00, 16:00-20:00", "3": "09:00-14:00, 16:00-20:00", '
+                     '"4": "09:00-14:00, 16:00-20:00", "5": "10:00-14:00"}',
+    "booking_closed": "",
+    "booking_services": "",
+    "booking_step": "30",
+    "booking_duration": "",
+    "booking_days": "30",
+    "booking_notice_hours": "2",
+    "booking_capacity": "30",
+    "booking_max_party": "10",
     "tables_enabled": "auto",
     "opening_float": "150",
     "session_minutes": "720",

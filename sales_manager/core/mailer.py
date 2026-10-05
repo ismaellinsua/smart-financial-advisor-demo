@@ -51,14 +51,15 @@ class Mailer:
         return cls(host, int(value("smtp_port") or 587), user, password, value("smtp_from"))
 
     def message(self, to: str, subject: str, text: str, html: str = "",
-                attachments: list[tuple[str, bytes, str]] = ()) -> EmailMessage:
+                attachments: list[tuple[str, bytes, str]] = (), reply_to: str = "") -> EmailMessage:
         if not valid_email(to):
             raise ValueError("Dirección de email no válida.")
         msg = EmailMessage()
         msg["From"] = self.sender
         msg["To"] = to.strip()
         msg["Subject"] = subject.replace("\n", " ")[:200]
-        msg["Reply-To"] = parseaddr(self.sender)[1] or self.user
+        # A business's customers reply to the business, not to the sending account.
+        msg["Reply-To"] = reply_to.strip() if valid_email(reply_to) else parseaddr(self.sender)[1] or self.user
         msg.set_content(text)
         if html:
             msg.add_alternative(html, subtype="html")
@@ -68,8 +69,8 @@ class Mailer:
         return msg
 
     def send(self, to: str, subject: str, text: str, html: str = "",
-             attachments: list[tuple[str, bytes, str]] = ()) -> None:
-        msg = self.message(to, subject, text, html, attachments)
+             attachments: list[tuple[str, bytes, str]] = (), reply_to: str = "") -> None:
+        msg = self.message(to, subject, text, html, attachments, reply_to)
         context = ssl.create_default_context()
         if self.port == 465:
             with smtplib.SMTP_SSL(self.host, self.port, context=context, timeout=30) as server:

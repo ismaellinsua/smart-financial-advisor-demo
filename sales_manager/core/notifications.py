@@ -1,4 +1,5 @@
-"""Emails a business asked for: the weekly report every Monday and a notice when there are new important alerts.
+"""Emails a business asked for: the weekly report every Monday and a notice when there are new important alerts;
+and to its customers, a reminder the day before an appointment they left their email for.
 
 Run by the scheduled job (ops/notify.py). Each business opts in from Configuración; nothing is sent in
 demonstration mode or without a valid business email. What was last sent is remembered in the business's own
@@ -9,6 +10,7 @@ import hashlib
 from datetime import datetime, timedelta
 
 from . import clock
+from .booking_mail import send_reminders
 from .mailer import Mailer, valid_email
 from .pdfs import weekly_report_pdf
 from .presets import CURRENCIES
@@ -27,10 +29,15 @@ def send_due(store, mailer: Mailer, now: datetime | None = None) -> list[str]:
     clock.set_timezone(settings.get("timezone"))
     now = now or clock.now()
     to = (settings.get("email") or "").strip()
-    if settings.get("demo_mode") == "si" or not valid_email(to):
+    if settings.get("demo_mode") == "si":
         return []
-    name = settings.get("business_name", "")
     sent = []
+    store.forget_booking_contacts(now)
+    if reminded := send_reminders(store, mailer, settings, now):
+        sent.append(f"{reminded} recordatorio(s) de cita")
+    if not valid_email(to):
+        return sent
+    name = settings.get("business_name", "")
 
     last_week = week_start(now.date()) - timedelta(days=7)
     if (settings.get("email_weekly") == "si" and now.weekday() == 0

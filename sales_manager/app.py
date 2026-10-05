@@ -12,7 +12,7 @@ import streamlit as st
 
 from core.presets import PRESETS
 from core.security import ROLES
-from ui import pages, pages_intel, pages_management, pages_promos, pages_tables, tenancy
+from ui import booking, pages, pages_intel, pages_management, pages_promos, pages_tables, tenancy
 from ui.auth import logout_button, require_user
 from ui.context import PAGES, ctx
 from ui.styles import inject_css, sidebar_brand, sidebar_copyright, topbar
@@ -34,6 +34,11 @@ except Exception as exc:  # the database is unreachable or the URL is wrong; ret
     st.caption(f"Detalle técnico: {type(exc).__name__}")
     st.stop()
 inject_css(c.settings["accent_color"])
+
+# Customers booking online (…/?reservar): a public page, no sign-in.
+if booking.wanted():
+    booking.public_page(c.store, c.settings)
+    st.stop()
 
 user = require_user(c.store, c.settings)
 if user is None:

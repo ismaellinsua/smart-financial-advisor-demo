@@ -15,8 +15,8 @@ class FakeMailer(Mailer):
         super().__init__("smtp.example.com", 587, "envios@example.com", "x")
         self.sent = []
 
-    def send(self, to, subject, text, html="", attachments=()):
-        self.message(to, subject, text, html, attachments)  # builds it exactly as for real
+    def send(self, to, subject, text, html="", attachments=(), reply_to=""):
+        self.last = self.message(to, subject, text, html, attachments, reply_to)  # built exactly as for real
         self.sent.append((to, subject, [a[0] for a in attachments]))
 
 

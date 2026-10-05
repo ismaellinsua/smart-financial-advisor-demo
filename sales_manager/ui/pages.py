@@ -955,6 +955,9 @@ def agenda_page() -> None:
     expected = pending["price"].fillna(0).astype(float).sum()
     m3.metric("Ingresos previstos", c.money_short(expected), help="Servicios pendientes, impuestos incluidos.")
 
+    if c.can("encargado"):
+        _online_booking_panel(c, cfg)
+
     left, right = st.columns([3, 2], gap="large")
     with left:
         if df.empty:
@@ -968,9 +971,14 @@ def agenda_page() -> None:
 def _appointment_card(c, a) -> None:
     end = a["starts_at"] + timedelta(minutes=int(a["duration_min"]))
     status = a["status"]
+    people = int(a.get("people") or 0)
+    phone = a["customer_phone"] if isinstance(a.get("customer_phone"), str) else ""
     detail = " · ".join(x for x in [
+        "Online" if a.get("source") == "online" else "",
+        f"{people} pers." if people else "",
         a["service"] if isinstance(a["service"], str) else "",
         c.money(float(a["price"])) if pd.notna(a["price"]) else "",
+        phone,
         a["notes"],
     ] if x)
     with st.container(border=True):
@@ -1003,6 +1011,13 @@ def _appointment_card(c, a) -> None:
                  args=(aid, "no_presentado"), width="stretch")
         z.button("Cancelar", key=f"appt_cancel_{aid}", on_click=_set_appointment_status, args=(aid, "cancelada"),
                  width="stretch")
+        if phone and a["starts_at"] >= clock.now():
+            business = c.settings.get("business_name", "")
+            text = (f"Hola, {a['who']}: te recordamos tu reserva en {business} el {a['starts_at']:%d/%m} a las "
+                    f"{a['starts_at']:%H:%M}. Si no puedes venir, avísanos respondiendo a este mensaje. ¡Gracias!")
+            st.link_button("Recordar por WhatsApp", f"https://wa.me/{whatsapp_number(phone)}?text={quote(text)}",
+                           icon=":material/chat:", width="stretch",
+                           help="Abre WhatsApp con el recordatorio escrito, listo para enviar.")
 
 
 def _new_appointment_form(c, cfg: dict, day: date) -> None:
@@ -1019,6 +1034,8 @@ def _new_appointment_form(c, cfg: dict, day: date) -> None:
                                    value=int(cfg.get("duration", 60)))
         customer_id = st.selectbox("Cliente", [0, *names], format_func=lambda i: names.get(i, "Sin ficha (escribir nombre)"))
         walk_in = st.text_input("Nombre (si no tiene ficha)")
+        phone = st.text_input("Teléfono (para recordarle la cita)", max_chars=20)
+        people = 0 if cfg["single"] else st.number_input("Personas", min_value=1, max_value=200, value=2, step=1)
         product_id = st.selectbox(c.preset["item_label"], [0, *services],
                                   format_func=lambda i: services.get(i, "Sin servicio"),
                                   index=1 if cfg["single"] and services else 0)
@@ -1029,6 +1046,7 @@ def _new_appointment_form(c, cfg: dict, day: date) -> None:
                     datetime.combine(when_day, when_time), duration,
                     product_id=product_id or None, customer_id=customer_id or None,
                     customer_name=walk_in, notes=notes, allow_overlap=not cfg["single"], created_by=c.who,
+                    people=people, phone=phone,
                 )
             except ValueError as exc:
                 st.error(str(exc))
@@ -1036,6 +1054,69 @@ def _new_appointment_form(c, cfg: dict, day: date) -> None:
                 st.session_state["agenda_flash"] = ("success", f"Guardada para el {when_day:%d/%m} a las {when_time:%H:%M}.")
                 st.session_state["agenda_goto"] = when_day  # applied before the date picker is drawn
                 st.rerun()
+
+
+def _online_booking_panel(c, cfg: dict) -> None:
+    """Opening hours and rules for the public booking page, its link and a QR to print for the counter."""
+    from core.store_bookings import WEEKDAYS as DAY_NAMES
+    from ui.booking import booking_url
+
+    rules = c.store.booking_rules(c.settings)
+    state = "abiertas" if rules["enabled"] else "cerradas"
+    with st.expander(f"Reservas online · {state}", icon=":material/language:"):
+        if rules["enabled"]:
+            url = booking_url()
+            st.markdown("Comparte este enlace (web, Instagram, Google, WhatsApp) o imprime el código QR:")
+            st.code(url, language=None)
+            import io
+
+            import segno
+
+            png = io.BytesIO()
+            segno.make_qr(url, error="m").save(png, kind="png", scale=8, border=2)
+            q1, q2 = st.columns([1, 3], vertical_alignment="center")
+            q1.image(png.getvalue(), width=140)
+            q2.download_button("Descargar QR", png.getvalue(), file_name="qr-reservas.png", mime="image/png",
+                               icon=":material/qr_code_2:")
+        with st.form("booking_rules"):
+            enabled = st.toggle("Aceptar reservas online", value=rules["enabled"])
+            st.markdown("**Horario** (vacío = cerrado). Ejemplo: `09:00-14:00, 16:00-20:00`")
+            hours = {}
+            cols = st.columns(2)
+            for day, label in enumerate(DAY_NAMES):
+                current = ", ".join(f"{a:%H:%M}-{b:%H:%M}" for a, b in rules["hours"].get(day, []))
+                hours[day] = cols[day % 2].text_input(label, current, max_chars=80, key=f"booking_h_{day}")
+            closed = st.text_input("Días cerrados (festivos, vacaciones)", c.settings.get("booking_closed", ""),
+                                   placeholder="24/12/2026, 25/12/2026", max_chars=1000)
+            a, b = st.columns(2)
+            values = {"enabled": enabled, "hours": hours, "closed": closed}
+            if cfg["single"]:
+                products = c.store.products()
+                names = {int(i): n for i, n in zip(products["id"], products["name"])}
+                values["services"] = st.multiselect(
+                    "Servicios que se pueden reservar", list(names), [i for i in rules["services"] if i in names],
+                    format_func=names.get, help="Si no eliges ninguno, la persona reserva una cita sin elegir servicio.")
+                values["duration"] = a.number_input("Duración de cada cita (min)", 5, 600, rules["duration"], 5)
+            else:
+                values["services"] = []
+                values["duration"] = a.number_input("Tiempo de mesa (min)", 5, 600, rules["duration"], 5)
+                values["capacity"] = b.number_input("Comensales a la vez", 1, 1000, rules["capacity"], 1,
+                                                    help="Suma de personas que caben al mismo tiempo.")
+                values["max_party"] = a.number_input("Máximo de personas por reserva", 1, 100, rules["max_party"], 1)
+            values["step"] = b.number_input("Una hora de inicio cada (min)", 5, 240, rules["step"], 5)
+            values["days"] = a.number_input("Se puede reservar con hasta (días)", 1, 365, rules["days_ahead"], 1)
+            values["notice_hours"] = b.number_input("Antelación mínima (horas)", 0, 168, rules["notice_hours"], 1)
+            st.caption("Si el envío de emails está configurado, la persona recibe la confirmación y un recordatorio "
+                       "el día antes, y tú un aviso de cada reserva nueva en el email del negocio.")
+            if st.form_submit_button("Guardar", type="primary"):
+                try:
+                    c.store.save_booking_rules(values)
+                except ValueError as exc:
+                    st.error(str(exc))
+                else:
+                    c.store.audit(c.username, "reservas_online", "abiertas" if enabled else "cerradas")
+                    st.session_state["agenda_flash"] = ("success", "Reservas online guardadas.")
+                    st.rerun()
 
 
 # ---------------------------------------------------------------------- team
@@ -1796,6 +1877,12 @@ HELP = [
     ("encargado", "Cerrar la caja", [
         "Al final del día abre **Caja**, cuenta el efectivo y escribe lo contado: verás si hay descuadre.",
         "Descarga el cierre en PDF si lo necesitas para tu gestoría.",
+    ]),
+    ("encargado", "Reservas online", [
+        "En **Agenda → Reservas online**, pon tu horario y los días cerrados, y activa «Aceptar reservas online».",
+        "Comparte el enlace o imprime el QR: tus clientes eligen hora libre sin llamarte y reciben un enlace para "
+        "cancelar. Las reservas aparecen en la Agenda marcadas como «Online», con su teléfono.",
+        "La víspera, cada cita con email recibe un recordatorio; las demás, envíalo con «Recordar por WhatsApp».",
     ]),
     ("encargado", "Papeles para la gestoría", [
         "Abre **Gestoría**, elige el trimestre y descarga el Excel: libro de facturas emitidas, IVA por tipo, "

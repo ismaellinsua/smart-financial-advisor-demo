@@ -28,6 +28,7 @@ from .store_sessions import SessionsMixin
 from .store_privacy import PrivacyMixin
 from .store_errors import ErrorsMixin
 from .accounting import AccountingMixin
+from .store_bookings import AGENDA_LOCK, BookingMixin, clean_phone
 from .security import (
     DUMMY_HASH, RECOVERY_CODE_COUNT, RECOVERY_ITERATIONS, ROLE_RANK, ROLES, USERNAME_RE, check_secret_strength,
     clean_text, hash_secret, is_safe_identifier, new_recovery_code, normalize_recovery_code, verify_secret, verify_totp,
@@ -412,6 +413,13 @@ MIGRATIONS = [
     ("expenses", "issuer_tax_id", "TEXT NOT NULL DEFAULT ''"),
     ("expenses", "issuer_name", "TEXT NOT NULL DEFAULT ''"),
     ("expenses", "tax_rate", "{real}"),
+    # Online booking: the customer's contact (erased CONTACT_DAYS after the appointment), party size and cancel link.
+    ("appointments", "phone", "TEXT NOT NULL DEFAULT ''"),
+    ("appointments", "email", "TEXT NOT NULL DEFAULT ''"),
+    ("appointments", "people", "INTEGER NOT NULL DEFAULT 0"),
+    ("appointments", "source", "TEXT NOT NULL DEFAULT 'equipo'"),
+    ("appointments", "cancel_hash", "TEXT NOT NULL DEFAULT ''"),
+    ("appointments", "reminded_at", "TEXT NOT NULL DEFAULT ''"),
 ]
 
 # An account locks for a fixed, short time after many failures. A long or growing lock would let anyone who knows a
@@ -687,7 +695,7 @@ def _is_postgres(target) -> bool:
 
 # ----------------------------------------------------------------------------- store
 class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin, BillingMixin, SessionsMixin,
-            PrivacyMixin, ErrorsMixin, AccountingMixin):
+            PrivacyMixin, ErrorsMixin, AccountingMixin, BookingMixin):
     SaleError = SaleError
     def __init__(self, path=DEFAULT_DB_PATH, schema: str | None = None):
         """`schema`: on PostgreSQL, the business's own schema when one database serves several businesses."""
@@ -1370,7 +1378,8 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin, Billin
     # -------------------------------------------------------------- appointments
     def appointments(self, start: datetime, end: datetime) -> pd.DataFrame:
         df = self._frame(
-            "SELECT a.*, COALESCE(c.name, a.customer_name) AS who, c.phone AS customer_phone, "
+            "SELECT a.*, COALESCE(c.name, a.customer_name) AS who, COALESCE(NULLIF(a.phone, ''), c.phone) "
+            "AS customer_phone, "
             "p.name AS service, p.price AS price "
             "FROM appointments a LEFT JOIN customers c ON c.id = a.customer_id "
             "LEFT JOIN products p ON p.id = a.product_id "
@@ -1390,6 +1399,8 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin, Billin
         notes: str = "",
         allow_overlap: bool = False,
         created_by: str = "",
+        people: int = 0,
+        phone: str = "",
     ) -> int:
         duration_min = int(duration_min)
         if not 0 < duration_min <= 24 * 60:
@@ -1398,9 +1409,16 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin, Billin
         notes = clean_text(notes, "Notas", "notes")
         if customer_id is None and not customer_name:
             raise ValueError("Indica el cliente de la cita.")
+        people = int(people or 0)
+        if not 0 <= people <= 1000:
+            raise ValueError("Número de personas no válido.")
+        phone = clean_phone(phone) if str(phone or "").strip() else ""
         starts_at = starts_at.replace(second=0, microsecond=0)
         ends_at = starts_at + timedelta(minutes=duration_min)
         with self.db.tx() as cur:
+            # Same lock as online bookings: a customer booking from the web and the team can't take one slot twice.
+            cur.execute("INSERT INTO counters(series, value) VALUES (?, 1) "
+                        "ON CONFLICT(series) DO UPDATE SET value = counters.value + 1", (AGENDA_LOCK,))
             # Look at the same day only; a single agenda cannot hold two appointments at once.
             day_start = starts_at.replace(hour=0, minute=0)
             others = cur.execute(
@@ -1419,11 +1437,11 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin, Billin
                     )
             row = cur.execute(
                 "INSERT INTO appointments(starts_at, duration_min, customer_id, customer_name, product_id, notes, "
-                "created_at, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id",
+                "created_at, created_by, people, phone) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id",
                 (starts_at.isoformat(timespec="seconds"), duration_min,
                  None if customer_id is None else int(customer_id), customer_name,
                  None if product_id is None else int(product_id), notes,
-                 clock.now().isoformat(timespec="seconds"), created_by),
+                 clock.now().isoformat(timespec="seconds"), created_by, people, phone),
             ).fetchone()
             return row["id"]
 
