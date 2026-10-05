@@ -58,33 +58,45 @@ def tables_page() -> None:
                 "mesa a la vez.", eyebrow="Sala")
     floor = c.store.dining_tables(location_id=c.location_id)
     busy = floor[floor["order_id"].notna()]
-    m1, m2, m3 = st.columns(3)
-    m1.metric("Mesas ocupadas", f"{len(busy)} de {len(floor)}")
-    m2.metric("Comensales", int(busy["guests"].fillna(0).sum()))
-    m3.metric("Pendiente de cobro", c.money_short(busy["amount"].sum()))
+    with st.container(key="floor_stats"):
+        m1, m2, m3 = st.columns(3)
+        m1.metric("Mesas ocupadas", f"{len(busy)} de {len(floor)}")
+        m2.metric("Comensales", int(busy["guests"].fillna(0).sum()))
+        m3.metric("Pendiente de cobro", c.money_short(busy["amount"].sum()))
     if floor.empty:
         st.info("No hay mesas. Créalas en «Configurar mesas», más abajo.")
 
-    for zone, tables in floor.groupby("zone", sort=False):
-        st.markdown(f"##### {escape(str(zone))}")
-        cols = st.columns(4)
-        for i, (_, t) in enumerate(tables.iterrows()):
-            with cols[i % 4], st.container(border=True):
-                if pd.notna(t["order_id"]):  # occupied
-                    ready = f"<span class='sm-ready'>{int(t['ready'])} listo</span>" if t["ready"] else ""
-                    st.markdown(
-                        f"<div class='sm-table busy'><b>{escape(t['name'])}</b>{ready}"
-                        f"<div>{f'{int(t.guests)} pers · ' if t['guests'] else ''}{_minutes(t['opened_at'])} min</div>"
-                        f"<div class='amt'>{escape(c.money(t['amount']))}</div></div>",
-                        unsafe_allow_html=True)
-                    st.button("Ver comanda", key=f"tbl_{t['id']}", width="stretch",
-                              on_click=st.session_state.__setitem__, args=("table_order", int(t["order_id"])))
-                else:
-                    st.markdown(f"<div class='sm-table'><b>{escape(t['name'])}</b><div>Libre · {int(t['seats'])} "
-                                f"plazas</div><div class='amt'>&nbsp;</div></div>", unsafe_allow_html=True)
-                    st.button("Abrir", key=f"tbl_{t['id']}", width="stretch", type="primary",
-                              on_click=_open_table, args=(int(t["id"]), c.who))
+    with st.container(key="floor"):
+        for zone, tables in floor.groupby("zone", sort=False):
+            st.markdown(f"##### {escape(str(zone))}")
+            rows = [tables.iloc[i:i + 4] for i in range(0, len(tables), 4)]  # row by row: phones show them in order
+            for row in rows:
+                _table_row(c, row)
 
+    _counter_and_setup(c)
+
+
+def _table_row(c, row: pd.DataFrame) -> None:
+    cols = st.columns(4)
+    for i, (_, t) in enumerate(row.iterrows()):
+        with cols[i], st.container(border=True):
+            if pd.notna(t["order_id"]):  # occupied
+                ready = f"<span class='sm-ready'>{int(t['ready'])} listo</span>" if t["ready"] else ""
+                st.markdown(
+                    f"<div class='sm-table busy'><b>{escape(t['name'])}</b>{ready}"
+                    f"<div>{f'{int(t.guests)} pers · ' if t['guests'] else ''}{_minutes(t['opened_at'])} min</div>"
+                    f"<div class='amt'>{escape(c.money(t['amount']))}</div></div>",
+                    unsafe_allow_html=True)
+                st.button("Ver comanda", key=f"tbl_{t['id']}", width="stretch",
+                          on_click=st.session_state.__setitem__, args=("table_order", int(t["order_id"])))
+            else:
+                st.markdown(f"<div class='sm-table'><b>{escape(t['name'])}</b><div>Libre · {int(t['seats'])} "
+                            f"plazas</div><div class='amt'>&nbsp;</div></div>", unsafe_allow_html=True)
+                st.button("Abrir", key=f"tbl_{t['id']}", width="stretch", type="primary",
+                          on_click=_open_table, args=(int(t["id"]), c.who))
+
+
+def _counter_and_setup(c) -> None:
     others = c.store.open_orders()
     others = others[others["table_name"].isna()]
     st.markdown("##### Barra y para llevar")

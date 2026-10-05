@@ -143,6 +143,24 @@ button[kind="primary"]:disabled, button[data-testid^="stBaseButton-primary"]:dis
                      border-radius: 999px; background: #FEE4E2; color: #B42318; }}
 .sm-topbar .alerts.calm {{ background: #FEF0C7; color: #93370D; }}
 @media (max-width: 640px) {{ .sm-topbar .next, .sm-topbar .sep.n, .sm-topbar .biz {{ display: none; }} }}
+/* Phones: every button big enough for a thumb (44 px), on every page. */
+@media (max-width: 640px) {{
+  .stButton button, .stDownloadButton button, .stFormSubmitButton button, [data-testid="stPopover"] button,
+  .stLinkButton a {{ min-height: 44px; }}
+  [data-testid="stExpandSidebarButton"], [data-testid="stSidebarCollapseButton"] button {{
+      min-height: 44px; min-width: 44px; }}
+  /* Floor plan: the three figures in one row, and tables two by two in their order. */
+  .st-key-floor_stats [data-testid="stHorizontalBlock"] {{ flex-wrap: nowrap !important; gap: .4rem !important; }}
+  .st-key-floor_stats [data-testid="stColumn"] {{ min-width: 0 !important; flex: 1 1 0 !important; }}
+  .st-key-floor_stats [data-testid="stMetric"] {{ padding: .45rem .55rem !important; }}
+  .st-key-floor_stats [data-testid="stMetricValue"] {{ font-size: 1.1rem !important; }}
+  .st-key-floor_stats [data-testid="stMetricLabel"] p {{ font-size: .6rem !important; white-space: normal; }}
+  .st-key-floor [data-testid="stHorizontalBlock"] {{ flex-wrap: wrap !important; gap: .5rem !important; }}
+  .st-key-floor [data-testid="stColumn"] {{ flex: 1 1 calc(50% - .25rem) !important;
+                                            min-width: calc(50% - .25rem) !important; }}
+  .st-key-floor [data-testid="stVerticalBlockBorderWrapper"] {{ padding: .55rem !important; }}
+  .st-key-floor .sm-table {{ font-size: .85rem; }}
+}}
 
 /* Agenda cards */
 .sm-appt {{ display: flex; align-items: center; gap: .9rem; }}

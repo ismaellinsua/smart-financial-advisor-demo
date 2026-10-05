@@ -135,10 +135,11 @@ def _send(method: str, url: str, data: bytes | None, headers: dict) -> tuple[int
 class Stripe:
     """The few Stripe calls the service needs. `transport` replaces the network in tests."""
 
-    def __init__(self, secret_key: str, price_id: str, transport=_send):
+    def __init__(self, secret_key: str, price_id: str, transport=_send, api_base: str | None = None):
         if not secret_key.startswith(("sk_", "rk_")):
             raise BillingError("La clave de Stripe no es válida (debe empezar por sk_ o rk_).")
         self.secret_key, self.price_id, self._transport = secret_key, price_id, transport
+        self.api = (api_base or API).rstrip("/")
 
     @property
     def live(self) -> bool:
@@ -146,7 +147,7 @@ class Stripe:
 
     def _call(self, method: str, path: str, params: dict | None = None, idempotency_key: str | None = None) -> dict:
         headers = {"Authorization": f"Bearer {self.secret_key}", "Stripe-Version": "2024-06-20"}
-        url, data = f"{API}{path}", None
+        url, data = f"{self.api}{path}", None
         encoded = urllib.parse.urlencode(_flatten(params or {}))
         if method == "GET":
             url += f"?{encoded}" if encoded else ""

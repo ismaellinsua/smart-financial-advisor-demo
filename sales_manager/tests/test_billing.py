@@ -2,6 +2,7 @@
 and the directory keeping each business's subscription."""
 
 import json
+import os
 import sys
 import threading
 import urllib.error
@@ -281,3 +282,20 @@ def test_webhook_service_only_accepts_signed_events(webhook_url):
     big = b"x" * (600 * 1024)
     assert post(f"{base}/stripe/webhook", big, sign_webhook(big, SECRET)) in (413, "cortada")
     assert received == ["evt_firmado"]
+
+
+# ------------------------------------------------------------------ against Stripe's own API description
+STRIPE_MOCK = os.environ.get("STRIPE_MOCK_URL")  # stripe-mock checks every parameter against Stripe's OpenAPI spec
+
+
+@pytest.mark.skipif(not STRIPE_MOCK, reason="STRIPE_MOCK_URL not set (run stripe/stripe-mock)")
+def test_every_call_is_valid_for_stripe():
+    stripe = Stripe("sk_test_123", "price_123", api_base=STRIPE_MOCK)
+    back = "https://app.nirkana.es/?negocio=cafe"
+    assert stripe.checkout_url(tenant(), "hola@cafe.es", back + "&pago=ok&session_id={CHECKOUT_SESSION_ID}", back)
+    assert stripe.checkout_url(tenant(stripe_customer="cus_123"), "", back, back)
+    assert stripe.portal_url("cus_123", back)
+    assert "client_reference_id" in stripe.checkout_session("cs_test_123")
+    assert subscription_fields(stripe.latest_subscription("cus_123"))["stripe_subscription"].startswith("sub_")
+    with pytest.raises(BillingError, match="validation"):  # the simulator does reject what Stripe would
+        stripe._call("POST", "/checkout/sessions", {"mode": "subscription", "parametro_inventado": "x"})
