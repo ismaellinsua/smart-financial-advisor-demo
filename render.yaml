@@ -1,0 +1,23 @@
+# Render Blueprint: the app in Frankfurt (EU), next to a Neon database in eu-central-1.
+# Render → New → Blueprint → this repository. Values marked sync: false are asked for once, in Render, never stored here.
+services:
+  - type: web
+    name: nirkana
+    runtime: docker
+    region: frankfurt
+    plan: starter
+    healthCheckPath: /_stcore/health
+    autoDeploy: false
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: APP_PASSWORD
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: SMTP_FROM
+        sync: false

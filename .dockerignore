@@ -1,0 +1,11 @@
+.git
+.github
+.devcontainer
+**/__pycache__
+**/.pytest_cache
+.ruff_cache
+docs
+marketing
+sales_manager/data
+sales_manager/tests
+.streamlit/secrets.toml

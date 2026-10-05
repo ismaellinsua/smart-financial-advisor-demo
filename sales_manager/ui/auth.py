@@ -1,6 +1,7 @@
 """Staff accounts: first-run administrator setup, login, recovery, idle timeout and logout."""
 
 import hmac
+import os
 import secrets
 import threading
 import time as _time
@@ -38,11 +39,12 @@ _SETUP_CODE: str | None = None
 
 
 def configured_password() -> str | None:
-    """`app_password` from Streamlit secrets: proves ownership when the first administrator is created."""
+    """`app_password` (Streamlit secrets or APP_PASSWORD): proves ownership when the first administrator is created."""
     try:
-        return st.secrets.get("app_password") or None
-    except Exception:  # no secrets file: running locally
-        return None
+        value = st.secrets.get("app_password")
+    except Exception:  # no secrets file: running locally or in a container
+        value = None
+    return value or os.environ.get("APP_PASSWORD") or None
 
 
 def client_key() -> str:
