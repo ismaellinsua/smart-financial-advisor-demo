@@ -756,6 +756,12 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin, Billin
             cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS sales_offline_id ON sales(offline_id) WHERE offline_id <> ''")
             cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS sales_external_ref ON sales(external_ref) "
                         "WHERE external_ref <> ''")
+            # Each fixed expense once a month, even if two devices post them at the same moment. Databases that
+            # already have a duplicate keep working (and keep the check in `apply_recurring`).
+            if not cur.execute("SELECT 1 FROM expenses WHERE recurring_id IS NOT NULL GROUP BY recurring_id, "
+                               "substr(day, 1, 7) HAVING COUNT(*) > 1 LIMIT 1").fetchone():
+                cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS expenses_recurring_month "
+                            "ON expenses(recurring_id, substr(day, 1, 7)) WHERE recurring_id IS NOT NULL")
             # One cash closing per day and location (it used to be one per day).
             self.db.drop_day_unique(cur)
             cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS cash_closings_day_location "
@@ -1122,6 +1128,10 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin, Billin
                      discount_approved_by="", location_id=None) -> int:
         if max_discount is not None and discount_pct > max_discount + 1e-9 and not discount_approved_by:
             raise SaleError(f"Un descuento de más del {max_discount:g} % necesita la autorización de un encargado.")
+        if redeem_points and customer_id is not None:
+            # One redemption per customer at a time: two tills can't spend the same points twice.
+            cur.execute("INSERT INTO counters(series, value) VALUES (?, 1) "
+                        "ON CONFLICT(series) DO UPDATE SET value = counters.value + 1", (f"__puntos_{int(customer_id)}__",))
         q = self._quote(cur, cart, discount_pct, tax_rate, customer_id, redeem_points, when, apply_promos)
         t = q["totals"]
         pays = self._normalize_payments(payments, payment_method, t["total"])

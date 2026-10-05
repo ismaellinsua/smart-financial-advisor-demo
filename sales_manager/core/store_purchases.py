@@ -255,8 +255,11 @@ class PurchasesMixin:
                     exists = cur.execute("SELECT id FROM expenses WHERE recurring_id = ? AND day >= ? AND day < ?",
                                          (int(r["id"]), month.isoformat(), nxt.isoformat())).fetchone()
                 if not exists:
-                    self.add_expense(due, r["category"], r["description"], r["amount"], r["method"],
-                                     created_by="Automático", recurring_id=int(r["id"]))
+                    try:
+                        self.add_expense(due, r["category"], r["description"], r["amount"], r["method"],
+                                         created_by="Automático", recurring_id=int(r["id"]))
+                    except self.db.integrity_errors:
+                        continue  # another device recorded it a moment ago
                     created += 1
             month = nxt
         return created

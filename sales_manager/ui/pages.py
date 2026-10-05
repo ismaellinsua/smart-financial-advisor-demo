@@ -350,6 +350,15 @@ def _add_to_cart(pid: int) -> None:
     cart[pid] = cart.get(pid, 0) + 1
 
 
+def _scan(skus: dict) -> None:
+    """A barcode scanner types the code and Enter: an exact code goes straight to the ticket and the box clears."""
+    code = str(st.session_state.get("pos_query", "")).strip().lower()
+    if code in skus:
+        _add_to_cart(skus[code])
+        st.session_state["pos_query"] = ""
+        st.session_state["pos_flash"] = ("toast", f"Añadido: {code.upper()}")
+
+
 def _change_qty(pid: int, delta: int) -> None:
     cart = _cart()
     cart[pid] = cart.get(pid, 0) + delta
@@ -433,7 +442,9 @@ def point_of_sale() -> None:
     catalog_col, ticket_col = st.columns([3, 2], gap="large")
     with catalog_col, st.container(key="pos_catalog"):
         f1, f2 = st.columns([2, 3])
-        query = f1.text_input("Buscar", placeholder="Nombre o código…", label_visibility="collapsed")
+        query = f1.text_input("Buscar", placeholder="Nombre, código o escanea…", label_visibility="collapsed",
+                              key="pos_query", on_change=_scan, args=(dict(zip(products["sku"].str.lower(),
+                                                                              products["id"].astype(int))),))
         categories = sorted(products["category"].unique())
         selected = f2.pills("Categoría", categories, selection_mode="multi", label_visibility="collapsed")
         shown = products
@@ -1643,7 +1654,53 @@ def customers_page() -> None:
             _bump("customers_editor")
             st.rerun()
 
+    _customer_card(c, ranking)
     _privacy_section(c, c.store.customers())
+
+
+def _customer_card(c, ranking) -> None:
+    """Everything about one customer at a glance, e.g. before calling them or at the counter."""
+    if ranking.empty:
+        return
+    with st.expander("Ficha del cliente", icon=":material/badge:"):
+        names = dict(zip(ranking["id"].astype(int), ranking["name"]))
+        cid = st.selectbox("Cliente", list(names), format_func=names.get, key="customer_card")
+        card = c.store.customer_history(cid)
+        done = card["sales"][card["sales"]["status"] == "completada"]
+        m1, m2, m3, m4 = st.columns(4)
+        m1.metric("Compras", len(done))
+        m2.metric("Gastado", c.money_short(done["total"].sum()))
+        m3.metric("Ticket medio", c.money_short(done["total"].mean() if len(done) else 0))
+        m4.metric("Puntos", card["points"])
+        row = ranking.set_index("id").loc[cid]
+        contact = " · ".join(str(row[k]) for k in ("phone", "email") if isinstance(row[k], str) and row[k])
+        if contact:
+            st.caption(contact)
+        if isinstance(row["notes"], str) and row["notes"]:
+            st.info(row["notes"], icon=":material/sticky_note_2:")
+        left, right = st.columns([3, 2], gap="large")
+        with left:
+            st.markdown("**Últimas compras**")
+            if card["sales"].empty:
+                st.caption("Todavía no ha comprado.")
+            else:
+                st.dataframe(card["sales"], hide_index=True, width="stretch",
+                             column_order=["number", "created_at", "payment_method", "total", "status"],
+                             column_config={"number": "Ticket", "payment_method": "Pago", "status": "Estado",
+                                            "created_at": st.column_config.DatetimeColumn("Fecha",
+                                                                                          format="DD/MM/YYYY HH:mm"),
+                                            "total": st.column_config.NumberColumn("Total",
+                                                                                   format=f"%.2f {c.symbol}")})
+        with right:
+            st.markdown("**Lo que más compra**")
+            if card["favourites"].empty:
+                st.caption("—")
+            for f in card["favourites"].itertuples():
+                st.markdown(f"- {f.name} · {int(f.units)} ud.")
+            if not card["upcoming"].empty:
+                st.markdown("**Próximas citas**")
+                for a in card["upcoming"].itertuples():
+                    st.markdown(f"- {a.starts_at:%d/%m %H:%M}" + (f" · {a.notes}" if a.notes else ""))
 
 
 def _prepare_export(cid: int) -> None:
