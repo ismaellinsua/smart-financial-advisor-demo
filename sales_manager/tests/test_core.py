@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from core import automation
+from core import automation, clock
 from core.db import SaleError, Store
 from core.presets import PRESETS
 from core.pricing import compute_totals, format_money, format_money_short
@@ -13,6 +13,7 @@ from core.receipts import receipt_html
 def store(make_store):
     s = make_store()
     s.load_preset("retail", with_demo_sales=False)
+    s.save_settings({"tax_id": "B12345678", "address": "Calle Mayor 1, 28001 Madrid"})  # required on invoices
     for pid in s.promotions()["id"]:  # template promotions depend on the weekday; tests add their own
         s.delete_promotion(int(pid))
     return s
@@ -23,11 +24,26 @@ def product_id(store, sku):
     return int(df.loc[df["sku"] == sku, "id"].iloc[0])
 
 
-def test_compute_totals_applies_discount_before_tax():
+def test_compute_totals_prices_include_vat():
     totals = compute_totals([{"unit_price": 10, "quantity": 3}, {"unit_price": 5.5, "quantity": 2}], 10, 21)
-    assert {k: totals[k] for k in ("subtotal", "discount", "tax", "total")} == {
-        "subtotal": 41.0, "discount": 4.1, "tax": 7.75, "total": 44.65}
+    assert {k: totals[k] for k in ("subtotal", "discount", "base", "tax", "total")} == {
+        "subtotal": 41.0, "discount": 4.1, "base": 30.5, "tax": 6.4, "total": 36.9}
     assert sum(totals["net_amounts"]) == pytest.approx(totals["base"])
+    assert sum(totals["tax_amounts"]) == pytest.approx(totals["tax"])
+
+
+def test_ticket_matches_the_menu_and_vat_is_broken_down_per_rate():
+    cafes = compute_totals([{"unit_price": 1.5, "quantity": 7, "tax_rate": 10}], 0, 10)
+    assert cafes["total"] == 10.5  # 7 coffees at 1,50 € cost 10,50 €, not 10,47 €
+    mixed = compute_totals([{"unit_price": 2.0, "quantity": 1, "tax_rate": 4},
+                            {"unit_price": 5.0, "quantity": 2, "tax_rate": 21}], 10, 21, loyalty_amount=1.0)
+    assert mixed["total"] == 9.8  # (2 + 10) − 10 % − 1 € of points
+    assert [t["rate"] for t in mixed["taxes"]] == [21.0, 4.0]
+    for t in mixed["taxes"]:
+        assert t["base"] + t["tax"] == pytest.approx(t["total"])
+        assert t["base"] == pytest.approx(round(t["total"] / (1 + t["rate"] / 100), 2))
+    assert sum(t["total"] for t in mixed["taxes"]) == pytest.approx(mixed["total"])
+    assert sum(mixed["gross_amounts"]) == pytest.approx(mixed["total"])
 
 
 def test_compute_totals_rejects_invalid_discount():
@@ -44,11 +60,11 @@ def test_sale_decrements_stock_and_numbers_sequentially(store):
     before = int(store.products().set_index("id").loc[pid, "stock"])
     first = store.create_sale([{"product_id": pid, "quantity": 2}], "Tarjeta")
     second = store.create_sale([{"product_id": pid, "quantity": 1}], "Efectivo")
-    year = datetime.now().year
+    year = clock.now().year
     assert first["number"] == f"VTA-{year}-00001"
     assert second["number"] == f"VTA-{year}-00002"
     assert int(store.products().set_index("id").loc[pid, "stock"]) == before - 3
-    assert first["total"] == pytest.approx(39.90 * 2 * 1.21, abs=0.01)
+    assert first["total"] == pytest.approx(39.90 * 2, abs=0.001)
 
 
 def test_sale_rejects_insufficient_stock_without_side_effects(store):
@@ -89,7 +105,7 @@ def test_every_preset_generates_demo_activity(make_store, business_type):
 
 def test_reorder_suggestions_cover_lead_time(store):
     pid = product_id(store, "VEL-006")
-    now = datetime.now()
+    now = clock.now()
     for d in range(10):
         store.create_sale([{"product_id": pid, "quantity": 3}], "Tarjeta", when=now - timedelta(days=d))
     products = store.products()
@@ -103,7 +119,7 @@ def test_low_stock_and_inactive_customers(store):
     pid = product_id(store, "BOL-004")
     cid = store.upsert_customer({"name": "Ana López", "email": "ana@example.com"})
     store.create_sale([{"product_id": pid, "quantity": 1}], "Tarjeta", customer_id=cid,
-                      when=datetime.now() - timedelta(days=90))
+                      when=clock.now() - timedelta(days=90))
     assert "BOL-004" in set(automation.low_stock(store.products())["sku"])
     inactive = automation.inactive_customers(store.customers(), store.sales(), days=60)
     assert list(inactive["name"]) == ["Ana López"]
@@ -112,7 +128,7 @@ def test_low_stock_and_inactive_customers(store):
 
 def test_kpis_compare_periods(store):
     pid = product_id(store, "CAM-001")
-    now = datetime.now()
+    now = clock.now()
     store.create_sale([{"product_id": pid, "quantity": 1}], "Tarjeta", when=now - timedelta(days=10))
     store.create_sale([{"product_id": pid, "quantity": 2}], "Tarjeta", when=now)
     start, end, prev_start = automation.period_bounds(7, now)
@@ -212,7 +228,7 @@ def _completed_sale(store, sku="CAM-001", **kwargs):
 
 
 def test_invoice_numbering_and_rules(store):
-    year = datetime.now().year
+    year = clock.now().year
     cid = store.upsert_customer({"name": "Norte S.L."})
     first = _completed_sale(store, customer_id=cid)
     second = _completed_sale(store)
@@ -242,7 +258,7 @@ def test_pdfs_are_generated(store):
     sale = _completed_sale(store)
     invoice = store.create_invoice(sale["id"], {"name": "Cliente <b>", "tax_id": "X"})
     assert invoice_pdf(invoice, store.settings()).startswith(b"%PDF")
-    closing = store.close_cash(datetime.now().date(), 100, 100)
+    closing = store.close_cash(clock.now().date(), 100, 100)
     assert cash_closing_pdf(closing, store.settings()).startswith(b"%PDF")
 
 
@@ -251,7 +267,7 @@ def test_appointments_overlap_charge_and_status(make_store):
     s = make_store()
     s.load_preset("services", with_demo_sales=False)
     pid = int(s.products()["id"].iloc[0])
-    day = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
+    day = clock.now().replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
     a1 = s.create_appointment(day.replace(hour=10), 60, product_id=pid, customer_name="Laura")
     with pytest.raises(ValueError, match="solapa"):
         s.create_appointment(day.replace(hour=10, minute=30), 60, product_id=pid, customer_name="Pablo")
@@ -277,7 +293,7 @@ def test_appointments_overlap_charge_and_status(make_store):
 
 
 def test_demo_agenda_only_for_agenda_businesses(make_store):
-    now = datetime.now()
+    now = clock.now()
     for business_type, expected in [("services", True), ("retail", False)]:
         s = make_store()
         s.load_preset(business_type)
@@ -287,7 +303,7 @@ def test_demo_agenda_only_for_agenda_businesses(make_store):
 
 # --------------------------------------------------------------- cash closing
 def test_cash_closing(store):
-    today = datetime.now().date()
+    today = clock.now().date()
     pid = product_id(store, "CAM-001")
     store.create_sale([{"product_id": pid, "quantity": 1}], "Efectivo")
     store.create_sale([{"product_id": pid, "quantity": 2}], "Tarjeta")
@@ -295,7 +311,7 @@ def test_cash_closing(store):
     store.cancel_sale(cancelled["id"])
     summary = store.day_summary(today)
     assert summary["count"] == 2 and summary["cancelled"] == 1
-    assert summary["cash"] == pytest.approx(39.90 * 1.21, abs=0.01)
+    assert summary["cash"] == pytest.approx(39.90, abs=0.001)
 
     closing = store.close_cash(today, 100, 100 + summary["cash"] - 5, "Falta cambio")
     assert closing["expected_cash"] == pytest.approx(100 + summary["cash"], abs=0.01)
@@ -337,14 +353,14 @@ def test_old_database_is_upgraded(tmp_path):
 def test_backup_carries_new_tables(store, make_store):
     sale = _completed_sale(store)
     store.create_invoice(sale["id"], {"name": "Ana", "tax_id": "1Z"})
-    store.close_cash(datetime.now().date(), 50, 50)
+    store.close_cash(clock.now().date(), 50, 50)
     pid = product_id(store, "CAM-001")
-    store.create_appointment(datetime.now() + timedelta(days=1), 30, product_id=pid, customer_name="Eva")
+    store.create_appointment(clock.now() + timedelta(days=1), 30, product_id=pid, customer_name="Eva")
     other = make_store()
     other.restore(store.backup_bytes())
     assert len(other.invoices()) == 1 and len(other.cash_closings()) == 1
-    nxt = datetime.now() + timedelta(days=2)
-    assert len(other.appointments(datetime.now(), nxt)) == 1
+    nxt = clock.now() + timedelta(days=2)
+    assert len(other.appointments(clock.now(), nxt)) == 1
     # Numbering keeps going after a restore.
     again = other.create_invoice(_completed_sale(other)["id"], {"name": "Ana", "tax_id": "1Z"})
     assert again["number"].endswith("0002")
@@ -358,34 +374,35 @@ def test_users_and_login_lockout(make_store):
     with pytest.raises(ValueError):
         s.create_user("Ana", "ana", "admin", "corta")  # admin needs 8+ chars
     with pytest.raises(ValueError):
-        s.create_user("Ana", "Ana López", "empleado", "4826")  # bad username
-    with pytest.raises(ValueError):
-        s.create_user("Ana", "ana", "empleado", "1234")  # too easy
+        s.create_user("Ana", "Ana López", "empleado", "482619")  # bad username
+    for weak in ("4826", "123456", "654321", "111111"):  # too short or too easy
+        with pytest.raises(ValueError):
+            s.create_user("Ana", "ana", "empleado", weak)
     admin = s.create_user("Ismael", "ismael", "admin", "Segura2026")
-    s.create_user("Ana", "ANA", "empleado", "4826")
+    s.create_user("Ana", "ANA", "empleado", "482619")
     with pytest.raises(ValueError, match="Ya existe"):
-        s.create_user("Otra", "ana", "empleado", "4826")
-    assert "secret_hash" not in s.users().columns
+        s.create_user("Otra", "ana", "empleado", "482619")
+    assert "secret_hash" not in s.users().columns and "totp_secret" not in s.users().columns
 
-    assert s.authenticate("Ana ", "4826")["role"] == "empleado"
+    assert s.authenticate("Ana ", "482619")["role"] == "empleado"
     with pytest.raises(AuthError, match="incorrectos"):
-        s.authenticate("nadie", "4826")
-    now = datetime.now()
+        s.authenticate("nadie", "482619")
+    now = clock.now()
     for _ in range(MAX_FAILED_LOGINS - 1):
         with pytest.raises(AuthError, match="incorrectos"):
-            s.authenticate("ana", "0000", now=now)
+            s.authenticate("ana", "000000", now=now)
     with pytest.raises(AuthError, match="bloqueada"):
-        s.authenticate("ana", "0000", now=now)
+        s.authenticate("ana", "000000", now=now)
     with pytest.raises(AuthError, match="Demasiados"):
-        s.authenticate("ana", "4826", now=now)  # even the right PIN waits
+        s.authenticate("ana", "482619", now=now)  # even the right PIN waits
     later = now + timedelta(minutes=LOCKOUT_MINUTES + 1)
     for _ in range(MAX_FAILED_LOGINS - 1):
         with pytest.raises(AuthError, match="incorrectos"):
-            s.authenticate("ana", "0000", now=later)
-    with pytest.raises(AuthError, match=f"bloqueada {2 * LOCKOUT_MINUTES} minutos"):
-        s.authenticate("ana", "0000", now=later)  # second lock lasts twice as long
-    after = later + timedelta(minutes=2 * LOCKOUT_MINUTES + 1)
-    assert s.authenticate("ana", "4826", now=after)["name"] == "Ana"
+            s.authenticate("ana", "000000", now=later)
+    with pytest.raises(AuthError, match=f"bloqueada {LOCKOUT_MINUTES} minutos"):
+        s.authenticate("ana", "000000", now=later)  # never longer: nobody can keep the team out for a day
+    after = later + timedelta(minutes=LOCKOUT_MINUTES + 1)
+    assert s.authenticate("ana", "482619", now=after)["name"] == "Ana"
 
     actions = list(s.audit_log()["action"])
     assert actions.count("acceso_fallido") == 2 * MAX_FAILED_LOGINS + 1 and "acceso" in actions
@@ -397,7 +414,112 @@ def test_users_and_login_lockout(make_store):
     ana = int(s.users().query("username == 'ana'").iloc[0]["id"])
     s.update_user(ana, active=False)
     with pytest.raises(AuthError, match="incorrectos"):
-        s.authenticate("ana", "4826")
+        s.authenticate("ana", "482619")
+
+
+def test_recovery_code_lets_a_locked_out_admin_back_in(make_store):
+    from core.db import AuthError, MAX_FAILED_LOGINS
+
+    s = make_store()
+    admin = s.create_user("Ismael", "ismael", "admin", "Segura2026")
+    codes = s.create_recovery_codes(admin)
+    assert len(codes) == 8 and len(set(codes)) == 8 and s.recovery_codes_left(admin) == 8
+    for _ in range(MAX_FAILED_LOGINS):  # someone locks the owner out
+        with pytest.raises(AuthError):
+            s.authenticate("ismael", "adivinando1")
+    with pytest.raises(AuthError, match="Demasiados"):
+        s.authenticate("ismael", "Segura2026")
+    with pytest.raises(AuthError):
+        s.recover_with_code("ismael", "AAAA-BBBB-CCCC", "Nueva2026!")
+    user = s.recover_with_code("ismael", codes[0].lower().replace("-", " "), "Nueva2026!")  # typed loosely
+    assert user["role"] == "admin" and s.recovery_codes_left(admin) == 7
+    assert s.authenticate("ismael", "Nueva2026!")["id"] == admin
+    with pytest.raises(AuthError):
+        s.recover_with_code("ismael", codes[0], "Otra2026!")  # each code works once
+    s.create_recovery_codes(admin)
+    with pytest.raises(AuthError):
+        s.recover_with_code("ismael", codes[1], "Otra2026!")  # new codes replace the unused old ones
+
+
+def test_recovery_codes_are_only_for_administrators(make_store):
+    from core.db import AuthError
+
+    s = make_store()
+    s.create_user("Ismael", "ismael", "admin", "Segura2026")
+    staff = s.create_user("Ana", "ana", "empleado", "482619")
+    with pytest.raises(ValueError):
+        s.create_recovery_codes(staff)
+    with pytest.raises(AuthError):
+        s.recover_with_code("ana", "AAAA-BBBB-CCCC", "Nueva2026!")
+
+
+def test_two_factor_login(make_store):
+    import time
+
+    from core.db import AuthError
+    from core.security import new_totp_secret, totp_code
+
+    s = make_store()
+    admin = s.create_user("Ismael", "ismael", "admin", "Segura2026")
+    secret = new_totp_secret()
+    with pytest.raises(ValueError):
+        s.enable_two_factor(admin, secret, "000000" if totp_code(secret) != "000000" else "111111")
+    s.enable_two_factor(admin, secret, totp_code(secret))
+    assert bool(s.user(admin)["two_factor"])
+    with pytest.raises(AuthError, match="incorrectos"):
+        s.authenticate("ismael", "Segura2026")  # password alone is not enough
+    with pytest.raises(AuthError, match="incorrectos"):
+        s.authenticate("ismael", "mala2026", otp=totp_code(secret))
+    assert s.authenticate("ismael", "Segura2026", otp=totp_code(secret, time.time() - 30))["id"] == admin
+    codes = s.create_recovery_codes(admin)
+    s.recover_with_code("ismael", codes[0], "Nueva2026!")  # lost phone: recovery turns it off
+    assert not s.user(admin)["two_factor"] and s.authenticate("ismael", "Nueva2026!")["id"] == admin
+
+
+def test_totp_matches_rfc_6238():
+    import base64
+
+    from core.security import totp_code, verify_totp
+
+    secret = base64.b32encode(b"12345678901234567890").decode()
+    assert totp_code(secret, 59, digits=8) == "94287082"
+    assert totp_code(secret, 1111111109, digits=8) == "07081804"
+    assert verify_totp(secret, totp_code(secret, 1000), at=1000 + 25)
+    assert not verify_totp(secret, totp_code(secret, 1000), at=1000 + 95)
+
+
+def test_change_own_secret(make_store):
+    from core.db import AuthError
+
+    s = make_store()
+    s.create_user("Ismael", "ismael", "admin", "Segura2026")
+    ana = s.create_user("Ana", "ana", "empleado", "482619")
+    with pytest.raises(ValueError, match="actual"):
+        s.change_own_secret(ana, "000000", "771930")
+    with pytest.raises(ValueError):
+        s.change_own_secret(ana, "482619", "1234")
+    s.change_own_secret(ana, "482619", "771930")
+    with pytest.raises(AuthError):
+        s.authenticate("ana", "482619")
+    assert s.authenticate("ana", "771930")["id"] == ana
+
+
+def test_device_throttle_blocks_the_guesser_not_the_account():
+    from ui import auth
+
+    auth._CLIENTS.clear()
+    t0 = 1_000_000.0
+    for i in range(auth.CLIENT_MAX_FAILURES):
+        auth.client_failed("1.2.3.4", now=t0 + i)
+    assert auth.client_blocked_minutes("1.2.3.4", now=t0 + 10) == auth.CLIENT_FIRST_BLOCK_MINUTES
+    assert auth.client_blocked_minutes("5.6.7.8", now=t0 + 10) == 0  # the owner's device is unaffected
+    later = t0 + auth.CLIENT_FIRST_BLOCK_MINUTES * 60 + 20
+    for i in range(auth.CLIENT_MAX_FAILURES):
+        auth.client_failed("1.2.3.4", now=later + i)
+    assert auth.client_blocked_minutes("1.2.3.4", now=later + 10) == 2 * auth.CLIENT_FIRST_BLOCK_MINUTES
+    auth.client_succeeded("1.2.3.4")
+    assert auth.client_blocked_minutes("1.2.3.4", now=later + 10) == 0
+    auth._CLIENTS.clear()
 
 
 def test_secret_hashing():
@@ -461,7 +583,7 @@ def test_text_limits(store):
     with pytest.raises(ValueError, match="demasiado largo"):
         store.upsert_customer({"name": "x" * 500})
     with pytest.raises(ValueError, match="demasiado largo"):
-        store.create_appointment(datetime.now() + timedelta(days=1), 30, customer_name="Eva", notes="n" * 600)
+        store.create_appointment(clock.now() + timedelta(days=1), 30, customer_name="Eva", notes="n" * 600)
 
 
 def test_csv_safe_and_secure_url():
@@ -523,7 +645,7 @@ def test_sale_with_promotion_points_and_mixed_payment(store):
     quote = store.quote([{"product_id": pid, "quantity": 3}], customer_id=cid)
     assert quote["lines"][0]["promo_name"] == "3x2 accesorios"
     total = quote["totals"]["total"]
-    assert total == pytest.approx(49.00 * 1.21, abs=0.01)
+    assert total == pytest.approx(49.00, abs=0.001)
     with pytest.raises(SaleError, match="suman"):
         store.create_sale([{"product_id": pid, "quantity": 3}], customer_id=cid,
                           payments=[{"method": "Tarjeta", "amount": 10}])
@@ -533,7 +655,7 @@ def test_sale_with_promotion_points_and_mixed_payment(store):
     )
     assert sale["payment_method"] == "Mixto" and len(sale["payments"]) == 2
     assert sale["points_earned"] == int(total) and store.customer_points(cid) == int(total)
-    summary = store.day_summary(datetime.now().date())
+    summary = store.day_summary(clock.now().date())
     assert summary["breakdown"]["Efectivo"]["total"] == 20 and summary["cash"] == 20
     lines = store.sale_lines()
     assert lines["revenue"].sum() == pytest.approx(total - sale["tax"], abs=0.01)
@@ -544,7 +666,7 @@ def test_redeem_points(store):
     pid = product_id(store, "BOL-004")  # 120 €
     store.create_sale([{"product_id": pid, "quantity": 1}], "Tarjeta", customer_id=cid)
     balance = store.customer_points(cid)
-    assert balance == int(120 * 1.21)
+    assert balance == 120
     with pytest.raises(SaleError, match="a partir de"):
         store.quote([{"product_id": pid, "quantity": 1}], customer_id=cid, redeem_points=50)
     with pytest.raises(SaleError, match="solo tiene"):
@@ -554,7 +676,7 @@ def test_redeem_points(store):
     sale = store.create_sale([{"product_id": product_id(store, "CAM-001"), "quantity": 1}], "Efectivo",
                              customer_id=cid, redeem_points=100)
     assert sale["loyalty_discount"] > 0
-    assert sale["total"] == pytest.approx(39.90 * 1.21 - 1.00, abs=0.02)  # 100 points = 1 €
+    assert sale["total"] == pytest.approx(39.90 - 1.00, abs=0.001)  # 100 points = 1 €
     after = store.customer_points(cid)
     assert after == balance - 100 + sale["points_earned"]
     store.cancel_sale(sale["id"])
@@ -595,11 +717,11 @@ def test_partial_refunds_add_up_exactly(store):
     points_before = store.customer_points(cid)
     first = store.create_refund(sale["id"], {cam_item["id"]: 1}, "Efectivo", "Talla equivocada", user_name="Ana")
     assert first["number"].startswith("DEV-") and first["credit_note"] is None
-    assert first["total"] == pytest.approx(39.90 * 0.9 * 1.21, abs=0.02)
+    assert first["total"] == pytest.approx(39.90 * 0.9, abs=0.001)
     assert int(store.products().set_index("id").loc[cam, "stock"]) == stock_before - 3 + 1
     assert store.customer_points(cid) < points_before
     assert [i["remaining"] for i in store.returnable(sale["id"])] == [2, 1]
-    assert store.day_summary(datetime.now().date())["cash"] == pytest.approx(sale["total"] - first["total"])
+    assert store.day_summary(clock.now().date())["cash"] == pytest.approx(sale["total"] - first["total"])
 
     with pytest.raises(SaleError, match="devoluciones"):
         store.cancel_sale(sale["id"])
@@ -616,7 +738,7 @@ def test_refund_of_invoiced_sale_issues_corrective_invoice(store):
     sale = store.create_sale([{"product_id": product_id(store, "BOL-004"), "quantity": 1}], "Tarjeta")
     store.create_invoice(sale["id"], {"name": "Norte S.L.", "tax_id": "B12345678"})
     refund = store.create_refund(sale["id"], {sale["items"][0]["id"]: 1}, "Tarjeta", "Defecto de fábrica")
-    assert refund["credit_note"]["number"] == f"FACR-{datetime.now().year}-0001"
+    assert refund["credit_note"]["number"] == f"FACR-{clock.now().year}-0001"
     note = store.credit_note(refund["id"])
     assert note["invoice"]["number"].startswith("FAC-")
     assert credit_note_pdf(note, store.settings()).startswith(b"%PDF")
@@ -694,7 +816,7 @@ def test_purchase_receive_updates_stock_cost_and_expenses(store):
     pid = product_id(store, "CAM-001")  # cost 16, stock 25
     po = store.create_purchase(supplier, [{"product_id": pid, "quantity": 25, "unit_cost": 20}], created_by="Ana")
     order = store.purchase(po)
-    assert order["number"] == f"PED-{datetime.now().year}-0001" and order["total"] == 500
+    assert order["number"] == f"PED-{clock.now().year}-0001" and order["total"] == 500
     assert purchase_order_pdf(order, store.settings()).startswith(b"%PDF")
     store.set_purchase_status(po, "enviado")
     item = order["items"][0]
@@ -737,9 +859,9 @@ def test_recurring_expenses_and_profit(store):
     store.create_sale([{"product_id": product_id(store, "CAM-001"), "quantity": 10}], "Tarjeta",
                       when=datetime(2026, 3, 15, 12, 0))
     p = store.profit(date(2026, 3, 1), date(2026, 4, 1))
-    assert p["net_sales"] == pytest.approx(399.0) and p["cogs"] == pytest.approx(160.0)
+    assert p["net_sales"] == pytest.approx(329.75) and p["cogs"] == pytest.approx(160.0)  # 399 € without VAT
     assert p["opex"] == pytest.approx(1000.0) and p["purchases"] == pytest.approx(300.0)
-    assert p["net"] == pytest.approx(399 - 160 - 1000)
+    assert p["net"] == pytest.approx(329.75 - 160 - 1000)
     with pytest.raises(ValueError):
         store.add_expense(date(2026, 3, 5), "Inventada", "x", 10)
 
@@ -748,7 +870,7 @@ def test_recurring_expenses_and_profit(store):
 # ------------------------------------------------------------------ intelligence
 def test_abc_classifies_by_margin(store):
     from core import intelligence
-    now = datetime.now()
+    now = clock.now()
     for sku, qty in [("ZAP-003", 10), ("CAM-001", 3), ("CIN-005", 1)]:
         store.create_sale([{"product_id": product_id(store, sku), "quantity": qty}], "Tarjeta",
                           when=now - timedelta(days=1))
@@ -767,19 +889,22 @@ def test_price_suggestions_and_apply(store):
     assert intelligence.round_price(7.01) == 7.05 and intelligence.round_price(12.31) == 12.4
     assert intelligence.round_price(150.2) == 151.0 and intelligence.round_price(7.05) == 7.05
     sug = intelligence.price_suggestions(store.products(), 60)
-    assert set(sug["name"]) == {"Camisa de lino", "Pantalón chino", "Zapatilla urbana", "Bolso de piel"}
+    # Margins are measured on the price without VAT: 39,90 € with 21 % VAT leaves 32,98 €.
+    assert set(sug["name"]) == {"Camisa de lino", "Pantalón chino", "Zapatilla urbana", "Bolso de piel",
+                                "Cinturón clásico"}
     row = sug.set_index("name").loc["Camisa de lino"]
-    assert row["suggested"] == 40.0 and row["new_margin_pct"] >= 60  # 16 / 0.4
+    assert row["suggested"] == intelligence.round_price(16 / 0.4 * 1.21)  # cost 16 → 40 € net → shelf price
+    assert row["new_margin_pct"] >= 60
     with pytest.raises(ValueError):
         intelligence.price_suggestions(store.products(), 0)
     assert store.set_prices({int(row["id"]): row["suggested"]}) == 1
-    assert store.products().set_index("sku").loc["CAM-001", "price"] == 40.0
+    assert store.products().set_index("sku").loc["CAM-001", "price"] == row["suggested"]
     with pytest.raises(ValueError):
         store.set_prices({int(row["id"]): 0})
 
 
 def test_smart_alerts(store):
-    now = datetime.now()
+    now = clock.now()
     shirt, bag = product_id(store, "CAM-001"), product_id(store, "BOL-004")
     # Busy week two weeks ago, quiet this week: sales drop.
     for d in range(8, 14):
@@ -825,7 +950,7 @@ def test_no_alerts_without_activity(store):
 def test_weekly_report_and_pdf(store):
     from core.pdfs import weekly_report_pdf
     from core.store_intel import week_start
-    start = week_start(datetime.now().date()) - timedelta(days=7)
+    start = week_start(clock.now().date()) - timedelta(days=7)
     shirt = product_id(store, "CAM-001")
     store.create_sale([{"product_id": shirt, "quantity": 2}], "Tarjeta", when=start + timedelta(days=1, hours=10),
                       user_name="Ana")
@@ -912,12 +1037,12 @@ def test_demo_data_is_disposable_and_real_numbering_starts_at_one(make_store):
     s.reset()
     assert not s.is_demo() and s.is_empty()
     s.load_preset("retail", with_demo_sales=False)
-    year = datetime.now().year
+    year = clock.now().year
     assert _sell(s)["number"] == f"VTA-{year}-00001"
 
 
 def test_numbering_has_no_yearly_limit(store):
-    year = datetime.now().year
+    year = clock.now().year
     first = _sell(store)
     with store.db.tx() as cur:  # an existing series that already reached 99,999 tickets
         cur.execute("UPDATE sales SET number = ? WHERE id = ?", (f"VTA-{year}-99999", first["id"]))
@@ -953,5 +1078,183 @@ def test_simultaneous_charges_all_succeed_with_unique_numbers(store):
 
 def test_prefix_with_like_wildcards_is_numbered_exactly(store):
     store.save_settings({"invoice_prefix": "T_1"})
-    year = datetime.now().year
+    year = clock.now().year
     assert [_sell(store)["number"] for _ in range(2)] == [f"T_1-{year}-00001", f"T_1-{year}-00002"]
+
+
+def test_catalog_edit_never_overwrites_stock_sold_meanwhile(store):
+    pid = product_id(store, "CAM-001")
+    store.adjust_stock(pid, 20 - int(store.products().set_index("id").loc[pid, "stock"]))
+    snapshot = store.products().set_index("id").loc[pid]  # a manager opens the catalog: 20 units
+    for _ in range(5):
+        _sell(store)  # the till sells 5 meanwhile
+    store.update_product(pid, {"price": float(snapshot["price"]) + 1})  # the manager only changes the price
+    assert int(store.products().set_index("id").loc[pid, "stock"]) == 15
+    after = store.adjust_stock(pid, -2, "Rotura", user_name="Marta")  # and counts 2 broken: 20 → 18 on screen
+    assert after == 13
+    move = store.stock_moves().iloc[0]
+    assert (move["delta"], move["stock_after"], move["reason"], move["user_name"]) == (-2, 13, "Rotura", "Marta")
+    with pytest.raises(ValueError, match="negativo"):
+        store.adjust_stock(pid, -14)
+    assert int(store.products().set_index("id").loc[pid, "stock"]) == 13
+
+
+def test_staff_discount_needs_a_manager(store):
+    from core.db import AuthError
+    store.create_user("Ismael", "ismael", "admin", "Segura2026")
+    store.create_user("Javier", "javier", "encargado", "582913")
+    store.create_user("Lucía", "lucia", "empleado", "482619")
+    cart = [{"product_id": product_id(store, "CAM-001"), "quantity": 1}]
+    with pytest.raises(SaleError, match="autorización"):
+        store.create_sale(cart, discount_pct=50, max_discount=10, user_name="Lucía")
+    assert store.create_sale(cart, discount_pct=10, max_discount=10, user_name="Lucía")["discount_pct"] == 10
+    with pytest.raises(AuthError, match="no puede autorizarlo"):
+        store.authorize("lucia", "482619")
+    with pytest.raises(AuthError):
+        store.authorize("javier", "000000")
+    who = store.authorize("javier", "582913", purpose="descuento del 50 %")
+    sale = store.create_sale(cart, discount_pct=50, max_discount=10, user_name="Lucía",
+                             discount_approved_by=who["name"])
+    assert sale["discount_approved_by"] == "Javier"
+    log = store.audit_log()
+    assert {"autorizacion", "descuento_autorizado"} <= set(log["action"])
+    assert store.user(who["id"])["last_login"] == ""  # authorising is not signing in
+
+
+def test_existing_prices_without_vat_are_converted_once(make_store, tmp_path):
+    if make_store.targets.backend != "sqlite":
+        pytest.skip("same conversion on both engines; the SQLite file is reopened here")
+    path = tmp_path / "old.db"
+    s = Store(path)
+    s.save_settings({"tax_rate": "21"})
+    pid = s.upsert_product({"sku": "X-1", "name": "Viejo", "category": "General", "price": 10, "cost": 4,
+                            "stock": 5, "min_stock": 0, "track_stock": 1, "active": 1})
+    with s.db.tx() as cur:  # a database from before prices included VAT
+        cur.execute("DELETE FROM settings WHERE key = 'prices_include_tax'")
+    s.close()
+    again = Store(path)
+    assert again.products().set_index("id").loc[pid, "price"] == 12.10
+    again.close()
+    assert Store(path).products().set_index("id").loc[pid, "price"] == 12.10  # never twice
+
+
+def test_vat_per_product_on_ticket_invoice_and_return(store):
+    from core.pdfs import credit_note_pdf, invoice_pdf
+    from core.receipts import receipt_html, refund_receipt_html
+    bread = store.upsert_product({"sku": "PAN-1", "name": "Pan", "category": "General", "price": 1.20, "cost": 0.4,
+                                  "stock": 50, "min_stock": 0, "track_stock": 1, "active": 1, "tax_rate": 4})
+    shirt = product_id(store, "CAM-001")  # 39,90 € at the default 21 %
+    products = store.products().set_index("id")
+    assert products.loc[bread, "vat"] == 4 and products.loc[shirt, "vat"] == 21
+    assert products.loc[shirt, "net_price"] == pytest.approx(39.90 / 1.21, abs=1e-4)
+    sale = store.create_sale([{"product_id": bread, "quantity": 3}, {"product_id": shirt, "quantity": 1}], "Tarjeta")
+    assert sale["total"] == pytest.approx(3.60 + 39.90)
+    assert {t["rate"]: t["total"] for t in sale["taxes"]} == {21.0: 39.90, 4.0: 3.60}
+    assert sum(t["base"] + t["tax"] for t in sale["taxes"]) == pytest.approx(sale["total"])
+    html = receipt_html(sale, store.settings())
+    assert "IVA 4 % incluido" in html and "IVA 21 % incluido" in html
+
+    invoice = store.create_invoice(sale["id"], {"name": "Norte S.L.", "tax_id": "B87654321"}, irpf_rate=15)
+    base = sum(t["base"] for t in sale["taxes"])
+    assert invoice["irpf_amount"] == pytest.approx(round(base * 0.15, 2))
+    assert invoice_pdf(invoice, store.settings()).startswith(b"%PDF")
+
+    shirt_item = next(i for i in sale["items"] if i["product_id"] == shirt)
+    refund = store.create_refund(sale["id"], {shirt_item["id"]: 1}, "Tarjeta", "Talla")
+    assert refund["total"] == pytest.approx(39.90) and refund["taxes"][0]["rate"] == 21.0
+    assert refund["tax"] == pytest.approx(shirt_item["tax_amount"])
+    assert "Importe" in refund_receipt_html(refund, store.settings())
+    assert credit_note_pdf(store.credit_note(refund["id"]), store.settings()).startswith(b"%PDF")
+
+
+def test_invoices_need_the_issuers_tax_id_and_address(store):
+    sale = _sell(store)
+    store.save_settings({"tax_id": ""})
+    with pytest.raises(ValueError, match="NIF"):
+        store.create_invoice(sale["id"], {"name": "Cliente SL", "tax_id": "B1"})
+    store.save_settings({"tax_id": "B12345678"})
+    with pytest.raises(ValueError, match="IRPF"):
+        store.create_invoice(sale["id"], {"name": "Cliente SL", "tax_id": "B1"}, irpf_rate=12)
+    assert store.create_invoice(sale["id"], {"name": "Cliente SL", "tax_id": "B1"})["irpf_amount"] == 0
+
+
+def test_returns_of_sales_from_before_vat_per_product_still_add_up(store):
+    sale = store.create_sale([{"product_id": product_id(store, "CAM-001"), "quantity": 2}], "Efectivo")
+    with store.db.tx() as cur:  # how lines were stored before: no per-line VAT
+        cur.execute("UPDATE sale_items SET tax_amount = NULL, gross_amount = NULL, tax_rate = NULL WHERE sale_id = ?",
+                    (sale["id"],))
+    item = store.sale(sale["id"])["items"][0]
+    first = store.create_refund(sale["id"], {item["id"]: 1}, "Efectivo", "Talla")
+    second = store.create_refund(sale["id"], {item["id"]: 1}, "Efectivo", "Talla")
+    assert first["total"] + second["total"] == pytest.approx(sale["total"], abs=0.001)
+
+
+def test_tickets_print_on_thermal_rolls_and_can_be_sent(store):
+    from core.receipts import receipt_html, receipt_text, whatsapp_number, with_print_button
+
+    sale = store.sale(_completed_sale(store)["id"])
+    a4 = receipt_html(sale, store.settings())
+    roll = receipt_html(sale, store.settings(), paper="80")
+    assert "@page" not in a4 and "size: 80mm auto" in roll and "width: 74mm" in roll
+    store.save_settings({"receipt_paper": "58"})
+    assert "size: 58mm auto" in receipt_html(sale, store.settings())
+    printable = with_print_button(roll)
+    assert "window.print()" in printable and ".no-print { display: none !important; }" in printable
+    text = receipt_text(sale, store.settings())
+    assert sale["number"] in text and "Total:" in text and "<" not in text
+    assert whatsapp_number("612 345 678") == "34612345678"
+    assert whatsapp_number("+44 7700 900123") == "447700900123"
+    assert whatsapp_number("") == ""
+
+
+def _together(n, fn):
+    """Run fn(i) in n threads released at the same instant; return (results, errors)."""
+    import threading
+    barrier, results, errors = threading.Barrier(n), [], []
+
+    def run(i):
+        barrier.wait()
+        try:
+            results.append(fn(i))
+        except Exception as exc:  # noqa: BLE001 - the test inspects every failure
+            errors.append(exc)
+
+    threads = [threading.Thread(target=run, args=(i,)) for i in range(n)]
+    [t.start() for t in threads]
+    [t.join() for t in threads]
+    return results, errors
+
+
+def test_last_unit_sold_at_two_tills_at_once_is_sold_only_once(store):
+    pid = product_id(store, "CAM-001")
+    store.adjust_stock(pid, 1 - int(store.products().set_index("id").loc[pid, "stock"]))
+    results, errors = _together(2, lambda i: store.create_sale([{"product_id": pid, "quantity": 1}], "Tarjeta"))
+    assert len(results) == 1 and len(errors) == 1 and isinstance(errors[0], SaleError)
+    assert int(store.products().set_index("id").loc[pid, "stock"]) == 0
+
+
+def test_simultaneous_invoices_and_returns_keep_numbers_and_the_billing_chain_intact(store):
+    pid = product_id(store, "CAM-001")
+    store.adjust_stock(pid, 100)
+    store.enable_billing_register()
+    sales = [store.create_sale([{"product_id": pid, "quantity": 2}], "Tarjeta") for _ in range(6)]
+    invoices, errors = _together(6, lambda i: store.create_invoice(
+        sales[i]["id"], {"name": f"Cliente {i}", "tax_id": "B12345678", "address": "C/ 1"})["number"])
+    assert not errors and len(set(invoices)) == 6
+    assert sorted(int(n.rsplit("-", 1)[1]) for n in invoices) == list(range(1, 7))
+    refunds, errors = _together(6, lambda i: store.create_refund(
+        sales[i]["id"], {store.sale(sales[i]["id"])["items"][0]["id"]: 1}, "Efectivo", "Prueba")["number"])
+    assert not errors and len(set(refunds)) == 6
+    chain = store.verify_billing_chain()
+    assert chain["ok"] and chain["checked"] == 6 + 6 + 6  # tickets, invoices, corrective invoices: no fork
+
+
+def test_spanish_tax_ids_are_checked():
+    from core.fiscal_id import normalize, tax_id_problem
+
+    for good in ("12345678Z", "X1234567L", "A58818501", "B12345674", "Q2826000H", "89890001K"):
+        assert tax_id_problem(good) is None, good
+    assert normalize(" b-1234567.4 ") == "B12345674"
+    assert "letra" in tax_id_problem("12345678A")
+    assert "control" in tax_id_problem("B12345678")
+    assert "No parece" in tax_id_problem("hola")

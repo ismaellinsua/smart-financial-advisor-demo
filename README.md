@@ -3,7 +3,7 @@
 Gestor de ventas para restaurantes, tiendas, autónomos y tiendas online: cobra, controla el stock, la caja y el equipo,
 con alertas y un informe semanal en el panel. Funciona en el navegador del móvil, la tablet o el ordenador.
 
-**Web:** https://ismaellinsua.github.io/smart-financial-advisor-demo/
+**Web:** https://nirkana.es/
 
 | Carpeta | Qué contiene |
 |---|---|

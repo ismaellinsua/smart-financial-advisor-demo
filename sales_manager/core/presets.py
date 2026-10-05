@@ -144,20 +144,44 @@ DEFAULT_SETTINGS = {
     "phone": "",
     "currency": "EUR",
     "timezone": "Europe/Madrid",
+    # Prices are entered with VAT included, as on the menu or the label.
+    "prices_include_tax": "si",
     # "si" while the data is a demonstration: it may be wiped. Real data is kept by law.
     "demo_mode": "no",
+    # "si" once the administrator turns on the chained billing register (VERI*FACTU); it is never turned off.
+    "verifactu": "no",
     "tax_rate": "21.0",
     "invoice_prefix": "VTA",
     "accent_color": "#1F4E79",
     "inactive_days": "30",
     "reorder_lead_days": "14",
     "receipt_footer": "Gracias por su compra.",
+    # Paper the till prints tickets on: a4 (any printer), 80 or 58 (thermal ticket printers, roll width in mm).
+    "receipt_paper": "a4",
+    # Emails to the business's address, when the operator has set up sending (see README): opt-in.
+    "email_weekly": "no",
+    "email_alerts": "no",
     "invoice_series": "FAC",
     "refund_prefix": "DEV",
     "agenda_enabled": "auto",
+    # Online booking (public page …/?reservar): off until the business opens it from the Agenda.
+    "booking_online": "no",
+    "booking_hours": '{"0": "09:00-14:00, 16:00-20:00", "1": "09:00-14:00, 16:00-20:00", '
+                     '"2": "09:00-14:00, 16:00-20:00", "3": "09:00-14:00, 16:00-20:00", '
+                     '"4": "09:00-14:00, 16:00-20:00", "5": "10:00-14:00"}',
+    "booking_closed": "",
+    "booking_services": "",
+    "booking_step": "30",
+    "booking_duration": "",
+    "booking_days": "30",
+    "booking_notice_hours": "2",
+    "booking_capacity": "30",
+    "booking_max_party": "10",
     "tables_enabled": "auto",
     "opening_float": "150",
     "session_minutes": "720",
+    # Highest manual discount (%) staff may give without a manager's authorisation.
+    "max_discount_staff": "10",
     "loyalty_enabled": "si",
     "points_per_euro": "1",
     "point_value": "0.01",

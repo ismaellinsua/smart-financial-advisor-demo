@@ -34,10 +34,12 @@ En el móvil:
 | Módulo | Qué hace |
 |---|---|
 | **Panel** | Facturación, ventas, ticket medio y margen frente al periodo anterior (netos de devoluciones); ventas diarias, lo más vendido, formas de pago, categorías y ventas por persona; alertas inteligentes y el informe semanal listo para descargar. |
-| **Vender (TPV)** | Catálogo con búsqueda, ticket, cliente, descuento, **promociones automáticas** y **canje de puntos**. Cobro en **un pago con cálculo del cambio**, **pago mixto** (parte tarjeta, parte efectivo…) o **cuenta dividida** entre varias personas. |
+| **Vender (TPV)** | Catálogo con búsqueda, ticket, cliente, descuento, **promociones automáticas** y **canje de puntos**. Cobro en **un pago con cálculo del cambio**, **pago mixto** (parte tarjeta, parte efectivo…) o **cuenta dividida** entre varias personas. En el móvil, catálogo y ticket se alternan con una barra fija y «Cobrar» siempre está a la vista. Tras cobrar: **imprimir** (A4 o ticket térmico de 80/58 mm) o enviar por **WhatsApp** o **email**. |
 | **Mesas y comandas** | Plano de mesas por zonas, comandas compartidas entre camareros (cada línea firmada), notas para cocina, comensales, cambio de mesa y pedidos para llevar. Se cobra toda la mesa o **solo los productos que paga cada persona**. |
 | **Cocina** | Pantalla que se actualiza sola: pendiente → preparando → listo → servido, con aviso de los platos que esperan demasiado. |
 | **Agenda** | Citas (autónomos) o reservas (restaurantes), sin solapes, cobro de la cita con un toque. |
+| **Caja sin conexión** | Si se cae internet, se cobra desde una caja instalable en el móvil o la tablet ([`docs/caja`](../docs/caja/), publicada con la web) que funciona sin red: carga el catálogo desde **Caja → Caja sin conexión**, numera sus tickets en su propia serie (`VTA-SC1-000001`, una por dispositivo) y exporta las ventas a un archivo que se importa en la app sin duplicados, con el precio cobrado y el desglose de IVA. No aplica promociones, puntos ni clientes. |
+| **Reservas online** | Página pública (`…/?reservar`, o `…/?negocio=código&reservar` con varios negocios) donde el cliente elige una hora libre según tu horario, recibe confirmación con archivo de calendario y un enlace para cancelar, y un recordatorio por email la víspera (el trabajo diario «Avisos por email»). Recordatorio por WhatsApp con un toque. Teléfono y email se borran 90 días después de la cita. |
 | **Caja** | Cierre diario por forma de pago (pagos mixtos repartidos), devoluciones descontadas, arqueo de efectivo e informe PDF. |
 | **Historial** | Tickets, **facturas en PDF** (`FAC-2026-0001`), **devoluciones parciales** con su ticket y **facturas rectificativas** automáticas (`FACR-2026-0001`), anulaciones y exportación CSV. |
 
@@ -46,7 +48,7 @@ En el móvil:
 | Módulo | Qué hace |
 |---|---|
 | **Catálogo / Carta** | Edición en tabla: precio, coste, margen, stock, mínimo y proveedor habitual. |
-| **Clientes** | Cartera por valor, compras, última visita y puntos. |
+| **Clientes** | Cartera por valor, compras, última visita y puntos. **Protección de datos (RGPD):** descargar todos los datos de una persona, consentimiento para ofertas (el seguimiento solo muestra a quien aceptó) y borrado de datos personales conservando las facturas. |
 | **Promociones** | Descuentos en % o 2x1 / 3x2, para todo, una categoría o un producto, por días y franja horaria (*happy hour*). Se aplican solas al cobrar, siempre la mejor para el cliente. |
 | **Fidelización** | Puntos por cada euro, canje como descuento, ranking de clientes. Las devoluciones y anulaciones restan los puntos. |
 | **Compras** | Proveedores, pedidos en PDF, recepción parcial o total: el stock y el **coste medio** se actualizan solos y el gasto queda apuntado. La reposición inteligente crea los pedidos por proveedor con un clic. |
@@ -66,7 +68,9 @@ En el móvil:
 
 | Módulo | Qué hace |
 |---|---|
+| **Precios e IVA** | Los precios se escriben **con IVA incluido**, como en la carta o la etiqueta, y cada producto puede tener su IVA (21, 10, 5, 4 o 0 %) o usar el del negocio. El ticket siempre coincide con la carta; tickets, facturas y rectificativas desglosan base y cuota por tipo. Facturas con **retención de IRPF** opcional para profesionales, y solo con NIF y dirección del negocio. Los catálogos antiguos (precios sin IVA) se convierten solos una vez. |
 | **Configuración** | Datos fiscales, moneda, **zona horaria** (España por defecto: los servidores en la nube van en UTC), impuesto, series de tickets y facturas, color de marca, mesas y agenda, fidelización, tiempo de sesión y copias de seguridad. |
+| **Registro de facturación (VERI\*FACTU, en preparación)** | Al activarlo, cada ticket (F2), factura (F3), rectificativa (R1/R5) y anulación queda en un registro encadenado con la huella SHA-256 de la AEAT, que la propia base de datos impide modificar o borrar. Tickets, facturas y rectificativas llevan el **código QR tributario** (35 mm, al principio del documento). Se comprueba y exporta desde Configuración. **Aún no se envía a Hacienda**: hasta entonces la app funciona como sistema «no VERI\*FACTU» (el QR apunta al cotejo de la AEAT para ese modo y no se imprime la leyenda «VERI\*FACTU»), y no es un sistema VERI\*FACTU completo. |
 | **Equipo y seguridad** | Cuentas por persona (PIN o contraseña) con roles administrador, encargado y empleado; varias personas a la vez desde sus móviles; registro de actividad. |
 | **Cambiar de negocio** | Cambia en segundos entre tienda, restaurante, autónomo o e-commerce con datos de ejemplo: ideal para enseñar la app a cada cliente. |
 
@@ -82,8 +86,10 @@ pip install -r requirements.txt
 streamlit run sales_manager/app.py
 ```
 
-La primera vez aparece un asistente para elegir el nombre y el tipo de negocio, con la opción de cargar 60 días de
-ventas de ejemplo. Los datos se guardan en `sales_manager/data/ventas.db` (SQLite).
+La primera vez, un asistente de tres pasos pide el negocio (nombre, tipo y zona horaria), los datos fiscales (NIF,
+que se comprueba, dirección e IVA habitual) y deja el negocio listo para vender; las ventas de ejemplo solo se cargan
+si las pides. Los datos se guardan en `sales_manager/data/ventas.db` (SQLite). Dentro de la app, **Ayuda** tiene una
+guía corta para cada rol.
 
 ## Publicar en Streamlit Community Cloud (para usarla desde el móvil)
 
@@ -127,16 +133,123 @@ La app usa PostgreSQL cuando encuentra `database_url` en los *Secrets*; si no, u
 El plan gratuito de Neon basta para un negocio pequeño. La base se duerme tras unos minutos sin uso y tarda uno o dos
 segundos en despertar la primera vez; la app se reconecta sola.
 
+## Varios negocios en una sola app (modo multinegocio)
+
+En vez de una app y una base de datos por cliente, una sola app y una sola base de datos pueden atender a muchos
+negocios. Cada negocio vive en su propio esquema de PostgreSQL: sus ventas, clientes, facturas, cuentas y numeración
+no se mezclan con los de ningún otro, y nada de un negocio puede leer o cambiar lo de otro.
+
+1. En los *Secrets* de la app (con una base Neon, apartado anterior):
+   ```toml
+   database_url = "postgresql://…"
+   multi_tenant = true
+   operator_password = "una-contraseña-larga-solo-para-ti"
+   ```
+2. Abre `https://tu-app.streamlit.app/?operador`, entra con `operator_password` y **da de alta el negocio**: código
+   (va en la dirección, p. ej. `cafe-aurora`), nombre y contacto. Se muestra **una sola vez** su código de instalación.
+3. Envía al negocio su dirección (`…/?negocio=cafe-aurora`) y el código. Con él crea su administrador; después el
+   asistente de primera configuración deja el negocio listo.
+4. Desde el panel ves cada negocio (personas, ventas, última venta), puedes **suspender o reactivar** su acceso y
+   generar un código nuevo si lo perdió antes de crear su administrador. Todo queda en el registro del operador.
+
+Quien entra sin código ve «Entra en tu negocio»: la lista de negocios no se muestra nunca. Si en la misma pestaña se
+abre otro negocio, la sesión anterior se borra entera. Las copias automáticas detectan este modo y guardan **una copia
+cifrada por negocio** (más el directorio), cada una restaurable por separado.
+
+Sin `multi_tenant`, la app funciona como siempre: un negocio por app.
+
+## Copias de seguridad automáticas
+
+Cada noche, GitHub Actions (gratis) hace una copia cifrada de la base de datos de cada negocio, la **restaura en una
+base de pruebas y comprueba** que tiene las mismas ventas, facturas y cierres que producción, y la guarda 30 días.
+Si algo falla, GitHub te avisa por email. Solo lee la base de producción: nunca la modifica.
+
+**Activarlas (una vez):** en GitHub, repositorio → **Settings → Secrets and variables → Actions → New repository
+secret**:
+
+| Secreto | Qué poner |
+|---|---|
+| `BACKUP_DATABASES` | Una línea por negocio: `nombre=postgresql://…` (la cadena de conexión de Neon). Ej.: `cafe-aurora=postgresql://usuario:clave@ep-xxxx.eu-central-1.aws.neon.tech/neondb?sslmode=require` |
+| `BACKUP_PASSPHRASE` | Una frase larga (16+ caracteres) para cifrar. **Guárdala en tu gestor de contraseñas: sin ella las copias no se pueden abrir.** |
+| `BACKUP_S3_*` (opcional) | Para guardar además una copia fuera de GitHub (Cloudflare R2, Backblaze B2 o S3): `BACKUP_S3_BUCKET`, `BACKUP_S3_ACCESS_KEY_ID`, `BACKUP_S3_SECRET_ACCESS_KEY`, `BACKUP_S3_ENDPOINT` y `BACKUP_S3_REGION`. |
+
+Después, en **Actions → Copias de seguridad → Run workflow**, lánzala una vez para comprobar que va.
+
+Cada negocio tiene dos archivos cifrados: `…dump.enc` (la base completa, con cuentas y registro de actividad) y
+`…db.enc` (la copia de la app, sin cuentas).
+
+**Recuperar datos:** descarga el artefacto de la ejecución que quieras (Actions → la ejecución → *Artifacts*) y:
+
+```bash
+export BACKUP_PASSPHRASE="tu frase"
+python ops/backup.py --decrypt cafe-aurora-20261004-0217.db.enc     # → Configuración → Restaurar, en un negocio sin ventas
+python ops/backup.py --decrypt cafe-aurora-20261004-0217.dump.enc   # todo, en una base nueva:
+pg_restore --no-owner --no-privileges --dbname="postgresql://…/base_nueva" cafe-aurora-20261004-0217.dump
+```
+
+Mientras el repositorio sea público, cualquiera con cuenta de GitHub puede descargar los artefactos: están cifrados,
+pero es mejor hacer el repositorio privado.
+
+## Avisos por email
+
+Gratis con una cuenta de Gmail (por ejemplo nirkana.oficial@gmail.com):
+
+1. En esa cuenta de Google activa la verificación en dos pasos y crea una **contraseña de aplicación**
+   (Cuenta de Google → Seguridad → Contraseñas de aplicaciones).
+2. **Para la app** (recuperar la contraseña del administrador por email y confirmar las reservas online), en los
+   *Secrets* de Streamlit:
+   ```toml
+   smtp_host = "smtp.gmail.com"
+   smtp_port = 587
+   smtp_user = "nirkana.oficial@gmail.com"
+   smtp_password = "la contraseña de aplicación"
+   ```
+3. **Para los envíos programados**, los mismos datos como secretos de GitHub Actions: `SMTP_HOST`, `SMTP_PORT`,
+   `SMTP_USER`, `SMTP_PASSWORD` (y opcional `SMTP_FROM`). Usa las bases de `BACKUP_DATABASES`, o
+   `NOTIFY_DATABASES` si quieres otra lista. Cada mañana, el flujo **Avisos por email** envía:
+   - el **informe semanal en PDF** cada lunes, a los negocios que lo activen;
+   - un aviso cuando aparecen **alertas importantes nuevas** (caída de ventas, productos agotados, pérdidas…);
+   - el **recordatorio de cita** a los clientes que reservaron para el día siguiente y dejaron su email.
+4. Cada negocio decide en **Configuración → Avisos por email** si los quiere, y los recibe en el email del negocio.
+   Nunca se envía nada en modo demostración ni dos veces lo mismo, aunque el flujo se ejecute de nuevo.
+
+Con el correo configurado, la pantalla de acceso ofrece al administrador recibir un **código de 6 cifras** en el
+email del negocio para cambiar su contraseña: caduca en 15 minutos, sirve una vez, admite 5 intentos y como mucho se
+piden 3 por hora. La respuesta es la misma exista o no el usuario.
+
+## Errores y caídas
+
+**Errores:** si una pantalla falla, la persona ve un aviso con una **referencia** (p. ej. `A3F09C`) en vez de un
+error técnico, y queda registrado el tipo de error, la pantalla, el usuario y la línea del código donde ocurrió. Nunca
+se guarda el mensaje del error, porque puede contener datos de clientes o de ventas. El administrador los ve en
+**Equipo y seguridad → Errores de la app**, y el operador, en su panel (errores de 7 días por negocio). El detalle
+completo sigue en «Manage app → Logs» de Streamlit.
+
+**Caídas:** el flujo **Disponibilidad** de GitHub Actions comprueba cada 10 minutos que cada app responde (con 3
+intentos antes de darla por caída). Si una no responde, la ejecución falla y GitHub avisa por email al dueño del
+repositorio. Secretos de Actions:
+
+| Secreto | Qué poner |
+|---|---|
+| `UPTIME_URLS` | Una dirección por línea, p. ej. `https://cafe-aurora.streamlit.app` |
+| `OPERATOR_EMAIL` | Opcional: tu email, para recibir también el aviso de caída y, cada mañana, el resumen de errores de las últimas 24 h (necesita los `SMTP_*`). |
+
+En Streamlit Community Cloud las apps se duermen sin uso: la comprobación mira que el servidor responde. Si al abrir
+una app aparece el botón para despertarla, se resuelve pulsándolo.
+
 ## Seguridad
 
 | Medida | Detalle |
 |---|---|
-| Cuentas individuales | Cada persona entra con su usuario y su PIN o contraseña. Las contraseñas se guardan cifradas con PBKDF2-SHA256 (600.000 iteraciones y sal aleatoria), nunca en claro. |
-| Roles | **Administrador:** todo. **Encargado:** panel, caja, gestión, inteligencia, facturas, devoluciones y anulaciones. **Empleado:** mesas, vender, agenda y consultar tickets. Cada página comprueba el rol en el servidor, no solo el menú. |
-| Fuerza bruta | 5 intentos fallidos bloquean la cuenta; cada nuevo bloqueo dura el doble (5, 10, 20 min… hasta 24 h). Los fallos se retrasan y quedan registrados. Un usuario inexistente tarda lo mismo que uno real. |
+| Cuentas individuales | Cada persona entra escribiendo su usuario y su PIN (mínimo 6 cifras, sin series como 123456) o contraseña; la pantalla de acceso no muestra quién trabaja en el negocio. Los PIN antiguos más cortos se cambian al entrar, y cada persona puede cambiar el suyo. Las contraseñas se guardan cifradas con PBKDF2-SHA256 (600.000 iteraciones y sal aleatoria), nunca en claro. |
+| Roles | **Administrador:** todo. **Encargado:** panel, caja, gestión, inteligencia, facturas, devoluciones y anulaciones. **Empleado:** mesas, vender, agenda y consultar sus propios tickets de los últimos 7 días. Cada página comprueba el rol en el servidor, no solo el menú. |
+| Fuerza bruta | Quien falla muchas veces desde un mismo dispositivo espera cada vez más (15 min, 30, 1 h… hasta 24 h) sin afectar al resto. La cuenta solo se bloquea 15 minutos tras 10 fallos, para que nadie pueda dejar al negocio fuera de su propia caja. Un usuario inexistente tarda lo mismo que uno real. |
+| Recuperación y dos pasos | El administrador recibe 8 códigos de recuperación de un solo uso (al crear la cuenta y en «Equipo y seguridad»): sirven para entrar si olvida la contraseña, pierde el móvil o le bloquean la cuenta. Puede activar la verificación en dos pasos con Google Authenticator o similar. |
 | Primer acceso | Crear el administrador exige `app_password` de los *Secrets* o, si no existe, un código de un solo uso que solo aparece en el registro del servidor (terminal o «Manage app → Logs»). Así nadie puede apropiarse de la app tras un reinicio. |
-| Sesiones | Se cierran tras un tiempo sin uso (configurable, 12 h por defecto) y al desactivar a una persona. Recargar la página pide de nuevo el PIN. |
-| Registro de actividad | Accesos, intentos fallidos, anulaciones, facturas, cierres y reaperturas de caja, cambios de configuración, restauraciones y cambios en el equipo. |
+| Sesiones | Recargar la página o reabrir la pestaña no saca de la sesión ni pierde el ticket en curso: el navegador guarda un token aleatorio (cookie `SameSite=Strict`, `Secure` con HTTPS) y la base de datos solo su huella SHA-256. Se cierran tras un tiempo sin uso (configurable, 12 h por defecto), al salir, al cambiar el PIN (en todos los dispositivos) y al desactivar a una persona. |
+| Descuentos | Los empleados pueden dar hasta el descuento máximo fijado en Configuración (10 % por defecto); por encima, un encargado o el administrador lo autoriza con su usuario y PIN y queda firmado en la venta y en el registro. |
+| Stock | Editar el catálogo solo guarda lo que cambias. Los cambios de stock se suman o restan a las existencias reales del momento y quedan en «Ajustes de stock» con quién, cuándo y cuánto. |
+| Registro de actividad | Accesos, intentos fallidos, anulaciones, facturas, cierres y reaperturas de caja, cambios de configuración, restauraciones, cambios en el equipo y **cada descarga de datos** (exportaciones, copias y datos de clientes). Se puede filtrar. |
 | Copias de seguridad | No incluyen usuarios ni registro: las credenciales no salen del servidor. Al restaurar solo se aceptan tablas y columnas conocidas (sin inyección SQL por nombres de columna) y se valida el archivo. |
 | Exportaciones | Los CSV neutralizan fórmulas de hoja de cálculo (`=`, `+`, `-`, `@`). Los textos de usuario se escapan en pantallas, tickets y PDF. |
 | Base de datos | Consultas siempre parametrizadas. Conexión a PostgreSQL remoto con TLS obligatorio (`sslmode=require`). Límites de longitud en todos los textos. |

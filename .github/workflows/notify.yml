@@ -1,0 +1,48 @@
+# Daily emails each business asked for (weekly report on Mondays, new important alerts). Set up in README
+# («Avisos por email»). Nothing is sent until the SMTP secrets exist and a business turns its emails on.
+name: Avisos por email
+
+on:
+  schedule:
+    - cron: "41 5 * * *"  # every day at 05:41 UTC (07:41 in Spain in summer)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: notify
+  cancel-in-progress: false
+
+jobs:
+  notify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      NOTIFY_DATABASES: ${{ secrets.NOTIFY_DATABASES || secrets.BACKUP_DATABASES }}
+      SMTP_HOST: ${{ secrets.SMTP_HOST }}
+      SMTP_PORT: ${{ secrets.SMTP_PORT }}
+      SMTP_USER: ${{ secrets.SMTP_USER }}
+      SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+      SMTP_FROM: ${{ secrets.SMTP_FROM }}
+      OPERATOR_EMAIL: ${{ secrets.OPERATOR_EMAIL }}
+    steps:
+      - name: Sin configurar todavía
+        if: env.NOTIFY_DATABASES == '' || env.SMTP_HOST == ''
+        run: echo "::notice::Avisos desactivados hasta definir NOTIFY_DATABASES (o BACKUP_DATABASES) y SMTP_*."
+
+      - uses: actions/checkout@v4
+        if: env.NOTIFY_DATABASES != '' && env.SMTP_HOST != ''
+
+      - uses: actions/setup-python@v5
+        if: env.NOTIFY_DATABASES != '' && env.SMTP_HOST != ''
+        with:
+          python-version: "3.12"
+
+      - name: Dependencias
+        if: env.NOTIFY_DATABASES != '' && env.SMTP_HOST != ''
+        run: pip install --quiet -r requirements.txt
+
+      - name: Enviar
+        if: env.NOTIFY_DATABASES != '' && env.SMTP_HOST != ''
+        run: python ops/notify.py

@@ -5,19 +5,24 @@ Ejecutar desde la raíz del repositorio:  streamlit run sales_manager/app.py
 Copyright (c) 2025-2026 Ismael Linsua. Todos los derechos reservados. Software propietario: ver LICENSE.
 """
 
+import traceback
 from datetime import timedelta
 
 import streamlit as st
 
 from core.presets import PRESETS
 from core.security import ROLES
-from ui import pages, pages_intel, pages_management, pages_promos, pages_tables
+from ui import booking, pages, pages_intel, pages_management, pages_promos, pages_tables, tenancy
 from ui.auth import logout_button, require_user
 from ui.context import PAGES, ctx
 from ui.styles import inject_css, sidebar_brand, sidebar_copyright, topbar
 from core import clock
 
 st.set_page_config(page_title="Gestor de Ventas", page_icon=":material/storefront:", layout="wide")
+
+# Several businesses in one app: decide which one this visit is for (or show the operator panel).
+if not tenancy.gate():
+    st.stop()
 
 try:
     c = ctx()
@@ -29,6 +34,11 @@ except Exception as exc:  # the database is unreachable or the URL is wrong; ret
     st.caption(f"Detalle técnico: {type(exc).__name__}")
     st.stop()
 inject_css(c.settings["accent_color"])
+
+# Customers booking online (…/?reservar): a public page, no sign-in.
+if booking.wanted():
+    booking.public_page(c.store, c.settings)
+    st.stop()
 
 user = require_user(c.store, c.settings)
 if user is None:
@@ -56,6 +66,9 @@ PAGES.update(
     customers=st.Page(pages.customers_page, title="Clientes", icon=":material/group:", url_path="clientes"),
     automations=st.Page(pages.automations_page, title="Automatizaciones", icon=":material/bolt:",
                         url_path="automatizaciones"),
+    help=st.Page(pages.help_page, title="Ayuda", icon=":material/help:", url_path="ayuda"),
+    accounting=st.Page(pages_management.accounting_page, title="Gestoría", icon=":material/request_page:",
+                       url_path="gestoria"),
     intelligence=st.Page(pages_intel.intelligence_page, title="Alertas y análisis", icon=":material/insights:",
                          url_path="inteligencia"),
     settings=st.Page(pages.settings_page, title="Configuración", icon=":material/settings:", url_path="ajustes"),
@@ -81,16 +94,33 @@ sections = {"Operación": [*([P["dashboard"]] if c.can("encargado") else []),
                           *([P["agenda"]] if show_agenda else []),
                           *([P["cash"]] if c.can("encargado") else []), P["history"]]}
 if c.can("encargado"):
-    sections["Gestión"] = [P["products"], P["customers"], P["promos"], P["purchases"], P["expenses"]]
+    sections["Gestión"] = [P["products"], P["customers"], P["promos"], P["purchases"], P["expenses"],
+                           P["accounting"]]
     sections["Inteligencia"] = [P["intelligence"], P["automations"]]
 if c.can("admin"):
-    sections["Ajustes"] = [P["settings"], P["team"]]
+    sections["Ajustes"] = [P["settings"], P["team"], P["help"]]
+else:
+    sections["Ayuda"] = [P["help"]]
 
 sidebar_brand(c.settings["business_name"], PRESETS[c.settings["business_type"]]["label"])
 if c.can("admin") and c.store.can_replace_data() and st.sidebar.button(
-        "Cambiar de negocio", icon=":material/swap_horiz:", use_container_width=True):
+        "Cambiar de negocio", icon=":material/swap_horiz:", width="stretch"):
     pages.switch_business_dialog()
 nav = st.navigation(sections, expanded=True)
+# On phones the menu covers the screen: close it as soon as a page is chosen (Streamlit leaves it open).
+st.html("""<script>
+(() => {
+  if (window.__nkCloseMenu) return;
+  window.__nkCloseMenu = true;
+  document.addEventListener("click", (event) => {
+    if (window.innerWidth > 768 || !event.target.closest('[data-testid="stSidebarNav"] a')) return;
+    setTimeout(() => {
+      const close = document.querySelector('[data-testid="stSidebarCollapseButton"] button');
+      if (close) close.click();
+    }, 150);
+  }, true);
+})();
+</script>""", unsafe_allow_javascript=True)
 logout_button(c.store, user)
 sidebar_copyright()
 
@@ -112,4 +142,13 @@ topbar(c.settings["business_name"], c.money_short(today["total"].sum()), len(tod
        alerts=pages_intel.alert_counts(c) if c.can("encargado") else None)
 if c.settings.get("demo_mode") == "si":
     pages.demo_banner(c)
-nav.run()
+try:
+    nav.run()
+except Exception as exc:  # noqa: BLE001 - st.rerun/st.stop are BaseException and pass through untouched
+    traceback.print_exc()  # the full detail stays in the server log («Manage app → Logs»)
+    try:
+        ref = c.store.record_error(exc, nav.title, c.username)
+    except Exception:  # noqa: BLE001 - the database itself may be what failed
+        ref = "sin registrar"
+    st.error(f"Algo ha fallado en esta pantalla. Queda registrado con la referencia **{ref}**: si se repite, "
+             "escríbenos a nirkana.oficial@gmail.com con ella. Tus datos no se han perdido.", icon=":material/error:")

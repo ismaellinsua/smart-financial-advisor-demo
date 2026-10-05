@@ -8,6 +8,7 @@ import pandas as pd
 from .presets import PAYMENT_METHODS
 from .security import clean_text
 from . import clock
+from .pricing import tax_breakdown
 
 CENT = Decimal("0.01")
 
@@ -76,24 +77,32 @@ class RefundsMixin:
             raise self.SaleError("Solo se pueden devolver ventas completadas.")
         items = {i["id"]: i for i in cur.execute("SELECT * FROM sale_items WHERE sale_id = ?", (sale_id,)).fetchall()}
         done_rows = cur.execute(
-            "SELECT ri.sale_item_id, SUM(ri.quantity) AS n, SUM(ri.net_amount) AS net FROM refund_items ri "
+            "SELECT ri.sale_item_id, SUM(ri.quantity) AS n, SUM(ri.net_amount) AS net, "
+            "SUM(COALESCE(ri.tax_amount, 0)) AS vat FROM refund_items ri "
             "JOIN refunds r ON r.id = ri.refund_id WHERE r.sale_id = ? GROUP BY ri.sale_item_id", (sale_id,)
         ).fetchall()
-        done = {r["sale_item_id"]: (int(r["n"]), _d(r["net"])) for r in done_rows}
+        done = {r["sale_item_id"]: (int(r["n"]), _d(r["net"]), _d(r["vat"])) for r in done_rows}
+        # Sales from before per-product VAT have no per-line VAT: they keep the single-rate calculation.
+        legacy = any(i["tax_amount"] is None for i in items.values())
 
-        lines, base = [], Decimal("0")
+        lines, base, vat_total = [], Decimal("0"), Decimal("0")
         for item_id, qty in wanted.items():
             item = items.get(item_id)
             if item is None:
                 raise self.SaleError("Ese producto no pertenece a la venta.")
-            returned, returned_net = done.get(item_id, (0, Decimal("0")))
+            returned, returned_net, returned_vat = done.get(item_id, (0, Decimal("0"), Decimal("0")))
             remaining = item["quantity"] - returned
             if qty > remaining:
                 raise self.SaleError(f"De «{item['name']}» solo quedan {remaining} unidades por devolver.")
             line_net = self._line_net(item, sale)
             # Returning the last units takes exactly what is left, so several partial returns add up to the line.
             net = line_net - returned_net if qty == remaining else _d(line_net * qty / item["quantity"])
-            lines.append((item, qty, net))
+            vat = None
+            if not legacy:
+                line_vat = _d(item["tax_amount"])
+                vat = line_vat - returned_vat if qty == remaining else _d(line_vat * qty / item["quantity"])
+                vat_total += vat
+            lines.append((item, qty, net, vat))
             base += net
 
         prior = cur.execute("SELECT COALESCE(SUM(base), 0) AS b, COALESCE(SUM(tax), 0) AS t, "
@@ -101,7 +110,9 @@ class RefundsMixin:
         everything_back = all(
             (done.get(i, (0, 0))[0] + wanted.get(i, 0)) == it["quantity"] for i, it in items.items()
         )
-        if everything_back:  # the last return closes the sale exactly, whatever the rounding before
+        if not legacy:  # each line carries its own base and VAT: the sum is exact at any rate mix
+            tax = vat_total
+        elif everything_back:  # the last return closes the sale exactly, whatever the rounding before
             base = _d(Decimal(str(sale["total"])) - Decimal(str(sale["tax"]))) - _d(prior["b"])
             tax = _d(sale["tax"]) - _d(prior["t"])
         else:
@@ -115,11 +126,13 @@ class RefundsMixin:
             (self._next_refund_number(cur, when), sale_id, stamp, user_name, reason, method,
              float(base), float(tax), float(total)),
         ).fetchone()["id"]
-        for item, qty, net in lines:
+        for item, qty, net, vat in lines:
             cur.execute(
-                "INSERT INTO refund_items(refund_id, sale_item_id, product_id, name, quantity, net_amount, unit_cost) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (refund_id, item["id"], item["product_id"], item["name"], qty, float(net), item["unit_cost"]),
+                "INSERT INTO refund_items(refund_id, sale_item_id, product_id, name, quantity, net_amount, unit_cost, "
+                "tax_rate, tax_amount) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (refund_id, item["id"], item["product_id"], item["name"], qty, float(net), item["unit_cost"],
+                 item["tax_rate"] if item["tax_rate"] is not None else sale["tax_rate"],
+                 None if vat is None else float(vat)),
             )
             cur.execute("UPDATE products SET stock = stock + ? WHERE id = ? AND track_stock = 1",
                         (qty, item["product_id"]))
@@ -132,12 +145,28 @@ class RefundsMixin:
                 cur.execute("INSERT INTO loyalty_moves(customer_id, sale_id, points, reason, created_at) "
                             "VALUES (?, ?, ?, 'devolución', ?)", (sale["customer_id"], sale_id, -take, stamp))
 
+        rates: dict[float, list] = {}
+        for item, qty, net, vat in lines:
+            rate = float(item["tax_rate"] if item["tax_rate"] is not None else sale["tax_rate"])
+            share = rates.setdefault(rate, [Decimal("0"), Decimal("0")])
+            share[0] += net
+            share[1] += vat if vat is not None else _d(net * Decimal(str(rate)) / 100)
+        breakdown = [{"rate": r, "base": -float(b), "tax": -float(v)} for r, (b, v) in sorted(rates.items())]
+
         invoice = cur.execute("SELECT id FROM invoices WHERE sale_id = ?", (sale_id,)).fetchone()
         if invoice:
-            cur.execute(
-                "INSERT INTO credit_notes(number, invoice_id, refund_id, issued_at, issued_by) VALUES (?, ?, ?, ?, ?)",
-                (self._next_credit_note_number(cur, when), invoice["id"], refund_id, stamp, user_name),
-            )
+            note_number = self._next_credit_note_number(cur, when)
+            note_id = cur.execute(
+                "INSERT INTO credit_notes(number, invoice_id, refund_id, issued_at, issued_by) "
+                "VALUES (?, ?, ?, ?, ?) RETURNING id",
+                (note_number, invoice["id"], refund_id, stamp, user_name),
+            ).fetchone()["id"]
+            # Corrective invoice of a full invoice (R1), by differences: negative amounts.
+            self._register_issue(cur, "R1", note_number, when, -tax, -total, breakdown, "credit_note", note_id)
+        else:
+            # A return of a ticket corrects a simplified invoice (R5).
+            refund_number = cur.execute("SELECT number FROM refunds WHERE id = ?", (refund_id,)).fetchone()["number"]
+            self._register_issue(cur, "R5", refund_number, when, -tax, -total, breakdown, "refund", refund_id)
         return refund_id
 
     def refund(self, refund_id: int) -> dict:
@@ -148,8 +177,11 @@ class RefundsMixin:
             items = cur.execute("SELECT * FROM refund_items WHERE refund_id = ? ORDER BY id", (int(refund_id),)).fetchall()
             note = cur.execute("SELECT * FROM credit_notes WHERE refund_id = ?", (int(refund_id),)).fetchone()
             sale = cur.execute("SELECT number, tax_rate, customer_id FROM sales WHERE id = ?", (row["sale_id"],)).fetchone()
+            billing = self._billing_record(cur, "refund", refund_id)
+            if note:
+                note = {**note, "billing": self._billing_record(cur, "credit_note", note["id"])}
         return {**row, "items": items, "credit_note": note, "sale_number": sale["number"],
-                "tax_rate": sale["tax_rate"]}
+                "tax_rate": sale["tax_rate"], "taxes": tax_breakdown(items, sale["tax_rate"]), "billing": billing}
 
     def refunds(self, start: datetime | None = None, end: datetime | None = None) -> pd.DataFrame:
         sql = ("SELECT r.id, r.number, r.created_at, r.user_name, r.reason, r.method, r.base, r.tax, r.total, "

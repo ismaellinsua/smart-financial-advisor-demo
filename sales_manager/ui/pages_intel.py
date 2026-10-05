@@ -1,6 +1,5 @@
 """Intelligence: smart alerts, ABC analysis, price suggestions and the weekly report."""
 
-import time
 from datetime import datetime, timedelta
 
 import pandas as pd
@@ -11,7 +10,7 @@ from core import intelligence
 from core.pdfs import weekly_report_pdf
 from core.security import csv_safe
 from core.store_intel import week_start
-from ui.context import PAGES, ctx
+from ui.context import PAGES, ctx, logged_download
 from ui.styles import alert_card, page_header, style_figure
 from core import clock
 
@@ -19,13 +18,27 @@ ABC_COLORS = {"A": "#12B76A", "B": "#F79009", "C": "#98A2B3"}
 ALERTS_TTL = 90  # seconds a computed alert list is reused within one session
 
 
+@st.cache_data(ttl=ALERTS_TTL, max_entries=20, show_spinner=False)
+def _shared_alerts(store_key: int, version: tuple, _store) -> list[dict]:
+    """Shared by every session of the same business until the data changes or ALERTS_TTL passes."""
+    return _store.alerts()
+
+
+@st.cache_data(ttl=600, max_entries=40, show_spinner=False)
+def _shared_report(store_key: int, version: tuple, start, _store, _alerts) -> dict:
+    return _store.weekly_report(start, alerts=_alerts)
+
+
 def cached_alerts(c, refresh: bool = False) -> list[dict]:
-    """Alerts for the top bar and the Panel, recomputed at most every ALERTS_TTL seconds per session."""
-    cached = st.session_state.get("_alerts")
-    if refresh or not cached or time.monotonic() - cached[0] > ALERTS_TTL:
-        cached = (time.monotonic(), c.store.alerts())
-        st.session_state["_alerts"] = cached
-    return cached[1]
+    """Alerts for the top bar and the Panel. Computed once for everyone and reused until a sale, return, stock
+    adjustment, cash closing or expense changes them (or ALERTS_TTL seconds pass)."""
+    if refresh:
+        _shared_alerts.clear()
+    return _shared_alerts(id(c.store), c.store.data_version(), c.store)
+
+
+def cached_report(c, start) -> dict:
+    return _shared_report(id(c.store), c.store.data_version(), start, c.store, cached_alerts(c))
 
 
 def alert_counts(c) -> tuple[int, int]:
@@ -61,7 +74,7 @@ def report_card(c) -> None:
         store, settings = c.store, c.settings
         b.download_button("Descargar informe (PDF)", lambda: weekly_report_pdf(store.weekly_report(start), settings),
                           f"informe_semanal_{start:%Y-%m-%d}.pdf", "application/pdf", icon=":material/summarize:",
-                          use_container_width=True, type="primary" if monday else "secondary", key="dash_report")
+                          width="stretch", type="primary" if monday else "secondary", key="dash_report")
 
 
 def intelligence_page() -> None:
@@ -86,7 +99,7 @@ def intelligence_page() -> None:
 def _alerts_tab(c) -> None:
     a, b = st.columns([4, 1], vertical_alignment="bottom")
     a.caption("Se revisan solas: ventas, caja, stock, clientes, mesas, equipo, gastos y márgenes.")
-    refresh = b.button("Actualizar", icon=":material/refresh:", use_container_width=True)
+    refresh = b.button("Actualizar", icon=":material/refresh:", width="stretch")
     alerts = cached_alerts(c, refresh=refresh)
     counts = {lvl: sum(x["level"] == lvl for x in alerts) for lvl in intelligence.LEVELS}
     m1, m2, m3 = st.columns(3)
@@ -124,10 +137,10 @@ def _abc_tab(c, products: pd.DataFrame) -> pd.DataFrame:
                                   ticktext=["0 %", "25 %", "50 %", "80 %", "95 %"], showgrid=False))
     with st.container(border=True):
         st.markdown("**Margen por producto y acumulado**")
-        st.plotly_chart(style_figure(fig, 320), use_container_width=True, config={"displayModeBar": False})
+        st.plotly_chart(style_figure(fig, 320), width="stretch", config={"displayModeBar": False})
 
     view = abc[["abc", "name", "category", "units", "revenue", "margin", "margin_pct", "share"]]
-    st.dataframe(view, hide_index=True, use_container_width=True, column_config={
+    st.dataframe(view, hide_index=True, width="stretch", column_config={
         "abc": st.column_config.TextColumn("Clase", width="small"), "name": "Producto", "category": "Categoría",
         "units": st.column_config.NumberColumn("Unidades", format="%d"),
         "revenue": st.column_config.NumberColumn("Ventas netas", format=f"%.2f {c.symbol}"),
@@ -135,7 +148,7 @@ def _abc_tab(c, products: pd.DataFrame) -> pd.DataFrame:
         "margin_pct": st.column_config.NumberColumn("Margen %", format="%.1f %%"),
         "share": st.column_config.ProgressColumn("Peso en el margen", format="%.1f %%", min_value=0, max_value=100),
     })
-    st.download_button("Descargar análisis (CSV)",
+    logged_download(st, "Descargar análisis (CSV)",
                        csv_safe(abc).to_csv(index=False, sep=";", decimal=",").encode("utf-8-sig"),
                        "analisis_abc.csv", "text/csv", icon=":material/download:")
     return abc
@@ -157,7 +170,7 @@ def _prices_tab(c, products: pd.DataFrame, abc: pd.DataFrame) -> None:
     editor = sug.assign(apply=False)[["apply", "abc", "name", "cost", "price", "unit_margin_pct", "suggested",
                                       "new_margin_pct", "increase_pct", "id"]]
     edited = st.data_editor(
-        editor, hide_index=True, use_container_width=True, key=f"price_editor_{target}",
+        editor, hide_index=True, width="stretch", key=f"price_editor_{target}",
         disabled=["abc", "name", "cost", "price", "unit_margin_pct", "new_margin_pct", "increase_pct", "id"],
         column_order=["apply", "abc", "name", "cost", "price", "unit_margin_pct", "suggested", "new_margin_pct",
                       "increase_pct"],
@@ -197,7 +210,7 @@ def _report_tab(c) -> None:
     start = st.selectbox("Semana", weeks, format_func=lambda w: _week_label(w) + (" (en curso)" if w == this_week
                                                                                   else ""), key="report_week")
     st.caption("Cada lunes el informe de la semana anterior aparece listo en el Panel para descargar.")
-    report = c.store.weekly_report(start)
+    report = cached_report(c, start)
     n = report["numbers"]
     pct = lambda v: None if v is None else f"{v:+.1f} %".replace(".", ",")  # noqa: E731
     m1, m2, m3, m4 = st.columns(4)
@@ -212,7 +225,7 @@ def _report_tab(c) -> None:
         fig = go.Figure(go.Bar(x=[f"{name[:3]} {d:%d}" for name, d, _, _ in n["by_day"]],
                                y=[total for *_, total in n["by_day"]], marker_color=c.settings["accent_color"],
                                hovertemplate="%{x}<br><b>%{y:,.2f} " + c.symbol + "</b><extra></extra>"))
-        st.plotly_chart(style_figure(fig, 260), use_container_width=True, config={"displayModeBar": False})
+        st.plotly_chart(style_figure(fig, 260), width="stretch", config={"displayModeBar": False})
     with right, st.container(border=True):
         st.markdown("**Recomendaciones**")
         for i, rec in enumerate(report["recommendations"], 1):

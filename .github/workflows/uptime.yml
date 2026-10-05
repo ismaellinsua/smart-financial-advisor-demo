@@ -1,0 +1,44 @@
+# Checks every 10 minutes that each app answers. A failed run means an app is down: GitHub emails the repository
+# owner, and OPERATOR_EMAIL gets a message too when SMTP is set up. Set up in README («Errores y caídas»).
+name: Disponibilidad
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: uptime
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      UPTIME_URLS: ${{ secrets.UPTIME_URLS }}
+      OPERATOR_EMAIL: ${{ secrets.OPERATOR_EMAIL }}
+      SMTP_HOST: ${{ secrets.SMTP_HOST }}
+      SMTP_PORT: ${{ secrets.SMTP_PORT }}
+      SMTP_USER: ${{ secrets.SMTP_USER }}
+      SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+      SMTP_FROM: ${{ secrets.SMTP_FROM }}
+    steps:
+      - name: Sin configurar todavía
+        if: env.UPTIME_URLS == ''
+        run: echo "::notice::Vigilancia desactivada hasta definir el secreto UPTIME_URLS."
+
+      - uses: actions/checkout@v4
+        if: env.UPTIME_URLS != ''
+
+      - uses: actions/setup-python@v5
+        if: env.UPTIME_URLS != ''
+        with:
+          python-version: "3.12"
+
+      - name: Comprobar
+        if: env.UPTIME_URLS != ''
+        run: python ops/uptime.py

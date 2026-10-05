@@ -96,11 +96,10 @@ def inactive_customers(
 ) -> pd.DataFrame:
     """Customers with past purchases whose last purchase is older than `days` days."""
     now = now or clock.now()
-    done = sales[(sales["status"] == "completada") & sales["customer_id"].notna()]
-    if done.empty:
+    stats = customer_stats(sales)
+    if stats.empty:
         return pd.DataFrame(columns=["id", "name", "email", "phone", "last_purchase", "days_inactive", "lifetime_value"])
-    stats = done.groupby("customer_id").agg(last_purchase=("created_at", "max"), lifetime_value=("total", "sum"))
-    merged = customers.merge(stats, left_on="id", right_index=True)
+    merged = customers.merge(stats[["last_purchase", "lifetime_value"]], left_on="id", right_index=True)
     merged["days_inactive"] = (now - merged["last_purchase"]).dt.days
     result = merged[merged["days_inactive"] >= days]
     return result[["id", "name", "email", "phone", "last_purchase", "days_inactive", "lifetime_value"]].sort_values(
@@ -119,11 +118,20 @@ def followup_message(customer_name: str, business_name: str) -> str:
     )
 
 
-def customer_ranking(customers: pd.DataFrame, sales: pd.DataFrame) -> pd.DataFrame:
+def customer_stats(sales: pd.DataFrame) -> pd.DataFrame:
+    """Purchases, value and first/last purchase per customer, indexed by customer id. Accepts either sales rows
+    or the totals the database already summed (`Store.customer_totals`), which is what the pages use."""
+    columns = ["purchases", "lifetime_value", "first_purchase", "last_purchase"]
+    if "purchases" in sales.columns:
+        return sales.set_index("customer_id")[columns]
     done = sales[(sales["status"] == "completada") & sales["customer_id"].notna()]
-    stats = done.groupby("customer_id").agg(
-        purchases=("id", "count"), lifetime_value=("total", "sum"), last_purchase=("created_at", "max")
-    )
+    return done.groupby("customer_id").agg(
+        purchases=("total", "size"), lifetime_value=("total", "sum"), first_purchase=("created_at", "min"),
+        last_purchase=("created_at", "max"))[columns]
+
+
+def customer_ranking(customers: pd.DataFrame, sales: pd.DataFrame) -> pd.DataFrame:
+    stats = customer_stats(sales)[["purchases", "lifetime_value", "last_purchase"]]
     merged = customers.merge(stats, left_on="id", right_index=True, how="left")
     merged["purchases"] = merged["purchases"].fillna(0).astype(int)
     merged["lifetime_value"] = merged["lifetime_value"].fillna(0.0)
@@ -151,7 +159,8 @@ def insights(products: pd.DataFrame, lines: pd.DataFrame, item_label: str = "pro
 
     active = products[products["active"] == 1]
     priced = active[active["price"] > 0]
-    thin = priced[(priced["price"] - priced["cost"]) / priced["price"] < 0.25]
+    net = priced["net_price"].astype(float) if "net_price" in priced else priced["price"].astype(float)
+    thin = priced[(net - priced["cost"]) / net < 0.25]
     for name in thin["name"].head(3):
         out.append(("warning", f"«{name}» tiene un margen inferior al 25 %: revisa su precio o su coste."))
 

@@ -36,8 +36,14 @@ Con solo el email, el formulario abre el programa de correo del visitante con el
 
 1. En GitHub, abre el repositorio → **Settings → Pages**.
 2. En **Source** elige **Deploy from a branch**; rama **main** y carpeta **/docs**. Pulsa **Save**.
-3. En un par de minutos estará en `https://ismaellinsua.github.io/smart-financial-advisor-demo/`, con HTTPS.
-4. Si compras un dominio (por ejemplo `nirkana.es`), ponlo en **Custom domain** y marca **Enforce HTTPS**.
+3. Cuando los registros DNS del paso 4 ya estén creados, en **Custom domain** escribe `nirkana.es` y pulsa **Save**
+   (GitHub añade solo el archivo `CNAME`; hacerlo antes dejaría la web sin abrir hasta que el DNS apunte bien).
+4. En tu proveedor del dominio crea estos registros DNS:
+   - `@` tipo **A**: `185.199.108.153`, `185.199.109.153`, `185.199.110.153` y `185.199.111.153`.
+   - `@` tipo **AAAA**: `2606:50c0:8000::153`, `2606:50c0:8001::153`, `2606:50c0:8002::153` y `2606:50c0:8003::153`.
+   - `www` tipo **CNAME**: `ismaellinsua.github.io`.
+5. Cuando GitHub muestre el dominio como comprobado (de minutos a 24 h), marca **Enforce HTTPS**.
+   La web quedará en `https://nirkana.es/`.
 
 También puedes subir la carpeta `docs/` tal cual a Netlify, Cloudflare Pages o cualquier alojamiento estático.
 

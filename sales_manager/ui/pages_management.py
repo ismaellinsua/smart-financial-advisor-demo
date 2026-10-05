@@ -10,7 +10,7 @@ from core.pdfs import purchase_order_pdf
 from core.presets import PAYMENT_METHODS
 from core.security import csv_safe
 from core.store_purchases import EXPENSE_CATEGORIES, PURCHASE_STATUSES, PURCHASES_CATEGORY
-from ui.context import ctx
+from ui.context import ctx, logged_download
 from ui.styles import page_header, style_figure
 from core import clock
 
@@ -57,7 +57,7 @@ def _orders(c) -> None:
     m1.metric("Pedidos abiertos", len(pending))
     m2.metric("Importe pendiente de recibir", c.money_short(pending["total"].sum()))
     event = st.dataframe(
-        df.assign(status=df["status"].map(PURCHASE_STATUSES)), hide_index=True, use_container_width=True,
+        df.assign(status=df["status"].map(PURCHASE_STATUSES)), hide_index=True, width="stretch",
         on_select="rerun", selection_mode="single-row", key="po_table",
         column_order=["number", "created_at", "supplier", "status", "total", "created_by"],
         column_config={"number": "Pedido", "created_at": st.column_config.DatetimeColumn("Fecha", format="DD/MM/YYYY"),
@@ -75,7 +75,7 @@ def _orders(c) -> None:
                            "application/pdf", icon=":material/picture_as_pdf:")
         if po["status"] not in ("borrador", "enviado"):
             st.dataframe(pd.DataFrame(po["items"])[["name", "quantity", "received", "unit_cost"]], hide_index=True,
-                         use_container_width=True, column_config={
+                         width="stretch", column_config={
                              "name": "Producto", "quantity": "Pedido", "received": "Recibido",
                              "unit_cost": st.column_config.NumberColumn("Coste", format=f"%.2f {c.symbol}")})
             return
@@ -91,7 +91,7 @@ def _orders(c) -> None:
                              key=f"rcv_m_{po['id']}")
         x, y, z = st.columns(3)
         if x.button("Recibir y actualizar stock", type="primary", icon=":material/inventory:",
-                    key=f"rcv_btn_{po['id']}", use_container_width=True):
+                    key=f"rcv_btn_{po['id']}", width="stretch"):
             try:
                 c.store.receive_purchase(po["id"], received, received_by=c.who, register_expense=expense,
                                          method=method)
@@ -102,10 +102,10 @@ def _orders(c) -> None:
                 st.session_state["purchase_flash"] = f"{po['number']} recibido: stock y costes actualizados."
                 st.rerun()
         if po["status"] == "borrador" and y.button("Marcar como enviado", key=f"po_sent_{po['id']}",
-                                                   use_container_width=True):
+                                                   width="stretch"):
             c.store.set_purchase_status(po["id"], "enviado")
             st.rerun()
-        if z.button("Cancelar pedido", key=f"po_cancel_{po['id']}", use_container_width=True):
+        if z.button("Cancelar pedido", key=f"po_cancel_{po['id']}", width="stretch"):
             c.store.set_purchase_status(po["id"], "cancelado")
             c.store.audit(c.username, "pedido_cancelado", po["number"])
             st.rerun()
@@ -122,7 +122,7 @@ def _new_order(c) -> None:
     lines = pd.DataFrame({"producto": products["name"], "cantidad": 0, "coste": products["cost"].astype(float),
                           "stock": products["stock"], "product_id": products["id"]})
     edited = st.data_editor(
-        lines, hide_index=True, use_container_width=True, key=f"po_lines_{supplier}",
+        lines, hide_index=True, width="stretch", key=f"po_lines_{supplier}",
         disabled=["producto", "stock", "product_id"], column_order=["producto", "stock", "cantidad", "coste"],
         column_config={"producto": "Producto", "stock": "Stock actual",
                        "cantidad": st.column_config.NumberColumn("Pedir", min_value=0, step=1),
@@ -152,7 +152,7 @@ def _suppliers(c) -> None:
         if suppliers.empty:
             st.info("Sin proveedores todavía.")
         else:
-            st.dataframe(suppliers, hide_index=True, use_container_width=True,
+            st.dataframe(suppliers, hide_index=True, width="stretch",
                          column_order=["name", "tax_id", "email", "phone", "notes"],
                          column_config={"name": "Proveedor", "tax_id": "NIF/CIF", "email": "Email",
                                         "phone": "Teléfono", "notes": "Notas"})
@@ -161,7 +161,7 @@ def _suppliers(c) -> None:
             names = {0: "—", **dict(zip(suppliers["id"].astype(int), suppliers["name"]))}
             table = pd.DataFrame({"id": products["id"], "producto": products["name"],
                                   "proveedor": products["supplier_id"].fillna(0).astype(int).map(names)})
-            edited = st.data_editor(table, hide_index=True, use_container_width=True, key="product_suppliers",
+            edited = st.data_editor(table, hide_index=True, width="stretch", key="product_suppliers",
                                     disabled=["id", "producto"], column_order=["producto", "proveedor"],
                                     column_config={"producto": "Producto", "proveedor": st.column_config.SelectboxColumn(
                                         "Proveedor", options=list(names.values()), required=True)})
@@ -232,7 +232,7 @@ def expenses_page() -> None:
             marker_color=[accent if y >= 0 else "#D92D20" for _, y in series],
             text=[c.money_short(y) for _, y in series], textposition="outside",
             hovertemplate="%{x}<br><b>%{y:,.2f} " + c.symbol + "</b><extra></extra>"))
-        st.plotly_chart(style_figure(fig, 300), use_container_width=True, config={"displayModeBar": False})
+        st.plotly_chart(style_figure(fig, 300), width="stretch", config={"displayModeBar": False})
     with right, st.container(border=True):
         st.markdown("**Gastos del mes por categoría**")
         if p["by_category"].empty:
@@ -250,7 +250,7 @@ def expenses_page() -> None:
         if df.empty:
             st.caption("No hay gastos este mes.")
         else:
-            event = st.dataframe(df, hide_index=True, use_container_width=True, on_select="rerun",
+            event = st.dataframe(df, hide_index=True, width="stretch", on_select="rerun",
                                  selection_mode="single-row", key="exp_table",
                                  column_order=["day", "category", "description", "supplier", "method", "amount",
                                                "created_by"],
@@ -259,7 +259,7 @@ def expenses_page() -> None:
                                                 "supplier": "Proveedor", "method": "Pago",
                                                 "amount": st.column_config.NumberColumn("Importe", format=f"%.2f {c.symbol}"),
                                                 "created_by": "Apuntado por"})
-            st.download_button("Exportar a CSV", csv_safe(df.drop(columns=["id"])).to_csv(
+            logged_download(st, "Exportar a CSV", csv_safe(df.drop(columns=["id"])).to_csv(
                 index=False, sep=";", decimal=",").encode("utf-8-sig"), "gastos.csv", "text/csv",
                 icon=":material/download:")
             if event.selection.rows and st.button("Eliminar el gasto seleccionado", icon=":material/delete:"):
@@ -276,9 +276,20 @@ def expenses_page() -> None:
         a, b = st.columns(2)
         amount = a.number_input(f"Importe ({c.symbol})", 0.0, 10_000_000.0, 0.0, step=10.0)
         method = b.selectbox("Pagado por", PAYMENT_METHODS, index=PAYMENT_METHODS.index("Transferencia"))
+        with st.expander("Factura del proveedor (para deducir el IVA)", icon=":material/receipt:"):
+            st.caption("Con estos datos el gasto entra en el libro de facturas recibidas del Excel para la gestoría.")
+            a, b = st.columns(2)
+            issuer = a.text_input("Proveedor", max_chars=120)
+            issuer_tax_id = b.text_input("NIF del proveedor", max_chars=20)
+            invoice_number = a.text_input("Nº de factura", max_chars=40)
+            rates = [None, 21.0, 10.0, 5.0, 4.0, 0.0]
+            tax_rate = b.selectbox("IVA de la factura", rates, format_func=lambda r: "Sin factura" if r is None
+                                   else f"{r:g} %", help="El importe de arriba es el total de la factura, con IVA.")
         if st.form_submit_button("Apuntar gasto", type="primary", icon=":material/add:"):
             try:
-                c.store.add_expense(day, category, description, amount, method, created_by=c.who)
+                c.store.add_expense(day, category, description, amount, method, created_by=c.who,
+                                    invoice_number=invoice_number, issuer_tax_id=issuer_tax_id, issuer_name=issuer,
+                                    tax_rate=tax_rate)
             except ValueError as exc:
                 st.error(str(exc))
             else:
@@ -309,3 +320,65 @@ def expenses_page() -> None:
                 else:
                     st.session_state["expense_flash"] = "Gasto fijo añadido."
                     st.rerun()
+
+
+# ------------------------------------------------------------------ gestoría
+def accounting_page() -> None:
+    from core.accounting import quarter
+
+    c = ctx()
+    if not c.can("encargado"):
+        st.error("No tienes permiso para ver esta sección.", icon=":material/lock:")
+        return
+    page_header("Gestoría", "Todo lo que pide tu gestoría cada trimestre: libro de facturas emitidas, resumen de IVA "
+                "por tipo, retenciones y gastos, en un Excel.", eyebrow="Gestión")
+    first, _ = quarter(clock.today())
+    quarters = []
+    for _ in range(8):  # this quarter and the seven before
+        start, end = quarter(first)
+        quarters.append((start, end))
+        first = (start - timedelta(days=1)).replace(day=1)
+    labels = {q: f"{(q[0].month - 1) // 3 + 1}T {q[0].year}" for q in quarters}
+    a, b = st.columns([1, 2])
+    today = clock.today()
+    filing = (today.month - 1) % 3 == 0 and today.day <= 20  # first 20 days: the previous quarter is being filed
+    chosen = a.selectbox("Trimestre", quarters, format_func=labels.get, index=1 if filing else 0,
+                         help="El IVA trimestral (modelo 303) se presenta del 1 al 20 del mes siguiente al trimestre.")
+    start, end = chosen
+    b.caption(f"Del {start:%d/%m/%Y} al {end - timedelta(days=1):%d/%m/%Y}.")
+    book, voided = c.store.issued_book(start, end)
+    summary = c.store.vat_summary(book)
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("Facturación", c.money(book["Total"].sum() if not book.empty else 0))
+    m2.metric("Base imponible", c.money(book["Base imponible"].sum() if not book.empty else 0))
+    m3.metric("IVA repercutido", c.money(book["Cuota IVA"].sum() if not book.empty else 0))
+    m4.metric("IRPF retenido", c.money(book["Retención IRPF"].sum() if not book.empty else 0),
+              help="Lo que te retuvieron tus clientes en facturas con IRPF (para el modelo 130 si eres autónomo).")
+    st.markdown("##### IVA por tipo")
+    if summary.empty:
+        st.info("No hay ventas en este trimestre.")
+    else:
+        st.dataframe(summary, hide_index=True, width="stretch", column_config={
+            "Tipo IVA %": st.column_config.NumberColumn(format="%.0f %%"),
+            **{col: st.column_config.NumberColumn(format=f"%.2f {c.symbol}")
+               for col in ("Base imponible", "Cuota IVA", "Total")}})
+    received = c.store.received_book(start, end)
+    deductible = float(received["Cuota IVA"].sum()) if not received.empty else 0.0
+    charged = float(book["Cuota IVA"].sum()) if not book.empty else 0.0
+    st.caption(f"IVA soportado en facturas recibidas: **{c.money(deductible)}** ({len(received)} facturas) · "
+               f"diferencia orientativa a ingresar: **{c.money(charged - deductible)}**. Es una orientación: "
+               "tu gestoría revisa qué IVA es deducible.")
+    with st.expander(f"Libro de facturas emitidas ({len(book)} líneas)", icon=":material/menu_book:"):
+        st.caption("Los tickets van en un apunte por día y tipo de IVA (con su primer y último número); los de más de "
+                   "3.000 € van uno a uno. Un ticket que se cambió por factura se cuenta solo en la factura. Las "
+                   "devoluciones y rectificativas restan.")
+        st.dataframe(book, hide_index=True, width="stretch")
+    if not voided.empty:
+        st.caption(f"{len(voided)} ticket(s) anulados en el trimestre: van en una hoja aparte del Excel para que la "
+                   "numeración cuadre.")
+    name = f"gestoria-{labels[chosen].replace(' ', '-')}.xlsx"
+    logged_download(st, "Descargar Excel para la gestoría", lambda: c.store.gestoria_workbook(start, end), name,
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", type="primary",
+                    icon=":material/download:")
+    st.caption("Incluye: resumen, libro de facturas emitidas, libro de facturas recibidas (los gastos apuntados con la "
+               "factura del proveedor), tickets anulados y todos los gastos.")

@@ -5,7 +5,6 @@ from html import escape
 import pandas as pd
 import streamlit as st
 
-from core.db import SaleError
 from ui.checkout import checkout_panel
 from ui.context import ctx, get_store
 from ui.styles import page_header
@@ -62,7 +61,7 @@ def tables_page() -> None:
     m1, m2, m3 = st.columns(3)
     m1.metric("Mesas ocupadas", f"{len(busy)} de {len(floor)}")
     m2.metric("Comensales", int(busy["guests"].fillna(0).sum()))
-    m3.metric("Pendiente de cobro", c.money_short(busy["amount"].sum() * (1 + c.tax_rate / 100)))
+    m3.metric("Pendiente de cobro", c.money_short(busy["amount"].sum()))
     if floor.empty:
         st.info("No hay mesas. Créalas en «Configurar mesas», más abajo.")
 
@@ -76,14 +75,14 @@ def tables_page() -> None:
                     st.markdown(
                         f"<div class='sm-table busy'><b>{escape(t['name'])}</b>{ready}"
                         f"<div>{f'{int(t.guests)} pers · ' if t['guests'] else ''}{_minutes(t['opened_at'])} min</div>"
-                        f"<div class='amt'>{escape(c.money(t['amount'] * (1 + c.tax_rate / 100)))}</div></div>",
+                        f"<div class='amt'>{escape(c.money(t['amount']))}</div></div>",
                         unsafe_allow_html=True)
-                    st.button("Ver comanda", key=f"tbl_{t['id']}", use_container_width=True,
+                    st.button("Ver comanda", key=f"tbl_{t['id']}", width="stretch",
                               on_click=st.session_state.__setitem__, args=("table_order", int(t["order_id"])))
                 else:
                     st.markdown(f"<div class='sm-table'><b>{escape(t['name'])}</b><div>Libre · {int(t['seats'])} "
                                 f"plazas</div><div class='amt'>&nbsp;</div></div>", unsafe_allow_html=True)
-                    st.button("Abrir", key=f"tbl_{t['id']}", use_container_width=True, type="primary",
+                    st.button("Abrir", key=f"tbl_{t['id']}", width="stretch", type="primary",
                               on_click=_open_table, args=(int(t["id"]), c.who))
 
     others = c.store.open_orders()
@@ -92,7 +91,7 @@ def tables_page() -> None:
     a, b = st.columns([3, 1], vertical_alignment="bottom")
     label = a.text_input("Nueva comanda sin mesa", placeholder="Ej.: Barra · Juan, Para llevar · 21:15",
                          max_chars=60, key="counter_label")
-    if b.button("Abrir comanda", use_container_width=True):
+    if b.button("Abrir comanda", width="stretch"):
         try:
             st.session_state["table_order"] = c.store.open_order(None, opened_by=c.who, label=label)
             st.rerun()
@@ -149,7 +148,7 @@ def _order_view(c, order: dict) -> None:
     with top:
         page_header(order["title"], f"Abierta por {order['opened_by'] or '—'} a las {order['opened_at'][11:16]}",
                     eyebrow="Comanda")
-    back.button("← Mesas", on_click=_close_view, use_container_width=True)
+    back.button("← Mesas", on_click=_close_view, width="stretch")
     guests = st.number_input("Comensales", 0, 99, int(order["guests"] or 0), key=f"guests_{oid}")
     if guests != int(order["guests"] or 0):
         c.store.set_order_guests(oid, guests)
@@ -167,7 +166,7 @@ def _order_view(c, order: dict) -> None:
         for i, (_, p) in enumerate(products.iterrows()):
             out = bool(p["track_stock"]) and p["stock"] <= 0
             cols[i % 2].button(f"{p['name']} · {c.money(p['price'])}", key=f"oadd_{oid}_{p['id']}",
-                               on_click=_add, args=(oid, int(p["id"]), c.who), use_container_width=True,
+                               on_click=_add, args=(oid, int(p["id"]), c.who), width="stretch",
                                disabled=out)
 
     with ticket, st.container(border=True):
@@ -190,15 +189,15 @@ def _order_view(c, order: dict) -> None:
                              help="Ya en cocina: solo un encargado puede quitarlo." if locked else "Quitar uno")
                 plus.button("", icon=":material/add:", key=f"oinc_{item['id']}", type="tertiary",
                             on_click=_change, args=(item["id"], 1, False))
-        st.markdown(f"**Por cobrar: {c.money(order['amount'] * (1 + c.tax_rate / 100))}**")
+        st.markdown(f"**Por cobrar: {c.money(order['amount'])}**")
 
         a, b = st.columns(2)
         charging = st.session_state.get("charging") == oid
-        if a.button("Cerrar cobro" if charging else "Cobrar", type="primary", use_container_width=True,
+        if a.button("Cerrar cobro" if charging else "Cobrar", type="primary", width="stretch",
                     disabled=not order["unpaid"], icon=":material/payments:", key=f"charge_toggle_{oid}"):
             st.session_state["charging"] = None if charging else oid
             st.rerun()
-        with b.popover("Más", use_container_width=True):
+        with b.popover("Más", width="stretch"):
             free = c.store.dining_tables()
             free = free[free["order_id"].isna()]
             options = dict(zip(free["id"].astype(int), free["name"]))
@@ -271,7 +270,7 @@ def _kitchen_board(categories: list[str]) -> None:
                 st.markdown(f"<div class='sm-kds{late}'><div class='place'>{escape(str(it['place']))} · "
                             f"{wait} min</div><b>{int(it['quantity'])} × {escape(it['name'])}</b>{note}</div>",
                             unsafe_allow_html=True)
-                if st.button(action, key=f"kds_{it['id']}", use_container_width=True,
+                if st.button(action, key=f"kds_{it['id']}", width="stretch",
                              type="primary" if status == "listo" else "secondary"):
                     get_store().advance_kitchen(int(it["id"]))
                     st.rerun(scope="fragment")

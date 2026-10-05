@@ -166,7 +166,13 @@ class PurchasesMixin:
 
     # ------------------------------------------------------------------ expenses
     def add_expense(self, day: date, category: str, description: str, amount: float, method: str = "Transferencia",
-                    supplier_id: int | None = None, created_by: str = "", recurring_id: int | None = None) -> int:
+                    supplier_id: int | None = None, created_by: str = "", recurring_id: int | None = None,
+                    invoice_number: str = "", issuer_tax_id: str = "", issuer_name: str = "",
+                    tax_rate: float | None = None) -> int:
+        """`amount` includes VAT. With the supplier's invoice (`tax_rate` set), it enters the register of invoices
+        received and its VAT counts as deductible in the gestoría export."""
+        if tax_rate is not None and float(tax_rate) not in (0.0, 4.0, 5.0, 10.0, 21.0):
+            raise ValueError("Tipo de IVA no válido.")
         if category not in EXPENSE_CATEGORIES:
             raise ValueError("Categoría de gasto no válida.")
         if method not in PAYMENT_METHODS:
@@ -175,12 +181,17 @@ class PurchasesMixin:
         if not 0 < amount <= 10_000_000:
             raise ValueError("El importe debe ser mayor que cero.")
         description = clean_text(description, "Descripción", "name", required=True)
+        invoice_number = clean_text(invoice_number, "Nº de factura", "short")
+        issuer_tax_id = clean_text(issuer_tax_id, "NIF del proveedor", "short").upper()
+        issuer_name = clean_text(issuer_name, "Proveedor", "name")
         with self.db.tx() as cur:
             return cur.execute(
                 "INSERT INTO expenses(day, category, description, amount, method, supplier_id, recurring_id, "
-                "created_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id",
+                "created_by, created_at, invoice_number, issuer_tax_id, issuer_name, tax_rate) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id",
                 (day.isoformat(), category, description, amount, method, None if not supplier_id else int(supplier_id),
-                 recurring_id, created_by, clock.now().isoformat(timespec="seconds")),
+                 recurring_id, created_by, clock.now().isoformat(timespec="seconds"), invoice_number, issuer_tax_id,
+                 issuer_name, None if tax_rate is None else float(tax_rate)),
             ).fetchone()["id"]
 
     def delete_expense(self, expense_id: int) -> None:
@@ -188,7 +199,8 @@ class PurchasesMixin:
             cur.execute("DELETE FROM expenses WHERE id = ?", (int(expense_id),))
 
     def expenses(self, start: date | None = None, end: date | None = None) -> pd.DataFrame:
-        sql, params = ("SELECT e.*, COALESCE(s.name, '') AS supplier FROM expenses e "
+        sql, params = ("SELECT e.*, COALESCE(s.name, '') AS supplier, COALESCE(s.tax_id, '') AS supplier_tax_id "
+                       "FROM expenses e "
                        "LEFT JOIN suppliers s ON s.id = e.supplier_id WHERE 1 = 1"), []
         if start:
             sql += " AND e.day >= ?"

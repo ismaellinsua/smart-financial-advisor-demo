@@ -10,11 +10,11 @@ from reportlab.lib.enums import TA_RIGHT
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
-from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from reportlab.platypus import Image, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 from .presets import CURRENCIES
 from .pricing import format_money
-from .receipts import payment_lines, sale_adjustments
+from .receipts import payment_lines, prices_include_vat, sale_adjustments
 
 INK = colors.HexColor("#1B2430")
 MUTED = colors.HexColor("#667085")
@@ -67,6 +67,19 @@ def _header(settings: dict, st, title: str, meta: list[str], accent) -> Table:
     return table
 
 
+def _qr(record: dict | None, st) -> list:
+    """The tax QR code at the start of an invoice (Orden HAC/1177/2024); nothing without a billing record."""
+    if not record:
+        return []
+    from .verifactu import QR_SIZE_MM, qr_png, qr_url
+
+    image = Image(BytesIO(qr_png(qr_url(record))), width=QR_SIZE_MM * mm, height=QR_SIZE_MM * mm)
+    table = Table([[image], [_p("QR tributario", st["muted"])]], colWidths=[170 * mm], hAlign="LEFT")
+    table.setStyle(TableStyle([("LEFTPADDING", (0, 0), (-1, -1), 0), ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+                               ("BOTTOMPADDING", (0, 0), (-1, -1), 2)]))
+    return [table, Spacer(1, 4 * mm)]
+
+
 def _build(story: list, title: str) -> bytes:
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=20 * mm, rightMargin=20 * mm,
@@ -86,7 +99,7 @@ def invoice_pdf(invoice: dict, settings: dict) -> bytes:
     meta = [f"Nº {invoice['number']}", f"Fecha: {issued:%d/%m/%Y}"]
     if operation.date() != issued.date():
         meta.append(f"Fecha de la operación: {operation:%d/%m/%Y}")
-    story = [_header(settings, st, "FACTURA", meta, accent), Spacer(1, 8 * mm)]
+    story = [*_qr(invoice.get("billing"), st), _header(settings, st, "FACTURA", meta, accent), Spacer(1, 8 * mm)]
 
     customer = [_p("FACTURAR A", st["label"]), _p(invoice["customer_name"], st["base"]),
                 _p(f"NIF/CIF: {invoice['customer_tax_id']}", st["base"])]
@@ -99,16 +112,19 @@ def invoice_pdf(invoice: dict, settings: dict) -> bytes:
                              ("BOTTOMPADDING", (0, 0), (-1, -1), 8)]))
     story += [box, Spacer(1, 8 * mm)]
 
-    rows = [[_p("Concepto", st["label"]), _p("Cant.", st["label_r"]), _p("Precio", st["label_r"]),
+    gross = prices_include_vat(sale)
+    rows = [[_p("Concepto", st["label"]), _p("Cant.", st["label_r"]),
+             _p("Precio (IVA incl.)" if gross else "Precio", st["label_r"]), _p("IVA", st["label_r"]),
              _p("Importe", st["label_r"])]]
     for item in sale["items"]:
+        rate = item["tax_rate"] if item.get("tax_rate") is not None else sale["tax_rate"]
         rows.append([_p(item["name"], st["base"]), _p(item["quantity"], st["right"]),
-                     _p(money(item["unit_price"]), st["right"]),
+                     _p(money(item["unit_price"]), st["right"]), _p(f"{rate:g} %", st["right"]),
                      _p(money(item["quantity"] * item["unit_price"]), st["right"])])
         if item.get("line_discount"):
-            rows.append([_p(f"   {item.get('promo_name') or 'Promoción'}", st["muted"]), "", "",
+            rows.append([_p(f"   {item.get('promo_name') or 'Promoción'}", st["muted"]), "", "", "",
                          _p(f"−{money(item['line_discount'])}", st["right"])])
-    lines = Table(rows, colWidths=[95 * mm, 20 * mm, 27 * mm, 28 * mm], repeatRows=1)
+    lines = Table(rows, colWidths=[80 * mm, 17 * mm, 30 * mm, 15 * mm, 28 * mm], repeatRows=1)
     lines.setStyle(TableStyle([
         ("LINEBELOW", (0, 0), (-1, 0), 1, INK),
         ("LINEBELOW", (0, 1), (-1, -1), 0.4, LINE),
@@ -118,12 +134,24 @@ def invoice_pdf(invoice: dict, settings: dict) -> bytes:
     ]))
     story += [lines, Spacer(1, 6 * mm)]
 
-    base = sale["subtotal"] - sale["discount"]
     totals = [["Suma de conceptos", money(sale["subtotal"])]]
     totals += [[label, f"−{money(amount)}"] for label, amount in sale_adjustments(sale)]
-    totals += [["Base imponible", money(base)], [f"IVA ({sale['tax_rate']:g} %)", money(sale["tax"])]]
+    if gross:
+        for t in sale["taxes"]:
+            totals += [[f"Base imponible ({t['rate']:g} %)", money(t["base"])],
+                       [f"Cuota IVA {t['rate']:g} %", money(t["tax"])]]
+    else:  # invoices of sales from before prices included VAT
+        totals += [["Base imponible", money(sale["subtotal"] - sale["discount"])],
+                   [f"IVA ({sale['tax_rate']:g} %)", money(sale["tax"])]]
     total_rows = [[_p(a, st["base"]), _p(b, st["right"])] for a, b in totals]
-    total_rows.append([_p("TOTAL", st["doc"]), _p(money(sale["total"]), st["doc"])])
+    irpf = float(invoice.get("irpf_amount") or 0)
+    if irpf:
+        total_rows.append([_p("TOTAL FACTURA", st["base"]), _p(money(sale["total"]), st["right"])])
+        total_rows.append([_p(f"Retención IRPF ({invoice['irpf_rate']:g} %)", st["base"]),
+                           _p(f"−{money(irpf)}", st["right"])])
+        total_rows.append([_p("TOTAL A PAGAR", st["doc"]), _p(money(sale["total"] - irpf), st["doc"])])
+    else:
+        total_rows.append([_p("TOTAL", st["doc"]), _p(money(sale["total"]), st["doc"])])
     table = Table(total_rows, colWidths=[45 * mm, 35 * mm], hAlign="RIGHT")
     table.setStyle(TableStyle([
         ("LINEABOVE", (0, -1), (-1, -1), 1.5, accent),
@@ -196,7 +224,7 @@ def credit_note_pdf(note: dict, settings: dict) -> bytes:
     money = lambda v: format_money(v, CURRENCIES.get(settings.get("currency", "EUR"), "€"))  # noqa: E731
     issued = datetime.fromisoformat(note["issued_at"])
     original = datetime.fromisoformat(invoice["issued_at"])
-    story = [_header(settings, st, "FACTURA RECTIFICATIVA",
+    story = [*_qr(note.get("billing"), st), _header(settings, st, "FACTURA RECTIFICATIVA",
                      [f"Nº {note['number']}", f"Fecha: {issued:%d/%m/%Y}"], accent), Spacer(1, 6 * mm),
              _p(f"Rectifica la factura {invoice['number']} de {original:%d/%m/%Y}. Motivo: {refund['reason']}",
                 st["base"]), Spacer(1, 6 * mm)]
@@ -222,9 +250,11 @@ def credit_note_pdf(note: dict, settings: dict) -> bytes:
         ("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 0),
     ]))
     story += [lines, Spacer(1, 6 * mm)]
-    total_rows = [[_p("Base imponible", st["base"]), _p(f"−{money(refund['base'])}", st["right"])],
-                  [_p(f"IVA ({refund['tax_rate']:g} %)", st["base"]), _p(f"−{money(refund['tax'])}", st["right"])],
-                  [_p("TOTAL", st["doc"]), _p(f"−{money(refund['total'])}", st["doc"])]]
+    total_rows = []
+    for t in refund["taxes"]:
+        total_rows += [[_p(f"Base imponible ({t['rate']:g} %)", st["base"]), _p(f"−{money(t['base'])}", st["right"])],
+                       [_p(f"Cuota IVA {t['rate']:g} %", st["base"]), _p(f"−{money(t['tax'])}", st["right"])]]
+    total_rows.append([_p("TOTAL", st["doc"]), _p(f"−{money(refund['total'])}", st["doc"])])
     table = Table(total_rows, colWidths=[45 * mm, 40 * mm], hAlign="RIGHT")
     table.setStyle(TableStyle([
         ("LINEABOVE", (0, -1), (-1, -1), 1.5, accent),

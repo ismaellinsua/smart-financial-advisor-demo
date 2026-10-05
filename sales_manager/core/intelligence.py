@@ -8,6 +8,8 @@ from datetime import datetime, timedelta
 
 import pandas as pd
 
+from . import automation
+
 from .automation import WEEKDAYS
 
 ABC_LIMITS = (80.0, 95.0)  # cumulative % of gross margin that closes classes A and B
@@ -28,13 +30,13 @@ def abc_analysis(products: pd.DataFrame, lines: pd.DataFrame) -> pd.DataFrame:
         return pd.DataFrame(columns=columns)
     sold = lines.groupby("product_id").agg(units=("quantity", "sum"), revenue=("revenue", "sum"),
                                            margin=("margin", "sum"))
-    df = active[["id", "sku", "name", "category", "price", "cost"]].merge(
+    df = active[["id", "sku", "name", "category", "price", "cost"]].assign(net=_net(active)).merge(
         sold, left_on="id", right_index=True, how="left")
     df[["units", "revenue", "margin"]] = df[["units", "revenue", "margin"]].fillna(0.0).astype(float)
     df["price"], df["cost"] = df["price"].astype(float), df["cost"].astype(float)
     df["margin_pct"] = (df["margin"] / df["revenue"].where(df["revenue"] > 0) * 100).round(1)
-    df["unit_margin_pct"] = ((df["price"] - df["cost"]) / df["price"].where(df["price"] > 0) * 100).round(1)
-    df = df.sort_values(["margin", "revenue"], ascending=False).reset_index(drop=True)
+    df["unit_margin_pct"] = ((df["net"] - df["cost"]) / df["net"].where(df["net"] > 0) * 100).round(1)
+    df = df.drop(columns=["net"]).sort_values(["margin", "revenue"], ascending=False).reset_index(drop=True)
 
     positive = df["margin"].clip(lower=0)
     total = positive.sum()
@@ -75,10 +77,22 @@ def round_price(value: float) -> float:
     return round(math.ceil(round(value / step, 6)) * step, 2)
 
 
+def _net(df: pd.DataFrame) -> pd.Series:
+    """Price without VAT (what the business keeps). Catalog prices include VAT; margins are on the net price."""
+    if "net_price" in df:
+        return df["net_price"].astype(float)
+    return df["price"].astype(float)
+
+
+def _vat(df: pd.DataFrame) -> pd.Series:
+    return df["vat"].astype(float) if "vat" in df else pd.Series(0.0, index=df.index)
+
+
 def price_suggestions(products: pd.DataFrame, target_pct: float, abc: pd.DataFrame | None = None) -> pd.DataFrame:
     """Products whose margin on price is under `target_pct`, with the price that reaches it.
 
-    Prices are before tax, as in the catalogue. Products without a cost are skipped: there is nothing to
+    Catalog prices include VAT: the margin is measured on the price without VAT, and the suggestion is a shelf
+    price (VAT included) rounded to a comfortable amount. Products without a cost are skipped: there is nothing to
     compare against. Class A products come first because they matter most.
     """
     columns = ["id", "sku", "name", "category", "cost", "price", "unit_margin_pct", "suggested", "new_margin_pct",
@@ -87,12 +101,15 @@ def price_suggestions(products: pd.DataFrame, target_pct: float, abc: pd.DataFra
         raise ValueError("El margen objetivo debe estar entre 1 y 94 %.")
     df = products[(products["active"] == 1) & (products["cost"] > 0) & (products["price"] > 0)].copy()
     df["price"], df["cost"] = df["price"].astype(float), df["cost"].astype(float)
-    df["unit_margin_pct"] = ((df["price"] - df["cost"]) / df["price"] * 100).round(1)
-    df = df[df["unit_margin_pct"] < target_pct - 0.05]
+    net, vat = _net(df), _vat(df)
+    df["unit_margin_pct"] = ((net - df["cost"]) / net * 100).round(1)
+    keep = df["unit_margin_pct"] < target_pct - 0.05
+    df, vat = df[keep], vat[keep]
     if df.empty:
         return pd.DataFrame(columns=columns)
-    df["suggested"] = [round_price(cost / (1 - target_pct / 100)) for cost in df["cost"]]
-    df["new_margin_pct"] = ((df["suggested"] - df["cost"]) / df["suggested"] * 100).round(1)
+    df["suggested"] = [round_price(cost / (1 - target_pct / 100) * (1 + v / 100)) for cost, v in zip(df["cost"], vat)]
+    new_net = df["suggested"] / (1 + vat / 100)
+    df["new_margin_pct"] = ((new_net - df["cost"]) / new_net * 100).round(1)
     df["increase_pct"] = ((df["suggested"] / df["price"] - 1) * 100).round(1)
     if abc is not None and not abc.empty:
         df = df.merge(abc[["id", "abc", "units"]], on="id", how="left")
@@ -171,10 +188,12 @@ def smart_alerts(data: dict, now: datetime, money=lambda v: f"{v:,.2f}") -> list
                           f"Al ritmo actual: {_names(soon)}.", "automations"))
 
     # 4. Best customers who stopped coming, compared with their own habits.
-    with_customer = done[done["customer_id"].notna()]
-    if not with_customer.empty:
-        stats = with_customer.groupby("customer_id").agg(
-            n=("id", "count"), value=("total", "sum"), first=("created_at", "min"), last=("created_at", "max"))
+    totals = data.get("customer_totals")
+    if totals is None:
+        totals = automation.customer_stats(sales)
+    if not totals.empty:
+        stats = totals.rename(columns={"purchases": "n", "lifetime_value": "value", "first_purchase": "first",
+                                       "last_purchase": "last"})
         stats = stats[stats["n"] >= 3]
         if not stats.empty:
             vip = stats[stats["value"] >= stats["value"].quantile(0.6)]
@@ -234,7 +253,7 @@ def smart_alerts(data: dict, now: datetime, money=lambda v: f"{v:,.2f}") -> list
     sold_ids = set(month_lines["product_id"])
     priced = products[(products["active"] == 1) & (products["price"] > 0) & (products["cost"] > 0)
                       & products["id"].isin(sold_ids)]
-    thin = priced[(priced["price"] - priced["cost"]) / priced["price"] * 100 < float(s.get("alert_margin_pct", 25) or 25)]
+    thin = priced[(_net(priced) - priced["cost"]) / _net(priced) * 100 < float(s.get("alert_margin_pct", 25) or 25)]
     if not thin.empty:
         out.append(_alert("media", "Precios", f"{len(thin)} producto(s) vendidos con margen bajo",
                           f"{_names(thin['name'])}. Mira la sugerencia de precio en Inteligencia.", "intelligence"))

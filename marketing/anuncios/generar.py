@@ -12,7 +12,7 @@ LLAMADA = "Pide tu demo gratuita"
 # A dónde llegan las solicitudes del formulario de los anuncios interactivos (los mismos datos que en la web).
 WHATSAPP = ""      # número con prefijo y solo cifras, p. ej. "34600111222"
 FORMSPREE_ID = "mbgdrbyg"  # el código de tu formulario de Formspree (lo que va después de formspree.io/f/)
-WEB = "https://ismaellinsua.github.io/smart-financial-advisor-demo/"  # tu web; el aviso de privacidad está en WEB + "privacidad.html"
+WEB = "https://nirkana.es/"  # tu web; el aviso de privacidad está en WEB + "privacidad.html"
 
 AQUI = Path(__file__).resolve().parent
 CAPTURAS = AQUI.parents[1] / "docs" / "screenshots"
