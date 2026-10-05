@@ -414,7 +414,7 @@ def require_user(store: Store, settings: dict) -> dict | None:
     if not store.has_users():
         _bootstrap(store)
         return None
-    idle_minutes = max(5, int(settings.get("session_minutes") or 720))
+    idle_minutes = max(5, int(settings.get("session_minutes") or 480))
     user = current_user()
     if user is None and not st.session_state.get(_COOKIE_CLEAR):
         token = _cookie_token()

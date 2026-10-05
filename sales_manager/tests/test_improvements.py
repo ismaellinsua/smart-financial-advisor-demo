@@ -93,3 +93,27 @@ def test_fixed_expenses_once_a_month_even_posted_twice(make_store):
     assert store.apply_recurring(until=date(2026, 10, 5)) == 0
     expenses = store.expenses(date(2026, 10, 1), date(2026, 11, 1))
     assert len(expenses[expenses["description"] == "Local"]) == 1
+
+
+def test_a_hand_edited_backup_with_huge_texts_is_refused(make_store, tmp_path):
+    import sqlite3
+
+    source = make_store()
+    source.load_preset("retail", with_demo_sales=False)
+    path = tmp_path / "copia.db"
+    path.write_bytes(source.backup_bytes())
+    conn = sqlite3.connect(path)
+    conn.execute("UPDATE products SET name = ?", ("x" * 50_000,))
+    conn.commit()
+    conn.close()
+    target = make_store()
+    with pytest.raises(ValueError, match="demasiado largos"):
+        target.restore(path.read_bytes())
+
+
+def test_replacing_data_asks_for_the_password_again(make_store):
+    store = make_store()
+    uid = store.create_user("Ana", "ana", "admin", "Segura2026!")
+    assert store.confirm_secret(uid, "Segura2026!")
+    assert not store.confirm_secret(uid, "otra") and not store.confirm_secret(uid, "")
+    assert store.settings()["session_minutes"] == "480"  # a work shift, not a whole day

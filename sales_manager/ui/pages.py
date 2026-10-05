@@ -173,8 +173,9 @@ def switch_business_dialog() -> None:
         st, "Antes, descargar una copia de mis datos", c.store.backup_bytes, f"ventas-{clock.today():%Y-%m-%d}.db",
         "application/octet-stream", icon=":material/download:", width="stretch",
     )
+    confirmed = _identity_confirmed(c, "switch_secret")
     if st.button(f"Cambiar a «{PRESETS[business_type]['label']}»", type="primary", width="stretch",
-                 icon=":material/swap_horiz:"):
+                 icon=":material/swap_horiz:", disabled=not confirmed):
         if not c.can("admin"):
             st.error("Solo el administrador puede cambiar de negocio.")
             return
@@ -188,6 +189,17 @@ def switch_business_dialog() -> None:
         c.store.audit(c.username, "negocio_cambiado", f"{PRESETS[business_type]['label']} · {name}")
         st.session_state.pop("cart", None)
         st.rerun()
+
+
+def _identity_confirmed(c, key: str) -> bool:
+    """Ask again for the PIN or password before replacing data: a device left signed in is not enough."""
+    secret = st.text_input("Tu PIN o contraseña, para confirmar", type="password", max_chars=128, key=key)
+    if not secret:
+        return False
+    if c.user and c.store.confirm_secret(c.user["id"], secret):
+        return True
+    st.error("El PIN o contraseña no es correcto.")
+    return False
 
 
 def demo_banner(c) -> None:
@@ -205,9 +217,10 @@ def _start_for_real_dialog() -> None:
     st.write("Se borrarán los datos de ejemplo (productos, clientes, ventas, facturas y cierres) y configurarás tu "
              "negocio desde cero. A partir de ahí, las ventas y facturas reales **no se podrán borrar**: la ley obliga "
              "a conservarlas.")
-    if st.checkbox("Entiendo que se borrarán los datos de ejemplo", key="start_real_confirm") and st.button(
+    c = ctx()
+    if st.checkbox("Entiendo que se borrarán los datos de ejemplo", key="start_real_confirm") and \
+            _identity_confirmed(c, "start_real_secret") and st.button(
             "Borrar ejemplos y empezar", type="primary", width="stretch"):
-        c = ctx()
         if not c.can("admin"):
             st.error("Solo el administrador puede hacerlo.")
             return
@@ -1200,7 +1213,7 @@ def team_page() -> None:
     m1, m2, m3 = st.columns(3)
     m1.metric("Personas activas", int(users["active"].sum()))
     m2.metric("Administradores", int(((users["role"] == "admin") & (users["active"] == 1)).sum()))
-    m3.metric("Cierre de sesión por inactividad", f"{int(c.settings.get('session_minutes') or 720) // 60} h")
+    m3.metric("Cierre de sesión por inactividad", f"{int(c.settings.get('session_minutes') or 480) // 60} h")
 
     roles_help = ("**Administrador:** todo, incluida la configuración y el equipo. "
                   "**Encargado:** panel, caja, catálogo, clientes, facturas y anulaciones. "
@@ -2009,7 +2022,7 @@ def settings_page() -> None:
             float(s.get("max_discount_staff") or 10), step=5.0,
             help="Por encima, un encargado o el administrador lo autoriza con su usuario y PIN, y queda registrado.")
         values["session_minutes"] = st.number_input(
-            "Cerrar la sesión tras estos minutos sin uso", 5, 1440, int(s.get("session_minutes") or 720), step=15,
+            "Cerrar la sesión tras estos minutos sin uso", 5, 1440, int(s.get("session_minutes") or 480), step=15,
             help="En tablets o móviles compartidos conviene un valor bajo, por ejemplo 15.")
         if st.form_submit_button("Guardar configuración", type="primary"):
             values["invoice_prefix"] = values["invoice_prefix"].strip().upper().replace("-", "") or "VTA"
@@ -2042,6 +2055,8 @@ def settings_page() -> None:
         else:
             st.caption("Cambiar el tipo adapta el vocabulario de la aplicación. " + FISCAL_DATA_MESSAGE)
             demo = confirm = False
+        if replaceable and confirm:
+            confirm = _identity_confirmed(c, "template_secret")
         a, b, d = st.columns(3)
         if a.button("Cambiar solo el tipo", width="stretch"):
             c.store.save_settings({"business_type": business_type})
@@ -2093,6 +2108,8 @@ def settings_page() -> None:
             return
         upload = st.file_uploader("Restaurar desde una copia", type=["db"])
         confirm_restore = st.checkbox("Entiendo que se reemplazarán los datos actuales por los de la copia")
+        if upload and confirm_restore:
+            confirm_restore = _identity_confirmed(c, "restore_secret")
         if st.button("Restaurar copia", disabled=not (upload and confirm_restore), icon=":material/restore:"):
             try:
                 c.store.restore(upload.getvalue())

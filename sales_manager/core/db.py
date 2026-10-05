@@ -467,6 +467,7 @@ ALL_TABLES = ["settings", *DATA_TABLES]
 CORE_TABLES = {"settings", "products", "customers", "sales", "sale_items"}
 
 DEFAULT_DB_PATH = Path(__file__).resolve().parent.parent / "data" / "ventas.db"
+MAX_RESTORED_TEXT = 20_000  # longest text a restored copy may hold (the app's own limits are far lower)
 
 
 class SaleError(Exception):
@@ -1789,6 +1790,12 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin, Billin
             raise AuthError(f"Demasiados intentos fallidos. Cuenta bloqueada {LOCKOUT_MINUTES} minutos.")
         raise generic
 
+    def confirm_secret(self, user_id: int, secret: str) -> bool:
+        """Re-check the signed-in person's PIN or password before an action that replaces data."""
+        with self.db.tx() as cur:
+            user = cur.execute("SELECT secret_hash FROM users WHERE id = ? AND active = 1", (int(user_id),)).fetchone()
+        return bool(user and secret and verify_secret(secret, user["secret_hash"]))
+
     def change_own_secret(self, user_id: int, current: str, new: str) -> None:
         """A person changes their own PIN or password, proving they know the current one."""
         with self.db.tx() as cur:
@@ -1956,6 +1963,12 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin, Billin
                 rows = source._export(ALL_TABLES)
             finally:
                 source.close()
+        # A copy edited by hand must not bring texts the app would never have accepted.
+        for table, table_rows in rows.items():
+            for row in table_rows:
+                if any(isinstance(v, str) and len(v) > MAX_RESTORED_TEXT for v in row.values()):
+                    raise ValueError(f"La copia tiene textos demasiado largos en «{table}»: no parece una copia de "
+                                     "esta app sin modificar.")
         with self.db.tx() as cur:
             self._replace(cur, rows)
             self._insert_default_settings(cur)
