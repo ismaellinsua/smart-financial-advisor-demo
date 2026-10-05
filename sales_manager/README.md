@@ -358,7 +358,10 @@ sales_manager/
 │   ├── pdfs.py            # Facturas, rectificativas, cierres, pedidos e informe semanal en PDF
 │   ├── security.py        # Contraseñas, roles y saneado de datos
 │   └── presets.py         # Plantillas por tipo de negocio
-├── ui/                 # Páginas y estilo visual
+├── ui/                 # Páginas y estilo visual (sin SQL)
+│   ├── pages.py           # Reúne las páginas que registra app.py
+│   ├── pages_*.py         # Una por zona: vender, historial, caja, agenda, equipo, productos, clientes, ajustes…
+│   └── context.py         # Negocio activo, usuario y base de datos de la sesión
 └── tests/              # Pruebas de la lógica y de todas las páginas
 ```
 

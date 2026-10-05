@@ -33,7 +33,6 @@ from core.db import Store
 import streamlit as st
 store = Store({db!r})
 ui.context.get_store = lambda: store
-ui.pages.get_store = lambda: store
 st.session_state["user"] = {{"id": 0, "username": "test", "name": "Tester", "role": {role!r}}}
 ui.pages.{fn}()
 """
@@ -151,7 +150,6 @@ def _app(store, monkeypatch, secrets=None, user=None):
     import ui.context
 
     monkeypatch.setattr(ui.context, "get_store", lambda: store)
-    monkeypatch.setattr("ui.pages.get_store", lambda: store)
     at = AppTest.from_file(APP, default_timeout=60)
     for key, value in (secrets or {}).items():
         at.secrets[key] = value
