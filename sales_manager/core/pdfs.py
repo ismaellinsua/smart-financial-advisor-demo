@@ -174,7 +174,8 @@ def cash_closing_pdf(closing: dict, settings: dict) -> bytes:
     day = date.fromisoformat(closing["day"])
     closed = datetime.fromisoformat(closing["closed_at"])
     story = [_header(settings, st, "CIERRE DE CAJA",
-                     [f"Día: {day:%d/%m/%Y}", f"Cerrada: {closed:%d/%m/%Y %H:%M}"], accent),
+                     [f"Día: {day:%d/%m/%Y}", f"Cerrada: {closed:%d/%m/%Y %H:%M}",
+                      *([f"Local: {settings['location_line']}"] if settings.get("location_line") else [])], accent),
              Spacer(1, 8 * mm), _p("VENTAS POR FORMA DE PAGO", st["label"]), Spacer(1, 2 * mm)]
 
     rows = [[_p("Forma de pago", st["label"]), _p("Ventas", st["label_r"]), _p("Importe", st["label_r"])]]

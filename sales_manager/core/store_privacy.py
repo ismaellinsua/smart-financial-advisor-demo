@@ -8,6 +8,8 @@ customer's fiscal data they were issued with, because the law requires keeping i
 
 import json
 
+import pandas as pd
+
 from . import clock
 
 ANONYMOUS = "Cliente eliminado"
@@ -73,3 +75,22 @@ class PrivacyMixin:
             cur.execute("UPDATE appointments SET customer_name = ?, notes = '' WHERE customer_id = ?",
                         (f"{ANONYMOUS} #{cid}", cid))
             self._audit(cur, by, "cliente_suprimido", f"cliente {cid} (facturas conservadas por obligación legal)")
+
+    def customer_history(self, customer_id: int, limit: int = 50) -> dict:
+        """A customer's card: their latest purchases, what they buy most, points and upcoming appointments."""
+        cid = int(customer_id)
+        sales = self._frame("SELECT id, number, created_at, payment_method, total, status FROM sales "
+                            "WHERE customer_id = ? ORDER BY created_at DESC LIMIT ?", (cid, int(limit)))
+        favourites = self._frame(
+            "SELECT i.name, SUM(i.quantity) AS units, SUM(i.gross_amount) AS spent FROM sale_items i "
+            "JOIN sales s ON s.id = i.sale_id WHERE s.customer_id = ? AND s.status = 'completada' "
+            "GROUP BY i.name ORDER BY units DESC LIMIT 5", (cid,))
+        upcoming = self._frame("SELECT starts_at, notes FROM appointments WHERE customer_id = ? AND status = "
+                               "'pendiente' AND starts_at >= ? ORDER BY starts_at LIMIT 5",
+                               (cid, clock.now().isoformat(timespec="seconds")))
+        for df, col in ((sales, "created_at"), (upcoming, "starts_at")):
+            df[col] = pd.to_datetime(df[col])
+        sales["total"] = sales["total"].astype(float)
+        return {"sales": sales, "favourites": favourites, "upcoming": upcoming,
+                "points": self.customer_points(cid)}
+

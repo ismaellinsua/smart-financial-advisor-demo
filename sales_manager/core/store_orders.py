@@ -13,12 +13,16 @@ class OrdersMixin:
     """Mixed into `Store`. Several waiters can add to the same order; charging turns its items into a sale."""
 
     # ------------------------------------------------------------------ tables
-    def dining_tables(self, include_inactive: bool = False) -> pd.DataFrame:
-        """Tables with the open order on each, if any (id, guests, opened time, items and amount so far)."""
+    def dining_tables(self, include_inactive: bool = False, location_id: int | None = None) -> pd.DataFrame:
+        """Tables with the open order on each, if any (id, guests, opened time, items and amount so far).
+        `location_id`: only that location's tables (with several locations)."""
+        where = [*([] if include_inactive else ["t.active = 1"]),
+                 *([] if location_id is None else ["t.location_id = ?"])]
         df = self._frame(
             "SELECT t.id, t.name, t.zone, t.seats, t.active, o.id AS order_id, o.guests, o.opened_at, o.opened_by "
             "FROM dining_tables t LEFT JOIN orders o ON o.table_id = t.id AND o.status = 'abierta' "
-            + ("" if include_inactive else "WHERE t.active = 1 ") + "ORDER BY t.zone, t.id"
+            + (f"WHERE {' AND '.join(where)} " if where else "") + "ORDER BY t.zone, t.id",
+            () if location_id is None else (int(location_id),),
         )
         amounts = self._frame(
             "SELECT i.order_id, SUM(i.quantity) AS items, SUM(i.quantity * p.price) AS amount, "
@@ -27,13 +31,17 @@ class OrdersMixin:
             "FROM order_items i JOIN products p ON p.id = i.product_id JOIN orders o ON o.id = i.order_id "
             "WHERE o.status = 'abierta' AND i.sale_id IS NULL GROUP BY i.order_id"
         )
+        # With no open order the column holds only NULLs (object dtype): make both sides numeric before merging.
+        df["order_id"] = pd.to_numeric(df["order_id"])
+        amounts["order_id"] = pd.to_numeric(amounts["order_id"])
         df = df.merge(amounts, on="order_id", how="left")
         for col in ("items", "amount", "cooking", "ready"):
             df[col] = df[col].fillna(0).astype(float)
         df["opened_at"] = pd.to_datetime(df["opened_at"])
         return df
 
-    def save_table(self, name: str, zone: str = "Sala", seats: int = 4, table_id: int | None = None) -> int:
+    def save_table(self, name: str, zone: str = "Sala", seats: int = 4, table_id: int | None = None,
+                   location_id: int | None = None) -> int:
         name = clean_text(name, "Nombre", "short", required=True)
         zone = clean_text(zone or "Sala", "Zona", "short")
         seats = int(seats)
@@ -41,8 +49,9 @@ class OrdersMixin:
             raise ValueError("Las plazas deben estar entre 1 y 50.")
         with self.db.tx() as cur:
             if table_id is None:
-                return cur.execute("INSERT INTO dining_tables(name, zone, seats) VALUES (?, ?, ?) RETURNING id",
-                                   (name, zone, seats)).fetchone()["id"]
+                return cur.execute("INSERT INTO dining_tables(name, zone, seats, location_id) VALUES (?, ?, ?, ?) "
+                                   "RETURNING id", (name, zone, seats, self._location_or_main(cur, location_id))
+                                   ).fetchone()["id"]
             cur.execute("UPDATE dining_tables SET name = ?, zone = ?, seats = ? WHERE id = ?",
                         (name, zone, seats, int(table_id)))
             return int(table_id)
@@ -105,7 +114,7 @@ class OrdersMixin:
                 "title": row["table_name"] or row["label"]}
 
     def _open_order_row(self, cur, order_id: int) -> dict:
-        row = cur.execute("SELECT status FROM orders WHERE id = ?", (int(order_id),)).fetchone()
+        row = cur.execute("SELECT status, table_id FROM orders WHERE id = ?", (int(order_id),)).fetchone()
         if row is None or row["status"] != "abierta":
             raise ValueError("La comanda ya no está abierta.")
         return row
@@ -166,16 +175,18 @@ class OrdersMixin:
             nxt = KITCHEN_FLOW[min(step + 1, len(KITCHEN_FLOW) - 1)]
             cur.execute("UPDATE order_items SET kitchen = ? WHERE id = ?", (nxt, int(item_id)))
 
-    def kitchen_queue(self, categories: list[str] | None = None) -> pd.DataFrame:
+    def kitchen_queue(self, categories: list[str] | None = None, location_id: int | None = None) -> pd.DataFrame:
         df = self._frame(
             "SELECT i.id, i.order_id, i.name, i.quantity, i.notes, i.kitchen, i.added_at, i.added_by, p.category, "
-            "COALESCE(t.name, o.label) AS place FROM order_items i JOIN orders o ON o.id = i.order_id "
+            "COALESCE(t.name, o.label) AS place, t.location_id FROM order_items i JOIN orders o ON o.id = i.order_id "
             "JOIN products p ON p.id = i.product_id LEFT JOIN dining_tables t ON t.id = o.table_id "
             "WHERE o.status = 'abierta' AND i.kitchen IN ('pendiente', 'preparando', 'listo') ORDER BY i.added_at, i.id"
         )
         df["added_at"] = pd.to_datetime(df["added_at"])
         if categories:
             df = df[df["category"].isin(categories)]
+        if location_id is not None:  # each kitchen sees its own location's tables (and orders without a table)
+            df = df[df["location_id"].isna() | (df["location_id"] == int(location_id))]
         return df
 
     def set_order_guests(self, order_id: int, guests: int) -> None:
@@ -219,13 +230,16 @@ class OrdersMixin:
         for attempt in range(3):
             try:
                 with self.db.tx() as cur:
-                    self._open_order_row(cur, order_id)
+                    order_row = self._open_order_row(cur, order_id)
+                    table = cur.execute("SELECT location_id FROM dining_tables WHERE id = ?",
+                                        (order_row["table_id"],)).fetchone() if order_row["table_id"] else None
                     sale_id = self._insert_sale(
                         cur, cart, checkout.get("payment_method", "Tarjeta"), checkout.get("customer_id"),
                         float(checkout.get("discount_pct") or 0), None, when, checkout.get("user_name", ""),
                         payments=checkout.get("payments"), redeem_points=int(checkout.get("redeem_points") or 0),
                         max_discount=checkout.get("max_discount"),
                         discount_approved_by=checkout.get("discount_approved_by", ""),
+                        location_id=table["location_id"] if table else checkout.get("location_id"),
                     )
                     self._mark_paid(cur, order_id, selection, sale_id)
                     left = cur.execute("SELECT COUNT(*) AS n FROM order_items WHERE order_id = ? AND sale_id IS NULL",

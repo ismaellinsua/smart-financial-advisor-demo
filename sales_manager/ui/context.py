@@ -1,7 +1,7 @@
 """Shared per-run context for pages."""
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import streamlit as st
 
@@ -76,6 +76,7 @@ class Ctx:
     preset: dict
     symbol: str
     user: dict | None = None
+    locations: list = field(default_factory=list)  # active locations; empty for a business with one place
 
     @property
     def role(self) -> str:
@@ -101,6 +102,46 @@ class Ctx:
         return format_money_short(float(value), self.symbol)
 
     @property
+    def multi_location(self) -> bool:
+        """Several places open: show where things happen and let people choose."""
+        return len(self.locations) >= 2
+
+    @property
+    def fixed_location(self) -> int | None:
+        """The location this person is pinned to, if any (and still open)."""
+        pinned = (self.user or {}).get("location_id")
+        return pinned if any(loc["id"] == pinned for loc in self.locations) else None
+
+    @property
+    def location_id(self) -> int | None:
+        """Where this session sells, counts cash and moves stock; None for a business with one place."""
+        if not self.locations:
+            return None
+        chosen = self.fixed_location or st.session_state.get("location")
+        return chosen if any(loc["id"] == chosen for loc in self.locations) else self.locations[0]["id"]
+
+    @property
+    def location_name(self) -> str:
+        return next((loc["name"] for loc in self.locations if loc["id"] == self.location_id), "")
+
+    def products_here(self):
+        """Active catalogue with `stock` as the units at this session's location (the total with one place)."""
+        products = self.store.products()
+        if self.locations and self.store.multi_location():
+            here = self.store.stock_at(self.location_id)
+            products["stock"] = products["id"].map(here).fillna(0).astype(int)
+        return products
+
+    def ticket_settings(self, location_id: int | None = None) -> dict:
+        """Business data for a ticket, with the location it was sold at (its address and phone) when there are
+        several."""
+        loc = next((x for x in self.store.locations(include_inactive=True) if x["id"] == location_id), None)
+        if not self.multi_location or loc is None:
+            return self.settings
+        return {**self.settings, "location_line": " · ".join(x for x in (loc["name"], loc["address"], loc["phone"])
+                                                               if x)}
+
+    @property
     def tax_rate(self) -> float:
         return float(self.settings.get("tax_rate") or 0)
 
@@ -115,6 +156,7 @@ def ctx() -> Ctx:
         preset=PRESETS.get(settings["business_type"], PRESETS["retail"]),
         symbol=CURRENCIES.get(settings["currency"], "€"),
         user=st.session_state.get("user"),
+        locations=store.locations(),
     )
 
 

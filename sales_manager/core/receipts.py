@@ -127,6 +127,8 @@ def receipt_html(sale: dict, settings: dict, paper: str | None = None) -> str:
     business_lines = " · ".join(
         escape(settings[k]) for k in ("tax_id", "address", "phone", "email") if settings.get(k)
     )
+    if settings.get("location_line"):  # a business with several locations: where it was sold
+        business_lines += f"<br>Local: {escape(settings['location_line'])}"
     customer = escape(sale.get("customer_name") or "Cliente general")
     if sale.get("customer_tax_id"):
         customer += f"<br><span class='muted'>{escape(sale['customer_tax_id'])}</span>"

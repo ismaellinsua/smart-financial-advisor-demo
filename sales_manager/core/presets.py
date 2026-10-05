@@ -179,7 +179,8 @@ DEFAULT_SETTINGS = {
     "booking_max_party": "10",
     "tables_enabled": "auto",
     "opening_float": "150",
-    "session_minutes": "720",
+    # Idle time before a device asks to sign in again: a work shift, not a whole day (shared tills).
+    "session_minutes": "480",
     # Highest manual discount (%) staff may give without a manager's authorisation.
     "max_discount_staff": "10",
     "loyalty_enabled": "si",

@@ -135,7 +135,7 @@ def _new_order(c) -> None:
         try:
             po = c.store.create_purchase(supplier or None, [
                 {"product_id": int(r["product_id"]), "quantity": int(r["cantidad"]), "unit_cost": float(r["coste"])}
-                for _, r in chosen.iterrows()], notes, created_by=c.who)
+                for _, r in chosen.iterrows()], notes, created_by=c.who, location_id=c.location_id)
         except ValueError as exc:
             st.error(str(exc))
         else:

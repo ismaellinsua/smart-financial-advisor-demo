@@ -194,6 +194,11 @@ def test_operator_creates_businesses_that_stay_apart(multi_server):
         page.goto(f"{multi_server}/?negocio=no-existe", wait_until="networkidle")
         page.get_by_text("No encontramos ese negocio").wait_for()
 
+        # The installed app opens at «/»: it goes back to the last business used on this device.
+        page.goto(multi_server, wait_until="networkidle")
+        page.wait_for_url("**negocio=tienda-sol**")
+        page.get_by_text("Paso 1 de 3").wait_for()
+
         _operator(page, multi_server)
         page.get_by_role("button", name="Suspender acceso").click()  # the first business: Café Aurora
         page.wait_for_timeout(1500)

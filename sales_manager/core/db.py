@@ -30,6 +30,8 @@ from .store_errors import ErrorsMixin
 from .accounting import AccountingMixin
 from .store_bookings import AGENDA_LOCK, BookingMixin, clean_phone
 from .store_offline import OfflineMixin
+from .store_locations import LocationsMixin
+from .store_ecommerce import EcommerceMixin
 from .security import (
     DUMMY_HASH, RECOVERY_CODE_COUNT, RECOVERY_ITERATIONS, ROLE_RANK, ROLES, USERNAME_RE, check_secret_strength,
     clean_text, hash_secret, is_safe_identifier, new_recovery_code, normalize_recovery_code, verify_secret, verify_totp,
@@ -110,7 +112,7 @@ CREATE TABLE IF NOT EXISTS appointments (
 );
 CREATE TABLE IF NOT EXISTS cash_closings (
     id {pk},
-    day TEXT UNIQUE NOT NULL,
+    day TEXT NOT NULL,
     opening_float {real} NOT NULL DEFAULT 0,
     cash_sales {real} NOT NULL DEFAULT 0,
     expected_cash {real} NOT NULL,
@@ -309,6 +311,21 @@ CREATE TABLE IF NOT EXISTS recovery_codes (
     created_at TEXT NOT NULL,
     used_at TEXT NOT NULL DEFAULT ''
 );
+CREATE TABLE IF NOT EXISTS locations (
+    id {pk},
+    name TEXT NOT NULL,
+    address TEXT NOT NULL DEFAULT '',
+    phone TEXT NOT NULL DEFAULT '',
+    active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS location_stock (
+    id {pk},
+    location_id INTEGER NOT NULL REFERENCES locations(id),
+    product_id INTEGER NOT NULL REFERENCES products(id),
+    stock INTEGER NOT NULL DEFAULT 0,
+    UNIQUE (location_id, product_id)
+);
 CREATE TABLE IF NOT EXISTS counters (
     series TEXT PRIMARY KEY,
     value INTEGER NOT NULL
@@ -423,6 +440,15 @@ MIGRATIONS = [
     ("appointments", "reminded_at", "TEXT NOT NULL DEFAULT ''"),
     # Sales made on the offline till: its own id, so importing the same file twice never duplicates a sale.
     ("sales", "offline_id", "TEXT NOT NULL DEFAULT ''"),
+    # Several locations (locales): where each sale, closing, table, stock move, order and person belongs.
+    ("sales", "location_id", "INTEGER"),
+    ("cash_closings", "location_id", "INTEGER"),
+    ("dining_tables", "location_id", "INTEGER"),
+    ("stock_moves", "location_id", "INTEGER"),
+    ("purchase_orders", "location_id", "INTEGER"),
+    ("users", "location_id", "INTEGER"),
+    # Orders imported from an online shop («shopify:1001»): importing the same file twice never duplicates them.
+    ("sales", "external_ref", "TEXT NOT NULL DEFAULT ''"),
 ]
 
 # An account locks for a fixed, short time after many failures. A long or growing lock would let anyone who knows a
@@ -432,7 +458,7 @@ MAX_FAILED_LOGINS = 10
 LOCKOUT_MINUTES = 15
 
 # Insertion order respects foreign keys; deletion goes in reverse.
-DATA_TABLES = ["products", "stock_moves", "customers", "sales", "sale_items", "invoices", "appointments", "cash_closings",
+DATA_TABLES = ["locations", "products", "location_stock", "stock_moves", "customers", "sales", "sale_items", "invoices", "appointments", "cash_closings",
                "sale_payments", "promotions", "loyalty_moves", "refunds", "refund_items", "credit_notes",
                "dining_tables", "orders", "order_items", "suppliers", "recurring_expenses", "purchase_orders",
                "purchase_items", "expenses", "billing_records"]
@@ -441,6 +467,7 @@ ALL_TABLES = ["settings", *DATA_TABLES]
 CORE_TABLES = {"settings", "products", "customers", "sales", "sale_items"}
 
 DEFAULT_DB_PATH = Path(__file__).resolve().parent.parent / "data" / "ventas.db"
+MAX_RESTORED_TEXT = 20_000  # longest text a restored copy may hold (the app's own limits are far lower)
 
 
 class SaleError(Exception):
@@ -563,6 +590,19 @@ class _SQLite:
     def columns(self, cur: _Cursor, table: str) -> set[str]:
         return {r["name"] for r in cur.execute(f"PRAGMA table_info({table})").fetchall()}
 
+    def drop_day_unique(self, cur: _Cursor) -> None:
+        """Databases from before locations had `day UNIQUE` on cash closings; SQLite can only drop it by
+        rebuilding the table (same columns and rows)."""
+        sql = cur.execute("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'cash_closings'").fetchone()
+        if not sql or "day TEXT UNIQUE" not in sql["sql"]:
+            return
+        columns = [r["name"] for r in cur.execute("PRAGMA table_info(cash_closings)").fetchall()]
+        definition = re.sub(r"\bday TEXT UNIQUE NOT NULL", "day TEXT NOT NULL", sql["sql"], count=1)
+        cur.execute("ALTER TABLE cash_closings RENAME TO cash_closings_old")
+        cur.execute(definition)
+        cur.execute(f"INSERT INTO cash_closings({', '.join(columns)}) SELECT {', '.join(columns)} FROM cash_closings_old")
+        cur.execute("DROP TABLE cash_closings_old")
+
     def make_append_only(self, cur: _Cursor, table: str) -> None:
         """Rows of `table` can be added but never changed or deleted, not even with direct SQL."""
         for event in ("UPDATE", "DELETE"):
@@ -645,6 +685,10 @@ class _Postgres:
         ).fetchall()
         return {r["name"] for r in rows}
 
+    def drop_day_unique(self, cur: _Cursor) -> None:
+        """Databases from before locations had `day UNIQUE` on cash closings."""
+        cur.execute("ALTER TABLE cash_closings DROP CONSTRAINT IF EXISTS cash_closings_day_key")
+
     def make_append_only(self, cur: _Cursor, table: str) -> None:
         """Rows of `table` can be added but never changed or deleted (nor truncated), not even with direct SQL."""
         if cur.execute("SELECT 1 FROM pg_trigger WHERE tgname = ? AND tgrelid = to_regclass(?)",
@@ -698,7 +742,8 @@ def _is_postgres(target) -> bool:
 
 # ----------------------------------------------------------------------------- store
 class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin, BillingMixin, SessionsMixin,
-            PrivacyMixin, ErrorsMixin, AccountingMixin, BookingMixin, OfflineMixin):
+            PrivacyMixin, ErrorsMixin, AccountingMixin, BookingMixin, OfflineMixin, LocationsMixin,
+            EcommerceMixin):
     SaleError = SaleError
     def __init__(self, path=DEFAULT_DB_PATH, schema: str | None = None):
         """`schema`: on PostgreSQL, the business's own schema when one database serves several businesses."""
@@ -710,6 +755,18 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin, Billin
                 if column not in self.db.columns(cur, table):
                     cur.execute(f"ALTER TABLE {table} ADD COLUMN {column} {ddl.format(real=self.db.real)}")
             cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS sales_offline_id ON sales(offline_id) WHERE offline_id <> ''")
+            cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS sales_external_ref ON sales(external_ref) "
+                        "WHERE external_ref <> ''")
+            # Each fixed expense once a month, even if two devices post them at the same moment. Databases that
+            # already have a duplicate keep working (and keep the check in `apply_recurring`).
+            if not cur.execute("SELECT 1 FROM expenses WHERE recurring_id IS NOT NULL GROUP BY recurring_id, "
+                               "substr(day, 1, 7) HAVING COUNT(*) > 1 LIMIT 1").fetchone():
+                cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS expenses_recurring_month "
+                            "ON expenses(recurring_id, substr(day, 1, 7)) WHERE recurring_id IS NOT NULL")
+            # One cash closing per day and location (it used to be one per day).
+            self.db.drop_day_unique(cur)
+            cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS cash_closings_day_location "
+                        "ON cash_closings(day, COALESCE(location_id, 0))")
             self.db.make_append_only(cur, "billing_records")
             self._backfill_payments(cur)
             had_mode = "demo_mode" in self._settings(cur)
@@ -803,13 +860,19 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin, Billin
         ]
         try:
             with self.db.tx() as cur:
+                multi = self._multi(cur)
                 if product_id is None:
                     row = cur.execute(
                         f"INSERT INTO products({', '.join(fields)}) VALUES ({', '.join('?' * len(fields))}) "
                         "RETURNING id",
                         values,
                     ).fetchone()
+                    if multi and data.get("track_stock", 1):  # a new product's stock starts at the main location
+                        cur.execute("INSERT INTO location_stock(location_id, product_id, stock) VALUES (?, ?, ?)",
+                                    (self._main_location(cur), row["id"], int(data.get("stock") or 0)))
                     return row["id"]
+                if multi:  # with several locations, stock only changes through adjustments and transfers
+                    fields, values = zip(*[(f, v) for f, v in zip(fields, values) if f != "stock"])
                 cur.execute(
                     f"UPDATE products SET {', '.join(f + ' = ?' for f in fields)} WHERE id = ?",
                     [*values, int(product_id)],
@@ -841,21 +904,22 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin, Billin
         except self.db.integrity_errors as exc:
             raise ValueError("No se pudo guardar: el código ya existe o hay valores inválidos.") from exc
 
-    def adjust_stock(self, product_id: int, delta: int, reason: str = "Ajuste manual", user_name: str = "") -> int:
-        """Add or remove units on top of the current stock (never a stale absolute value) and record who did it."""
+    def adjust_stock(self, product_id: int, delta: int, reason: str = "Ajuste manual", user_name: str = "",
+                     location_id: int | None = None) -> int:
+        """Add or remove units on top of the current stock (never a stale absolute value) and record who did it.
+        With several locations, at `location_id` (the main one by default). Returns the stock left there."""
         delta = int(delta)
         reason = clean_text(reason, "Motivo", "short")
         with self.db.tx() as cur:
-            row = cur.execute("UPDATE products SET stock = stock + ? WHERE id = ? AND stock + ? >= 0 RETURNING stock",
-                              (delta, int(product_id), delta)).fetchone()
-            if row is None:
+            after = self._move_stock(cur, product_id, delta, location_id, guard=True)
+            if after is None:
                 raise ValueError("El stock no puede quedar en negativo.")
             if delta:
-                cur.execute("INSERT INTO stock_moves(product_id, delta, stock_after, reason, user_name, created_at) "
-                            "VALUES (?, ?, ?, ?, ?, ?)",
-                            (int(product_id), delta, row["stock"], reason, str(user_name)[:120],
-                             clock.now().isoformat(timespec="seconds")))
-            return int(row["stock"])
+                cur.execute("INSERT INTO stock_moves(product_id, delta, stock_after, reason, user_name, created_at, "
+                            "location_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                            (int(product_id), delta, after, reason, str(user_name)[:120],
+                             clock.now().isoformat(timespec="seconds"), self._location_or_main(cur, location_id)))
+            return after
 
     def stock_moves(self, limit: int = 100) -> pd.DataFrame:
         df = self._frame("SELECT m.created_at, p.sku, p.name, m.delta, m.stock_after, m.reason, m.user_name "
@@ -933,6 +997,7 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin, Billin
         apply_promos: bool = True,
         max_discount: float | None = None,
         discount_approved_by: str = "",
+        location_id: int | None = None,
     ) -> dict:
         """Register a sale atomically: prices, promotions and points, stock, payments and receipt number.
 
@@ -950,7 +1015,7 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin, Billin
                     sale_id = self._insert_sale(
                         cur, cart, payment_method, customer_id, float(discount_pct), tax_rate, when, user_name,
                         payments=payments, redeem_points=int(redeem_points or 0), apply_promos=apply_promos,
-                        max_discount=max_discount, discount_approved_by=discount_approved_by,
+                        max_discount=max_discount, discount_approved_by=discount_approved_by, location_id=location_id,
                     )
                 return self.sale(sale_id)
             except self.db.integrity_errors:
@@ -1061,24 +1126,30 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin, Billin
 
     def _insert_sale(self, cur, cart, payment_method, customer_id, discount_pct, tax_rate, when, user_name="",
                      payments=None, redeem_points=0, apply_promos=True, max_discount=None,
-                     discount_approved_by="") -> int:
+                     discount_approved_by="", location_id=None) -> int:
         if max_discount is not None and discount_pct > max_discount + 1e-9 and not discount_approved_by:
             raise SaleError(f"Un descuento de más del {max_discount:g} % necesita la autorización de un encargado.")
+        if redeem_points and customer_id is not None:
+            # One redemption per customer at a time: two tills can't spend the same points twice.
+            cur.execute("INSERT INTO counters(series, value) VALUES (?, 1) "
+                        "ON CONFLICT(series) DO UPDATE SET value = counters.value + 1", (f"__puntos_{int(customer_id)}__",))
         q = self._quote(cur, cart, discount_pct, tax_rate, customer_id, redeem_points, when, apply_promos)
         t = q["totals"]
         pays = self._normalize_payments(payments, payment_method, t["total"])
         methods = {p["method"] for p in pays}
         label = methods.pop() if len(methods) == 1 else ("Mixto" if pays else payment_method)
         number = self._next_number(cur, when)
+        location_id = self._location_or_main(cur, location_id)
         row = cur.execute(
             "INSERT INTO sales(number, created_at, customer_id, payment_method, discount_pct, tax_rate, "
             "subtotal, discount, tax, total, user_name, promo_discount, loyalty_discount, points_redeemed, "
-            "points_earned, discount_approved_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id",
+            "points_earned, discount_approved_by, location_id) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id",
             (
                 number, when.isoformat(timespec="seconds"), customer_id, label,
                 discount_pct, float(q["tax_rate"]), t["subtotal"], t["discount"], t["tax"], t["total"], user_name,
                 t["promo_discount"], t["loyalty_discount"], q["points_redeemed"], q["points_earned"],
-                str(discount_approved_by)[:120],
+                str(discount_approved_by)[:120], location_id,
             ),
         ).fetchone()
         sale_id = row["id"]
@@ -1093,13 +1164,10 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin, Billin
                  line["promo_name"], net, float(line["tax_rate"]), vat, gross),
             )
             if p["track_stock"]:
-                # Guarded decrement: protects against concurrent sales of the last units.
-                updated = cur.execute(
-                    "UPDATE products SET stock = stock - ? WHERE id = ? AND stock >= ?",
-                    (line["quantity"], p["id"], line["quantity"]),
-                ).rowcount
-                if not updated:
-                    raise SaleError(f"Stock insuficiente de «{p['name']}».")
+                # Guarded decrement (at this location): protects against concurrent sales of the last units.
+                if self._move_stock(cur, p["id"], -line["quantity"], location_id, guard=True) is None:
+                    raise SaleError(f"Stock insuficiente de «{p['name']}»"
+                                    + (" en este local." if self._multi(cur) else "."))
         cur.executemany("INSERT INTO sale_payments(sale_id, method, amount, tendered) VALUES (?, ?, ?, ?)",
                         [(sale_id, p["method"], p["amount"], p["tendered"]) for p in pays])
         self._register_issue(cur, "F2", number, when, t["tax"], t["total"], t["taxes"], "sale", sale_id)
@@ -1186,12 +1254,11 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin, Billin
                     f"Esta venta tiene la factura {invoice['number']}. Una venta facturada no se puede anular "
                     "aquí: hay que emitir una factura rectificativa."
                 )
-            items = cur.execute("SELECT product_id, quantity FROM sale_items WHERE sale_id = ?", (sale_id,)).fetchall()
-            for item in items:
-                cur.execute(
-                    "UPDATE products SET stock = stock + ? WHERE id = ? AND track_stock = 1",
-                    (item["quantity"], item["product_id"]),
-                )
+            items = cur.execute("SELECT i.product_id, i.quantity, s.location_id FROM sale_items i "
+                                "JOIN sales s ON s.id = i.sale_id JOIN products p ON p.id = i.product_id "
+                                "WHERE i.sale_id = ? AND p.track_stock = 1", (sale_id,)).fetchall()
+            for item in items:  # back to the location that sold them
+                self._move_stock(cur, item["product_id"], item["quantity"], item["location_id"])
             cur.execute("UPDATE sales SET status = 'anulada', voided_by = ?, voided_at = ? WHERE id = ?",
                         (by, stamp, sale_id))
             self._register_cancellation(cur, "sale", sale_id)
@@ -1222,12 +1289,17 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin, Billin
         return {**row, "items": items, "payments": payments, "taxes": tax_breakdown(items, row["tax_rate"]),
                 "billing": billing}
 
-    def sales(self, start: datetime | None = None, end: datetime | None = None, include_cancelled=True) -> pd.DataFrame:
+    def sales(self, start: datetime | None = None, end: datetime | None = None, include_cancelled=True,
+              location_id: int | None = None) -> pd.DataFrame:
+        """`location_id`: only that location's sales (with several locations); None for the whole business."""
         sql = (
             "SELECT s.*, COALESCE(c.name, 'Cliente general') AS customer_name "
             "FROM sales s LEFT JOIN customers c ON c.id = s.customer_id WHERE 1 = 1"
         )
         params: list = []
+        if location_id is not None:
+            sql += " AND s.location_id = ?"
+            params.append(int(location_id))
         if start:
             sql += " AND s.created_at >= ?"
             params.append(start.isoformat(timespec="seconds"))
@@ -1463,7 +1535,8 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin, Billin
             cur.execute("UPDATE appointments SET status = ? WHERE id = ?", (status, int(appointment_id)))
 
     def charge_appointment(
-        self, appointment_id: int, payment_method: str, discount_pct: float = 0.0, user_name: str = ""
+        self, appointment_id: int, payment_method: str, discount_pct: float = 0.0, user_name: str = "",
+        location_id: int | None = None,
     ) -> dict:
         """Charge an appointment's service: registers the sale and marks the appointment as done, atomically."""
         appointment_id = int(appointment_id)
@@ -1478,6 +1551,7 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin, Billin
                     sale_id = self._insert_sale(
                         cur, [{"product_id": appt["product_id"], "quantity": 1}], payment_method,
                         appt["customer_id"], float(discount_pct), None, clock.now(), user_name,
+                        location_id=location_id,
                     )
                     cur.execute(
                         "UPDATE appointments SET status = 'completada', sale_id = ? WHERE id = ?",
@@ -1490,14 +1564,17 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin, Billin
         raise AssertionError("unreachable")
 
     # -------------------------------------------------------------- cash closing
-    def day_summary(self, day: date) -> dict:
-        """Completed sales of one day, broken down by how they were paid (mixed payments split per method)."""
+    def day_summary(self, day: date, location_id: int | None = None) -> dict:
+        """Completed sales of one day, broken down by how they were paid (mixed payments split per method).
+        `location_id`: only that location's till (with several locations)."""
         start = datetime.combine(day, time.min)
+        where = " AND s.location_id = ?" if location_id is not None else ""
         with self.db.tx() as cur:
             rows = cur.execute(
                 "SELECT s.id, s.status, p.method, p.amount FROM sales s LEFT JOIN sale_payments p ON p.sale_id = s.id "
-                "WHERE s.created_at >= ? AND s.created_at < ?",
-                (start.isoformat(timespec="seconds"), (start + timedelta(days=1)).isoformat(timespec="seconds")),
+                "WHERE s.created_at >= ? AND s.created_at < ?" + where,
+                (start.isoformat(timespec="seconds"), (start + timedelta(days=1)).isoformat(timespec="seconds"),
+                 *(() if location_id is None else (int(location_id),))),
             ).fetchall()
         breakdown: dict[str, dict] = {}
         completed, cancelled = set(), set()
@@ -1511,7 +1588,7 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin, Billin
             entry = breakdown.setdefault(r["method"], {"count": 0, "total": 0.0})
             entry["count"] += 1
             entry["total"] = round(entry["total"] + float(r["amount"]), 2)
-        refunds = self.refunds_by_method(day)
+        refunds = self.refunds_by_method(day, location_id)
         for method, amount in refunds.items():
             entry = breakdown.setdefault(method, {"count": 0, "total": 0.0})
             entry["refunded"] = amount
@@ -1527,44 +1604,54 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin, Billin
 
     def close_cash(
         self, day: date, opening_float: float, counted_cash: float, notes: str = "", when: datetime | None = None,
-        closed_by: str = "",
+        closed_by: str = "", location_id: int | None = None,
     ) -> dict:
         """Record the end-of-day cash count. Expected cash = opening float + cash sales of the day."""
         if opening_float < 0 or counted_cash < 0:
             raise ValueError("Los importes no pueden ser negativos.")
         notes = clean_text(notes, "Notas", "notes")
-        summary = self.day_summary(day)
+        with self.db.tx() as cur:
+            location_id = self._location_or_main(cur, location_id)
+        summary = self.day_summary(day, location_id)
         expected = round(float(opening_float) + summary["cash"], 2)
         try:
             with self.db.tx() as cur:
                 cur.execute(
                     "INSERT INTO cash_closings(day, opening_float, cash_sales, expected_cash, counted_cash, "
-                    "difference, total_sales, sales_count, breakdown, notes, closed_at, closed_by) "
-                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    "difference, total_sales, sales_count, breakdown, notes, closed_at, closed_by, location_id) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     (day.isoformat(), float(opening_float), summary["cash"], expected, float(counted_cash),
                      round(float(counted_cash) - expected, 2), summary["total"], summary["count"],
                      json.dumps(summary["breakdown"], ensure_ascii=False), notes,
-                     (when or clock.now()).isoformat(timespec="seconds"), closed_by),
+                     (when or clock.now()).isoformat(timespec="seconds"), closed_by, location_id),
                 )
         except self.db.integrity_errors as exc:
             raise ValueError("La caja de ese día ya está cerrada. Reábrela si necesitas repetir el cierre.") from exc
-        return self.cash_closing(day)
+        return self.cash_closing(day, location_id)
 
-    def cash_closing(self, day: date) -> dict | None:
+    @staticmethod
+    def _closing_where(location_id) -> tuple[str, tuple]:
+        return ("location_id IS NULL", ()) if location_id is None else ("location_id = ?", (int(location_id),))
+
+    def cash_closing(self, day: date, location_id: int | None = None) -> dict | None:
         with self.db.tx() as cur:
-            row = cur.execute("SELECT * FROM cash_closings WHERE day = ?", (day.isoformat(),)).fetchone()
+            where, args = self._closing_where(self._location_or_main(cur, location_id))
+            row = cur.execute(f"SELECT * FROM cash_closings WHERE day = ? AND {where}",
+                              (day.isoformat(), *args)).fetchone()
         if row:
             row = {**row, "breakdown": json.loads(row["breakdown"] or "{}")}
         return row
 
-    def reopen_cash(self, day: date) -> None:
+    def reopen_cash(self, day: date, location_id: int | None = None) -> None:
         with self.db.tx() as cur:
-            cur.execute("DELETE FROM cash_closings WHERE day = ?", (day.isoformat(),))
+            where, args = self._closing_where(self._location_or_main(cur, location_id))
+            cur.execute(f"DELETE FROM cash_closings WHERE day = ? AND {where}", (day.isoformat(), *args))
 
-    def cash_closings(self) -> pd.DataFrame:
+    def cash_closings(self, location_id: int | None = None) -> pd.DataFrame:
+        where, args = ("", ()) if location_id is None else (" WHERE location_id = ?", (int(location_id),))
         df = self._frame(
             "SELECT day, total_sales, sales_count, expected_cash, counted_cash, difference, closed_at "
-            "FROM cash_closings ORDER BY day DESC"
+            f"FROM cash_closings{where} ORDER BY day DESC", args
         )
         for col in ("total_sales", "expected_cash", "counted_cash", "difference"):
             df[col] = df[col].astype(float)
@@ -1572,7 +1659,7 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin, Billin
 
     # --------------------------------------------------------------------- users
     # Users and the audit log are never part of backups or templates: credentials stay on the server.
-    _USER_FIELDS = ("id, username, name, role, active, last_login, created_at, "
+    _USER_FIELDS = ("id, username, name, role, active, last_login, created_at, location_id, "
                     "CASE WHEN totp_secret <> '' THEN 1 ELSE 0 END AS two_factor")
 
     def has_users(self) -> bool:
@@ -1581,6 +1668,15 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin, Billin
 
     def users(self) -> pd.DataFrame:
         return self._frame(f"SELECT {self._USER_FIELDS} FROM users ORDER BY active DESC, name")
+
+    def set_user_location(self, user_id: int, location_id: int | None) -> None:
+        """Pin a person to one location (their till, cash and tables), or None to let them work in any."""
+        with self.db.tx() as cur:
+            if location_id is not None and not cur.execute("SELECT 1 FROM locations WHERE id = ?",
+                                                            (int(location_id),)).fetchone():
+                raise ValueError("Ese local no existe.")
+            cur.execute("UPDATE users SET location_id = ? WHERE id = ?",
+                        (None if location_id is None else int(location_id), int(user_id)))
 
     def user(self, user_id: int) -> dict | None:
         with self.db.tx() as cur:
@@ -1693,6 +1789,12 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin, Billin
         if locked:
             raise AuthError(f"Demasiados intentos fallidos. Cuenta bloqueada {LOCKOUT_MINUTES} minutos.")
         raise generic
+
+    def confirm_secret(self, user_id: int, secret: str) -> bool:
+        """Re-check the signed-in person's PIN or password before an action that replaces data."""
+        with self.db.tx() as cur:
+            user = cur.execute("SELECT secret_hash FROM users WHERE id = ? AND active = 1", (int(user_id),)).fetchone()
+        return bool(user and secret and verify_secret(secret, user["secret_hash"]))
 
     def change_own_secret(self, user_id: int, current: str, new: str) -> None:
         """A person changes their own PIN or password, proving they know the current one."""
@@ -1861,6 +1963,12 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin, Billin
                 rows = source._export(ALL_TABLES)
             finally:
                 source.close()
+        # A copy edited by hand must not bring texts the app would never have accepted.
+        for table, table_rows in rows.items():
+            for row in table_rows:
+                if any(isinstance(v, str) and len(v) > MAX_RESTORED_TEXT for v in row.values()):
+                    raise ValueError(f"La copia tiene textos demasiado largos en «{table}»: no parece una copia de "
+                                     "esta app sin modificar.")
         with self.db.tx() as cur:
             self._replace(cur, rows)
             self._insert_default_settings(cur)

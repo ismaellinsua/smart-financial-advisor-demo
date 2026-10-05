@@ -68,7 +68,7 @@
         return fail(errorBox, "Ese archivo no es un catálogo de la caja sin conexión. Descárgalo de la app en Caja → Caja sin conexión.");
       }
       const pending = store.get(KEY_SALES, []);
-      if (pkg && pending.length && (pkg.key !== data.key || pkg.series !== data.series)) {
+      if (pkg && pending.length && (pkg.key !== data.key || pkg.series !== data.series || (pkg.location_id || null) !== (data.location_id || null))) {
         return fail(errorBox, "Antes de cargar el catálogo de otro negocio u otra caja, envía a la app las ventas pendientes y bórralas de aquí.");
       }
       pkg = data;
@@ -91,7 +91,7 @@
     $("till").hidden = !ready;
     if (!ready) { renderPending(); return; }
     $("business").textContent = pkg.business.business_name || "Caja sin conexión";
-    $("catalog-date").textContent = `Caja ${pkg.device} · catálogo del ${shown(pkg.generated_at).slice(0, 10)}`;
+    $("catalog-date").textContent = `${pkg.location ? pkg.location + " · " : ""}Caja ${pkg.device} · catálogo del ${shown(pkg.generated_at).slice(0, 10)}`;
     renderCategories();
     renderGrid();
     renderCart();
@@ -224,7 +224,8 @@
   function salesFile() {
     const sales = store.get(KEY_SALES, []);
     const body = JSON.stringify({
-      kind: "nirkana-ventas", version: 1, key: pkg.key, device: pkg.device, exported_at: localIso(new Date()), sales,
+      kind: "nirkana-ventas", version: 1, key: pkg.key, device: pkg.device, location_id: pkg.location_id || null,
+      exported_at: localIso(new Date()), sales,
     }, null, 1);
     const name = `ventas-caja${pkg.device}-${localIso(new Date()).slice(0, 16).replace(/[-:T]/g, "")}.json`;
     store.set(KEY_EXPORTED, sales.map((s) => s.id));

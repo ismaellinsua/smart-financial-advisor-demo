@@ -50,7 +50,7 @@ class PurchasesMixin:
         return self._take_number(cur, "purchase_orders", f"PED-{when.year}-", 4)
 
     def create_purchase(self, supplier_id: int | None, items: list[dict], notes: str = "", created_by: str = "",
-                        when: datetime | None = None) -> int:
+                        when: datetime | None = None, location_id: int | None = None) -> int:
         lines = [(int(i["product_id"]), int(i["quantity"]), float(i["unit_cost"])) for i in items
                  if int(i.get("quantity") or 0) > 0]
         if not lines:
@@ -63,11 +63,11 @@ class PurchasesMixin:
             try:
                 with self.db.tx() as cur:
                     po_id = cur.execute(
-                        "INSERT INTO purchase_orders(number, supplier_id, created_at, created_by, notes, total) "
-                        "VALUES (?, ?, ?, ?, ?, ?) RETURNING id",
+                        "INSERT INTO purchase_orders(number, supplier_id, created_at, created_by, notes, total, "
+                        "location_id) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id",
                         (self._next_purchase_number(cur, when), None if not supplier_id else int(supplier_id),
                          when.isoformat(timespec="seconds"), created_by, notes,
-                         round(sum(q * c for _, q, c in lines), 2)),
+                         round(sum(q * c for _, q, c in lines), 2), self._location_or_main(cur, location_id)),
                     ).fetchone()["id"]
                     for pid, qty, cost in lines:
                         p = cur.execute("SELECT name FROM products WHERE id = ?", (pid,)).fetchone()
@@ -133,8 +133,9 @@ class PurchasesMixin:
                                 (item["product_id"],)).fetchone()
                 old = max(int(p["stock"]), 0) if p["track_stock"] else 0
                 new_cost = (old * float(p["cost"]) + units * float(item["unit_cost"])) / (old + units)
-                cur.execute("UPDATE products SET cost = ?, stock = stock + CASE WHEN track_stock = 1 THEN ? ELSE 0 END "
-                            "WHERE id = ?", (round(new_cost, 4), units, item["product_id"]))
+                cur.execute("UPDATE products SET cost = ? WHERE id = ?", (round(new_cost, 4), item["product_id"]))
+                if p["track_stock"]:  # into the location the order was placed for (the main one by default)
+                    self._move_stock(cur, item["product_id"], units, po["location_id"])
                 total += units * float(item["unit_cost"])
             cur.execute("UPDATE purchase_orders SET status = 'recibido', received_at = ?, received_by = ?, total = ? "
                         "WHERE id = ?", (when.isoformat(timespec="seconds"), received_by, round(total, 2), int(po_id)))
@@ -254,8 +255,11 @@ class PurchasesMixin:
                     exists = cur.execute("SELECT id FROM expenses WHERE recurring_id = ? AND day >= ? AND day < ?",
                                          (int(r["id"]), month.isoformat(), nxt.isoformat())).fetchone()
                 if not exists:
-                    self.add_expense(due, r["category"], r["description"], r["amount"], r["method"],
-                                     created_by="Automático", recurring_id=int(r["id"]))
+                    try:
+                        self.add_expense(due, r["category"], r["description"], r["amount"], r["method"],
+                                         created_by="Automático", recurring_id=int(r["id"]))
+                    except self.db.integrity_errors:
+                        continue  # another device recorded it a moment ago
                     created += 1
             month = nxt
         return created

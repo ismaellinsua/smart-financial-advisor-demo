@@ -277,3 +277,20 @@ def alert_card(alert: dict) -> None:
         f"<div><b>{escape(alert['title'])}</b><span class='d'>{escape(alert['detail'])}</span></div></div>",
         unsafe_allow_html=True,
     )
+
+
+def installable() -> None:
+    """Declare the web app manifest and icons, so phones and computers offer to install NirKanA as an app (its
+    own icon and window, no browser bar). Streamlit has no way to add them to the page head, so a script does."""
+    st.html("""<script>
+(() => {
+  if (document.querySelector('link[rel="manifest"]')) return;
+  const add = (tag, attrs) => document.head.appendChild(Object.assign(document.createElement(tag), attrs));
+  add("link", { rel: "manifest", href: "/app/static/manifest.json" });
+  add("link", { rel: "apple-touch-icon", href: "/app/static/apple-touch-icon.png" });
+  add("meta", { name: "theme-color", content: "#3B5BFD" });
+  add("meta", { name: "mobile-web-app-capable", content: "yes" });
+  add("meta", { name: "apple-mobile-web-app-capable", content: "yes" });
+  add("meta", { name: "apple-mobile-web-app-title", content: "NirKanA" });
+})();
+</script>""", unsafe_allow_javascript=True)
