@@ -33,6 +33,7 @@ def send_due(store, mailer: Mailer, now: datetime | None = None) -> list[str]:
         return []
     sent = []
     store.forget_booking_contacts(now)
+    store.apply_retention(now)
     if reminded := send_reminders(store, mailer, settings, now):
         sent.append(f"{reminded} recordatorio(s) de cita")
     if not valid_email(to):

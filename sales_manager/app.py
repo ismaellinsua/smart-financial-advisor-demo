@@ -7,6 +7,7 @@ Copyright (c) 2025-2026 Ismael Linsua. Todos los derechos reservados. Software p
 
 import traceback
 from datetime import timedelta
+from pathlib import Path
 
 import streamlit as st
 
@@ -18,7 +19,9 @@ from ui.context import PAGES, ctx, stripe_client
 from ui.styles import inject_css, installable, sidebar_brand, sidebar_copyright, topbar
 from core import clock
 
-st.set_page_config(page_title="Gestor de Ventas", page_icon=":material/storefront:", layout="wide")
+# A local icon: a «:material/…:» one is fetched from Google's servers by every visitor's browser.
+st.set_page_config(page_title="Gestor de Ventas", page_icon=str(Path(__file__).parent / "static" / "icon-192.png"),
+                   layout="wide")
 
 installable()
 

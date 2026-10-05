@@ -267,6 +267,8 @@ def post(url, body: bytes, signature: str = ""):
             return response.status
     except urllib.error.HTTPError as exc:
         return exc.code
+    except (urllib.error.URLError, ConnectionError):
+        return "cortada"  # refused before the whole body was sent: the server may close the connection first
 
 
 def test_webhook_service_only_accepts_signed_events(webhook_url):
@@ -277,5 +279,5 @@ def test_webhook_service_only_accepts_signed_events(webhook_url):
     assert post(f"{base}/stripe/webhook", body) == 400
     assert post(f"{base}/otra-cosa", body, sign_webhook(body, SECRET)) == 404
     big = b"x" * (600 * 1024)
-    assert post(f"{base}/stripe/webhook", big, sign_webhook(big, SECRET)) == 413
+    assert post(f"{base}/stripe/webhook", big, sign_webhook(big, SECRET)) in (413, "cortada")
     assert received == ["evt_firmado"]

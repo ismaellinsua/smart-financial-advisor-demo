@@ -22,6 +22,9 @@
 	}
 	# Stripe's signed notices go to the small webhook service; everything else to Streamlit.
 	handle /stripe/webhook {
+		request_body {
+			max_size 512KB
+		}
 		reverse_proxy 127.0.0.1:8502
 	}
 	handle {
