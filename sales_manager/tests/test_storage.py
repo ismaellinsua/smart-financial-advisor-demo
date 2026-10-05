@@ -95,6 +95,7 @@ def test_a_set_up_database_opens_with_one_query(shop, monkeypatch):
 
 def test_settings_and_locations_are_reused_but_never_stale_after_a_write(shop, monkeypatch):
     import core.db as db
+    import core.engines as engines
 
     calls = []
     original = db._Cursor.execute
@@ -116,7 +117,7 @@ def test_settings_and_locations_are_reused_but_never_stale_after_a_write(shop, m
     shop.settings()["business_name"] = "cambiado fuera"  # callers get a copy
     assert shop.settings()["business_name"] == "Nuevo nombre"
 
-    monkeypatch.setattr(db, "READ_TTL", 0)  # and after READ_TTL it reads again, for changes by other servers
+    monkeypatch.setattr(engines, "READ_TTL", 0)  # and after READ_TTL it reads again, for changes by other servers
     calls.clear()
     shop.settings()
     assert len(calls) == 1

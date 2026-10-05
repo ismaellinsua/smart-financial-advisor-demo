@@ -12,7 +12,8 @@ from datetime import datetime, timedelta
 
 from . import clock
 from .billing import TRIAL_DAYS, subscription_fields, utc_now
-from .db import Store, _secure_url
+from .db import Store
+from .engines import _secure_url
 from .security import hash_secret, verify_secret
 
 DIRECTORY_SCHEMA = "nirkana_operador"

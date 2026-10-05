@@ -336,7 +336,17 @@ una app aparece el botón para despertarla, se resuelve pulsándolo.
 sales_manager/
 ├── app.py              # Navegación y arranque
 ├── core/               # Lógica sin dependencias de interfaz
-│   ├── db.py              # Almacenamiento SQLite o PostgreSQL, ventas atómicas, copias, datos de ejemplo
+│   ├── db.py              # `Store`: arranque, ajustes y ventas atómicas; reúne los demás módulos store_*
+│   ├── schema.py          # Tablas, columnas añadidas y migraciones versionadas
+│   ├── engines.py         # Motores SQLite y PostgreSQL (pool, TLS, caché de lecturas)
+│   ├── errors.py          # Errores que ve el usuario (venta, acceso, datos fiscales)
+│   ├── store_users.py     # Cuentas, inicio de sesión, bloqueo, 2FA y recuperación
+│   ├── store_demo.py      # Plantillas y datos de ejemplo
+│   ├── store_catalog.py   # Productos, clientes y promociones
+│   ├── store_invoices.py  # Facturas completas
+│   ├── store_appointments.py # Citas y su cobro
+│   ├── store_cash.py      # Resumen del día y cierre de caja
+│   ├── store_backup.py    # Copias de seguridad y restauración
 │   ├── store_refunds.py   # Devoluciones y facturas rectificativas
 │   ├── store_orders.py    # Mesas, comandas y cocina
 │   ├── store_purchases.py # Proveedores, pedidos, gastos y beneficio

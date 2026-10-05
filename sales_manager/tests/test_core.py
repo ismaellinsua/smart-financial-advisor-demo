@@ -589,7 +589,7 @@ def test_text_limits(store):
 def test_csv_safe_and_secure_url():
     import pandas as pd
 
-    from core.db import _secure_url
+    from core.engines import _secure_url
     from core.security import csv_safe
 
     df = csv_safe(pd.DataFrame({"name": ["=HYPERLINK(\"x\")", "Ana", "+34 600", "@SUM(1)"], "n": [1, -2, 3, 4]}))
