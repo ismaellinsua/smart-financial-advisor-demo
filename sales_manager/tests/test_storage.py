@@ -66,3 +66,28 @@ def test_old_postgres_database_becomes_exact_once(make_store):
         assert reopened.schema_version() == 1
     finally:
         reopened.close()
+
+
+def test_a_set_up_database_opens_with_one_query(shop, monkeypatch):
+    import core.db as db
+
+    target = shop.db._key if hasattr(shop.db, "_key") else None
+    if target is None:  # SQLite: reopen the same file
+        with shop.db.tx() as cur:
+            target = cur.execute("PRAGMA database_list").fetchone()["file"]
+    calls = []
+    original = db._Cursor.execute
+    monkeypatch.setattr(db._Cursor, "execute", lambda self, sql, params=(): calls.append(sql) or original(self, sql,
+                                                                                                         params))
+    db.Store(target).close()
+    assert len(calls) == 1  # already set up by this version of the code
+
+    calls.clear()
+    monkeypatch.setattr(db, "SCHEMA_FINGERPRINT", "una-version-nueva")
+    again = db.Store(target)
+    assert len(calls) > 50  # a new version sets the database up once…
+    assert again.products().shape[0] == shop.products().shape[0]  # …keeping the data
+    again.close()
+    calls.clear()
+    db.Store(target).close()
+    assert len(calls) == 1

@@ -4,6 +4,7 @@
 Every public method runs in its own transaction, so the app behaves the same on both engines.
 """
 
+import hashlib
 import json
 import random
 import re
@@ -379,6 +380,10 @@ CREATE TABLE IF NOT EXISTS billing_records (
     source TEXT,
     source_id INTEGER
 );
+CREATE TABLE IF NOT EXISTS schema_state (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS schema_migrations (
     version INTEGER PRIMARY KEY,
     name TEXT NOT NULL,
@@ -461,6 +466,12 @@ MIGRATIONS = [
 VERSIONED_MIGRATIONS = [
     (1, "importes exactos (NUMERIC) en PostgreSQL", "_money_to_numeric"),
 ]
+
+# Changes whenever this file or the default settings change, so a new version of the code sets the database up once
+# and later starts skip it.
+SCHEMA_FINGERPRINT = hashlib.sha256(
+    Path(__file__).read_bytes() + json.dumps(DEFAULT_SETTINGS, sort_keys=True).encode()
+).hexdigest()[:32]
 
 # An account locks for a fixed, short time after many failures. A long or growing lock would let anyone who knows a
 # username keep the business out of its own till; guessing is slowed per device instead (ui/auth.py), PINs are
@@ -791,6 +802,8 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin, Billin
     def __init__(self, path=DEFAULT_DB_PATH, schema: str | None = None):
         """`schema`: on PostgreSQL, the business's own schema when one database serves several businesses."""
         self.db = _Postgres(str(path), schema) if _is_postgres(path) else _SQLite(str(path))
+        if self._schema_is_current():
+            return  # one query instead of ~110: with a remote database each one is a round trip
         with self.db.tx() as cur:
             for statement in filter(str.strip, self.db.schema().split(";")):
                 cur.execute(statement)
@@ -822,6 +835,18 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin, Billin
                 # Databases from before this setting: only the demo generator creates purchases signed «Demo».
                 demo = cur.execute("SELECT 1 FROM purchase_orders WHERE created_by = 'Demo' LIMIT 1").fetchone()
                 self._save_settings(cur, {"demo_mode": "si" if demo else "no"})
+            cur.execute("INSERT INTO schema_state(key, value) VALUES ('fingerprint', ?) "
+                        "ON CONFLICT(key) DO UPDATE SET value = excluded.value", (SCHEMA_FINGERPRINT,))
+
+    def _schema_is_current(self) -> bool:
+        """True when this database was already set up by this exact version of the code."""
+        try:
+            with self.db.tx() as cur:
+                row = cur.execute("SELECT (SELECT value FROM schema_state WHERE key = 'fingerprint') AS f, "
+                                  "(SELECT MAX(version) FROM schema_migrations) AS v").fetchone()
+        except Exception:  # noqa: BLE001 - a new or older database without these tables: set it up
+            return False
+        return row["f"] == SCHEMA_FINGERPRINT and row["v"] == VERSIONED_MIGRATIONS[-1][0]
 
     def _run_versioned_migrations(self, cur: _Cursor) -> None:
         self.db.lock_migrations(cur)

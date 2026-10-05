@@ -177,6 +177,7 @@ def test_old_sqlite_databases_keep_their_closings_and_allow_one_per_location(tmp
     sql = conn.execute("SELECT sql FROM sqlite_master WHERE name = 'cash_closings'").fetchone()[0]
     cols = [r[1] for r in conn.execute("PRAGMA table_info(cash_closings)")]
     conn.execute("DROP INDEX IF EXISTS cash_closings_day_location")
+    conn.execute("DROP TABLE schema_state")  # older versions had no setup fingerprint
     conn.execute("ALTER TABLE cash_closings RENAME TO cc")
     conn.execute(sql.replace("day TEXT NOT NULL", "day TEXT UNIQUE NOT NULL"))
     conn.execute("DROP TABLE cc")
