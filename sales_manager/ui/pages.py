@@ -1366,6 +1366,57 @@ def _same(a, b) -> bool:
     return (pd.isna(a) and pd.isna(b)) if (pd.isna(a) or pd.isna(b)) else a == b
 
 
+SHOP_TEMPLATE = ("pedido;fecha;sku;cantidad;precio;descuento;envio;total;estado\n"
+                 "1001;05/10/2026 10:30;CAM-001;2;39,90;0;4,90;84,70;pagado\n")
+
+
+def _online_shop_panel(c) -> None:
+    """Shopify, WooCommerce or any shop, by files: catalogue out, orders in."""
+    from core.store_ecommerce import ShopImportError
+
+    with st.expander("Tienda online (Shopify, WooCommerce…)", icon=":material/shopping_cart:"):
+        st.markdown("**1. Sube tu catálogo a la tienda** (productos, precios con IVA y stock"
+                    + (f" de {c.location_name}" if c.multi_location else "") + ")")
+        a, b = st.columns(2)
+        logged_download(a, "Catálogo para Shopify", c.store.shop_catalog_csv("shopify", c.location_id),
+                        "catalogo-shopify.csv", mime="text/csv", icon=":material/download:", width="stretch")
+        logged_download(b, "Catálogo para WooCommerce", c.store.shop_catalog_csv("woocommerce", c.location_id),
+                        "catalogo-woocommerce.csv", mime="text/csv", icon=":material/download:", width="stretch")
+        st.caption("En Shopify: Productos → Importar (marca «Sobrescribir productos» para actualizar precios y stock). "
+                   "En WooCommerce: Productos → Importar (marca «Actualizar productos existentes»). Los productos se "
+                   "relacionan por su código (SKU).")
+        st.markdown("**2. Trae los pedidos de la tienda** (se registran como ventas y descuentan stock)")
+        upload = st.file_uploader("Exportación de pedidos (CSV)", type=["csv"], key="shop_orders",
+                                  help="Shopify: Pedidos → Exportar → CSV para Excel. Otras tiendas: la plantilla.")
+        products = c.store.products()
+        no_stock = products[products["track_stock"] == 0]
+        options = {0: "No incluir el envío", **dict(zip(no_stock["id"].astype(int), no_stock["name"]))}
+        guess = next((pid for pid, name in options.items() if pid and "env" in name.lower()), 0)
+        x, y = st.columns(2)
+        method = x.selectbox("Cobrados con", PAYMENT_METHODS, key="shop_method")
+        shipping = y.selectbox("Producto para los envíos", list(options), index=list(options).index(guess),
+                               format_func=options.get, key="shop_shipping",
+                               help="Un producto sin control de stock (p. ej. «Envío»). Créalo en «Nuevo» si no lo tienes.")
+        if upload is not None and st.button("Importar pedidos", type="primary", icon=":material/upload:"):
+            try:
+                result = c.store.import_shop_orders(upload.getvalue(), method, c.location_id, shipping or None, c.who)
+            except (ShopImportError, ValueError) as exc:
+                st.error(str(exc))
+            else:
+                text = (f"{result['imported']} pedidos importados ({c.money(result['total'])})"
+                        + (f", {result['repeated']} ya estaban" if result["repeated"] else "")
+                        + (f", {result['skipped']} sin cobrar" if result["skipped"] else "")
+                        + (f", {result['rejected']} con problemas" if result["rejected"] else "") + ".")
+                (st.warning if result["rejected"] else st.success)(text)
+                for note in result["notes"][:50]:
+                    st.caption(note)
+        st.download_button("Plantilla para otras tiendas (CSV)", SHOP_TEMPLATE.encode("utf-8-sig"),
+                           "plantilla-pedidos.csv", "text/csv", icon=":material/description:")
+        st.caption("Solo se leen el número de pedido, la fecha, los productos, el descuento, el envío y el total: "
+                   "los datos personales de tus clientes en el archivo no se importan. Importar dos veces el mismo "
+                   "archivo no duplica pedidos.")
+
+
 def _stock_by_location(c) -> None:
     with st.expander("Stock por local y traspasos", icon=":material/swap_horiz:"):
         table = c.store.stock_by_location()
@@ -1474,6 +1525,7 @@ def products_page() -> None:
 
         if c.multi_location:
             _stock_by_location(c)
+        _online_shop_panel(c)
         with st.expander("Ajustes de stock", icon=":material/history:"):
             moves = c.store.stock_moves()
             if moves.empty:
@@ -2042,6 +2094,13 @@ HELP = [
         "Android o Chrome: menú del navegador → **Instalar aplicación** (o «Añadir a pantalla de inicio»).",
         "iPhone o iPad (Safari): botón Compartir → **Añadir a pantalla de inicio**.",
         "Se abre con su icono y en su propia ventana, sin la barra del navegador.",
+    ]),
+    ("encargado", "Tienda online (Shopify, WooCommerce…)", [
+        "En **Catálogo → Tienda online** descarga tu catálogo en el formato de Shopify o de WooCommerce y súbelo "
+        "a tu tienda: productos, precios con IVA y stock, relacionados por su código (SKU).",
+        "Para registrar las ventas de la web, exporta los pedidos de la tienda (en Shopify: Pedidos → Exportar) e "
+        "impórtalos ahí mismo: cada pedido cobrado se convierte en una venta y descuenta stock. Para otras tiendas, "
+        "usa la plantilla.",
     ]),
     ("encargado", "Si se cae internet", [
         "Prepáralo antes: en **Caja → Caja sin conexión** descarga el archivo de catálogo, abre la caja sin conexión "

@@ -31,6 +31,7 @@ from .accounting import AccountingMixin
 from .store_bookings import AGENDA_LOCK, BookingMixin, clean_phone
 from .store_offline import OfflineMixin
 from .store_locations import LocationsMixin
+from .store_ecommerce import EcommerceMixin
 from .security import (
     DUMMY_HASH, RECOVERY_CODE_COUNT, RECOVERY_ITERATIONS, ROLE_RANK, ROLES, USERNAME_RE, check_secret_strength,
     clean_text, hash_secret, is_safe_identifier, new_recovery_code, normalize_recovery_code, verify_secret, verify_totp,
@@ -446,6 +447,8 @@ MIGRATIONS = [
     ("stock_moves", "location_id", "INTEGER"),
     ("purchase_orders", "location_id", "INTEGER"),
     ("users", "location_id", "INTEGER"),
+    # Orders imported from an online shop («shopify:1001»): importing the same file twice never duplicates them.
+    ("sales", "external_ref", "TEXT NOT NULL DEFAULT ''"),
 ]
 
 # An account locks for a fixed, short time after many failures. A long or growing lock would let anyone who knows a
@@ -738,7 +741,8 @@ def _is_postgres(target) -> bool:
 
 # ----------------------------------------------------------------------------- store
 class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin, BillingMixin, SessionsMixin,
-            PrivacyMixin, ErrorsMixin, AccountingMixin, BookingMixin, OfflineMixin, LocationsMixin):
+            PrivacyMixin, ErrorsMixin, AccountingMixin, BookingMixin, OfflineMixin, LocationsMixin,
+            EcommerceMixin):
     SaleError = SaleError
     def __init__(self, path=DEFAULT_DB_PATH, schema: str | None = None):
         """`schema`: on PostgreSQL, the business's own schema when one database serves several businesses."""
@@ -750,6 +754,8 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin, Billin
                 if column not in self.db.columns(cur, table):
                     cur.execute(f"ALTER TABLE {table} ADD COLUMN {column} {ddl.format(real=self.db.real)}")
             cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS sales_offline_id ON sales(offline_id) WHERE offline_id <> ''")
+            cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS sales_external_ref ON sales(external_ref) "
+                        "WHERE external_ref <> ''")
             # One cash closing per day and location (it used to be one per day).
             self.db.drop_day_unique(cur)
             cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS cash_closings_day_location "
