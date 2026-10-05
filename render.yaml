@@ -8,6 +8,8 @@ services:
     plan: starter
     healthCheckPath: /_stcore/health
     autoDeploy: false
+    # One instance: sign-in throttling and short caches live in the app's memory (audit A7).
+    numInstances: 1
     envVars:
       - key: DATABASE_URL
         sync: false
@@ -15,6 +17,8 @@ services:
         sync: false
       - key: SMTP_HOST
         sync: false
+      - key: SMTP_PORT
+        value: "587"
       - key: SMTP_USER
         sync: false
       - key: SMTP_PASSWORD

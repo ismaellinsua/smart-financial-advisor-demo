@@ -483,3 +483,19 @@ def test_setup_password_from_the_environment(monkeypatch):
     assert configured_password() is None
     monkeypatch.setenv("APP_PASSWORD", "clave-de-instalacion")
     assert configured_password() == "clave-de-instalacion"
+
+
+def test_container_refuses_to_keep_data_on_its_own_disk(monkeypatch):
+    """In the container the disk is wiped on every deploy: without DATABASE_URL the app must stop, not use SQLite."""
+    from ui import context
+
+    opened = []
+    monkeypatch.setenv("REQUIRE_DATABASE", "1")
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.setattr(context, "Store", lambda *args, **kwargs: opened.append(args))
+    monkeypatch.setattr(context, "get_store", lambda: context._single_store())  # other tests replace it for good
+    context._single_store.clear()
+    at = AppTest.from_file(APP, default_timeout=30).run()
+    assert at.error and "DATABASE_URL" in at.error[0].value
+    assert opened == []  # no local file was opened
+    context._single_store.clear()

@@ -153,8 +153,25 @@ web), `nosniff`, `Referrer-Policy` y `Permissions-Policy`. La app no corre como 
    `app.nirkana.es`. Render te dirá qué registro **CNAME** crear en IONOS; el HTTPS lo pone Render.
 5. Los despliegues son manuales (`autoDeploy: false`): pulsa **Manual Deploy** cuando los tests de GitHub estén en verde.
 
-Probarlo en tu ordenador: `docker build -t nirkana . && docker run -p 8080:8080 -e APP_PASSWORD=... nirkana` y abre
-http://localhost:8080.
+Sin `DATABASE_URL` el contenedor **no arranca la app**: muestra un aviso en lugar de guardar los datos en su propio disco,
+que Render borra en cada despliegue. Va en una sola instancia (`numInstances: 1`): los límites de intentos de acceso
+viven en la memoria de la app.
+
+**Pasar de Streamlit Community Cloud a Render sin perder nada:**
+
+1. En la app actual: **Configuración → Copia de seguridad → Descargar copia de seguridad**. Guarda el archivo.
+   Si esa app ya usaba Neon, basta con poner la misma `DATABASE_URL` en Render y te saltas los pasos 1 y 3.
+2. Despliega en Render (pasos de arriba) con una base de Neon **nueva** en Frankfurt.
+3. Entra en `app.nirkana.es`, crea el administrador y completa el asistente (da igual lo que elijas: la copia lo
+   sustituye todo, configuración incluida). Después, en **Configuración → Copia de seguridad → Restaurar**, sube el
+   archivo del paso 1. Solo se puede en un negocio sin ventas reales: hazlo antes de vender. Tu equipo no viaja en la
+   copia (por seguridad): vuelve a dar de alta a cada persona en **Equipo y seguridad**.
+4. Comprueba ventas, clientes y facturas. Después, en Streamlit Cloud, apaga la app antigua (**⋮ → Delete**) o déjala
+   solo como demostración, sin datos reales.
+5. Cambia `UPTIME_URLS` (secreto de GitHub Actions) a `https://app.nirkana.es`.
+
+Probarlo en tu ordenador: `docker build -t nirkana . && docker run -p 8080:8080 -e DATABASE_URL=postgresql://… \
+-e APP_PASSWORD=... nirkana` y abre http://localhost:8080.
 
 ## Varios negocios en una sola app (modo multinegocio)
 
@@ -287,7 +304,7 @@ repositorio. Secretos de Actions:
 
 | Secreto | Qué poner |
 |---|---|
-| `UPTIME_URLS` | Una dirección por línea, p. ej. `https://cafe-aurora.streamlit.app` |
+| `UPTIME_URLS` | Una dirección por línea, p. ej. `https://app.nirkana.es` |
 | `OPERATOR_EMAIL` | Opcional: tu email, para recibir también el aviso de caída y, cada mañana, el resumen de errores de las últimas 24 h (necesita los `SMTP_*`). |
 
 En Streamlit Community Cloud las apps se duermen sin uso: la comprobación mira que el servidor responde. Si al abrir

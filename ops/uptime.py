@@ -3,7 +3,7 @@
     python ops/uptime.py
 
 Environment:
-    UPTIME_URLS      one app address per line, e.g. https://cafe-aurora.streamlit.app (or a multi-business app)
+    UPTIME_URLS      one app address per line, e.g. https://app.nirkana.es
     OPERATOR_EMAIL   optional: also email this address when an app is down (needs SMTP_*, see core/mailer.py)
 Exit code 1 when an app is down, so GitHub Actions marks the run failed and notifies the repository owner.
 """
