@@ -11,6 +11,7 @@ import re
 import sqlite3
 import tempfile
 import threading
+from time import monotonic
 from contextlib import contextmanager
 from datetime import date, datetime, time, timedelta
 from pathlib import Path
@@ -526,21 +527,56 @@ class AuthError(Exception):
 
 
 # --------------------------------------------------------------------------- engines
+_WRITE_RE = re.compile(r"\s*(INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|TRUNCATE)\b", re.IGNORECASE)
+READ_TTL = 2.0  # seconds a small, often-read value (settings, locations) is reused within one server
+
+
+class _ReadCache:
+    """Settings and locations are read several times per click; with a remote database each read is a round trip.
+    They are kept for READ_TTL seconds and dropped as soon as any transaction of this server writes anything."""
+
+    def __init__(self):
+        self._items, self._generation, self._lock = {}, 0, threading.Lock()
+
+    def get(self, key, load):
+        with self._lock:
+            hit, generation = self._items.get(key), self._generation
+        if hit and monotonic() - hit[0] < READ_TTL:
+            return hit[1]
+        value = load()
+        with self._lock:
+            if generation == self._generation:  # nothing was written while it loaded
+                self._items[key] = (monotonic(), value)
+        return value
+
+    def clear(self) -> None:
+        with self._lock:
+            self._items.clear()
+            self._generation += 1
+
+
 class _Cursor:
     """Uniform cursor: `?` placeholders and rows returned as dicts on both engines."""
 
     def __init__(self, cur, pyformat: bool):
         self._cur = cur
         self._pyformat = pyformat
+        self.wrote = False
+
+    def _note(self, sql: str) -> None:
+        if not self.wrote and _WRITE_RE.match(sql):
+            self.wrote = True
 
     def _sql(self, sql: str) -> str:
         return sql.replace("%", "%%").replace("?", "%s") if self._pyformat else sql
 
     def execute(self, sql: str, params=()):
+        self._note(sql)
         self._cur.execute(self._sql(sql), tuple(params))
         return self
 
     def executemany(self, sql: str, seq) -> None:
+        self._note(sql)
         rows = [tuple(p) for p in seq]
         if rows:
             self._cur.executemany(self._sql(sql), rows)
@@ -586,6 +622,7 @@ class _SQLite:
     def __init__(self, path: str):
         if path != ":memory:":
             Path(path).parent.mkdir(parents=True, exist_ok=True)
+        self.reads = _ReadCache()
         self._conn = sqlite3.connect(path, check_same_thread=False)
         self._conn.execute("PRAGMA foreign_keys = ON")
         self._lock = threading.RLock()  # Streamlit serves each visitor from its own thread
@@ -599,15 +636,17 @@ class _SQLite:
     @contextmanager
     def tx(self):
         with self._lock:
-            cur = self._conn.cursor()
+            cur = _Cursor(self._conn.cursor(), pyformat=False)
             try:
-                yield _Cursor(cur, pyformat=False)
+                yield cur
                 self._conn.commit()
             except BaseException:
                 self._conn.rollback()
                 raise
             finally:
-                cur.close()
+                cur._cur.close()
+                if cur.wrote:
+                    self.reads.clear()
 
     def columns(self, cur: _Cursor, table: str) -> set[str]:
         return {r["name"] for r in cur.execute(f"PRAGMA table_info({table})").fetchall()}
@@ -666,6 +705,7 @@ class _Postgres:
         if schema is not None and not is_safe_identifier(schema):
             raise ValueError("Nombre de esquema no válido.")
         self._schema = schema
+        self.reads = _ReadCache()
         self._key = _secure_url(url)
         with self._pools_lock:
             entry = self._pools.get(self._key)
@@ -702,11 +742,17 @@ class _Postgres:
     @contextmanager
     def tx(self):
         # The pool commits when the block succeeds and rolls back on any exception.
-        with self._pool.connection() as conn, conn.cursor() as cur:
-            if self._schema:
-                # Per transaction, so it also holds behind a transaction-pooling proxy (Neon's pooler, PgBouncer).
-                cur.execute(f'SET LOCAL search_path TO "{self._schema}"')
-            yield _Cursor(cur, pyformat=True)
+        wrapped = None
+        try:
+            with self._pool.connection() as conn, conn.cursor() as cur:
+                if self._schema:
+                    # Per transaction, so it also holds behind a transaction-pooling proxy (Neon's pooler, PgBouncer).
+                    cur.execute(f'SET LOCAL search_path TO "{self._schema}"')
+                wrapped = _Cursor(cur, pyformat=True)
+                yield wrapped
+        finally:
+            if wrapped is not None and wrapped.wrote:
+                self.reads.clear()  # after the commit, so nobody re-reads the old values in between
 
     def columns(self, cur: _Cursor, table: str) -> set[str]:
         rows = cur.execute(
@@ -915,8 +961,10 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin, Billin
         )
 
     def settings(self) -> dict:
-        with self.db.tx() as cur:
-            return self._settings(cur)
+        def load():
+            with self.db.tx() as cur:
+                return self._settings(cur)
+        return dict(self.db.reads.get("settings", load))
 
     def save_settings(self, values: dict) -> None:
         if "timezone" in values:
@@ -1754,8 +1802,9 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin, Billin
                     "CASE WHEN totp_secret <> '' THEN 1 ELSE 0 END AS two_factor")
 
     def has_users(self) -> bool:
+        # Never cached: it decides whether the first-administrator screen is shown.
         with self.db.tx() as cur:
-            return cur.execute("SELECT COUNT(*) AS n FROM users").fetchone()["n"] > 0
+            return cur.execute("SELECT 1 FROM users LIMIT 1").fetchone() is not None
 
     def users(self) -> pd.DataFrame:
         return self._frame(f"SELECT {self._USER_FIELDS} FROM users ORDER BY active DESC, name")
@@ -2066,8 +2115,9 @@ class Store(RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin, Billin
 
     # ---------------------------------------------------------------- demo setup
     def is_empty(self) -> bool:
+        # Not cached: another server may have just set the business up, and this decides showing onboarding.
         with self.db.tx() as cur:
-            return cur.execute("SELECT COUNT(*) AS n FROM products").fetchone()["n"] == 0
+            return cur.execute("SELECT 1 FROM products LIMIT 1").fetchone() is None
 
     # ------------------------------------------------- demonstration vs real data
     def is_demo(self) -> bool:

@@ -36,10 +36,11 @@ class LocationsMixin:
         return int(location_id)
 
     def locations(self, include_inactive: bool = False) -> list[dict]:
-        with self.db.tx() as cur:
-            rows = cur.execute("SELECT * FROM locations " + ("" if include_inactive else "WHERE active = 1 ")
-                               + "ORDER BY id").fetchall()
-        return [dict(r) for r in rows]
+        def load():
+            with self.db.tx() as cur:
+                return cur.execute("SELECT * FROM locations " + ("" if include_inactive else "WHERE active = 1 ")
+                                   + "ORDER BY id").fetchall()
+        return [dict(r) for r in self.db.reads.get(("locations", include_inactive), load)]
 
     def multi_location(self) -> bool:
         with self.db.tx() as cur:

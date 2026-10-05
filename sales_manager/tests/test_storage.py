@@ -91,3 +91,32 @@ def test_a_set_up_database_opens_with_one_query(shop, monkeypatch):
     calls.clear()
     db.Store(target).close()
     assert len(calls) == 1
+
+
+def test_settings_and_locations_are_reused_but_never_stale_after_a_write(shop, monkeypatch):
+    import core.db as db
+
+    calls = []
+    original = db._Cursor.execute
+    monkeypatch.setattr(db._Cursor, "execute", lambda self, sql, params=(): calls.append(sql) or original(self, sql,
+                                                                                                         params))
+    shop.settings(), shop.locations()
+    calls.clear()
+    for _ in range(5):
+        shop.settings(), shop.locations()
+    assert calls == []  # one click reads them several times: no round trips
+
+    shop.save_settings({"business_name": "Nuevo nombre"})
+    assert shop.settings()["business_name"] == "Nuevo nombre"
+    new = shop.add_location("Centro")
+    assert new in [loc["id"] for loc in shop.locations()]
+    with shop.db.tx() as cur:  # any write, even one the app makes by hand
+        cur.execute("UPDATE settings SET value = 'EUR' WHERE key = 'currency'")
+    assert shop.settings()["currency"] == "EUR"
+    shop.settings()["business_name"] = "cambiado fuera"  # callers get a copy
+    assert shop.settings()["business_name"] == "Nuevo nombre"
+
+    monkeypatch.setattr(db, "READ_TTL", 0)  # and after READ_TTL it reads again, for changes by other servers
+    calls.clear()
+    shop.settings()
+    assert len(calls) == 1
