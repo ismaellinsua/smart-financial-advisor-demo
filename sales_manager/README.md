@@ -255,7 +255,7 @@ una app aparece el botón para despertarla, se resuelve pulsándolo.
 | Registro de actividad | Accesos, intentos fallidos, anulaciones, facturas, cierres y reaperturas de caja, cambios de configuración, restauraciones, cambios en el equipo y **cada descarga de datos** (exportaciones, copias y datos de clientes). Se puede filtrar. |
 | Copias de seguridad | No incluyen usuarios ni registro: las credenciales no salen del servidor. Al restaurar solo se aceptan tablas y columnas conocidas (sin inyección SQL por nombres de columna) y se valida el archivo. |
 | Exportaciones | Los CSV neutralizan fórmulas de hoja de cálculo (`=`, `+`, `-`, `@`). Los textos de usuario se escapan en pantallas, tickets y PDF. |
-| Base de datos | Consultas siempre parametrizadas. Conexión a PostgreSQL remoto con TLS obligatorio (`sslmode=require`). Límites de longitud en todos los textos. |
+| Base de datos | Consultas siempre parametrizadas. Conexión a PostgreSQL remoto con TLS obligatorio (`sslmode=require`). Límites de longitud en todos los textos. En PostgreSQL los importes se guardan como decimales exactos (`NUMERIC`), y los cambios de estructura se aplican una sola vez, numerados y registrados en `schema_migrations`. |
 | Servidor | Subidas limitadas a 20 MB, protección XSRF activa y errores sin detalles internos para el usuario. |
 
 **Lo que no depende de la app:** la seguridad de la cuenta de Streamlit y de GitHub (activa la verificación en dos pasos en ambas), la de Neon y la custodia de los *Secrets*. En la versión gratuita de Streamlit sin base de datos externa, un reinicio borra datos **y cuentas**: para un equipo real usa Neon.

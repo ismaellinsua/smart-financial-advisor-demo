@@ -93,10 +93,11 @@ def read_only(url: str, schema: str | None = None):
     import psycopg
     from psycopg.rows import dict_row
 
-    from core.db import _secure_url
+    from core.db import _load_numbers, _secure_url
 
     conn = psycopg.connect(_secure_url(url), row_factory=dict_row, options="-c default_transaction_read_only=on",
                            connect_timeout=30)
+    _load_numbers(conn)  # amounts as the app reads them (NUMERIC → float)
     if schema:
         conn.execute(f'SET search_path TO "{schema}"')  # one business of a shared database
     return conn
