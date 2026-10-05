@@ -10,7 +10,7 @@ import time as _time
 import pandas as pd
 import streamlit as st
 
-from core.tenants import STATUSES, normalize_code
+from core.tenants import CODE_RE, STATUSES, normalize_code
 from ui.auth import client_blocked_minutes, client_failed, client_key, client_succeeded
 from ui.context import _secret, get_directory, multi_tenant
 from ui.styles import page_header
@@ -32,7 +32,8 @@ def gate() -> bool:
     if "operador" in params:
         operator_panel()
         return False
-    code = normalize_code(params.get("negocio", "")) or st.session_state.get("tenant", "")
+    # The installed app opens at «/»: fall back to the business this browser last used.
+    code = normalize_code(params.get("negocio", "")) or st.session_state.get("tenant", "") or _remembered()
     if not code:
         _choose_business()
         return False
@@ -54,7 +55,28 @@ def gate() -> bool:
     st.session_state["tenant"] = code
     if params.get("negocio") != code:
         st.query_params["negocio"] = code  # keep it in the address, so reloads and bookmarks land here
+    if _remembered() != code:
+        _remember(code)
     return True
+
+
+REMEMBER_COOKIE = "nk_negocio"
+
+
+def _remembered() -> str:
+    try:
+        value = st.context.cookies.get(REMEMBER_COOKIE)
+    except Exception:  # no request context (tests, bare mode)
+        return ""
+    return normalize_code(value) if isinstance(value, str) and CODE_RE.fullmatch(normalize_code(value)) else ""
+
+
+def _remember(code: str) -> None:
+    """Only the business code (it is in the address anyway), for a year."""
+    st.html(f"""<script>
+document.cookie = "{REMEMBER_COOKIE}={code}; Path=/; Max-Age=31536000; SameSite=Lax"
+  + (location.protocol === "https:" ? "; Secure" : "");
+</script>""", unsafe_allow_javascript=True)
 
 
 def _choose_business(error: str = "") -> None:

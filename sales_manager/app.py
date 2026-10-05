@@ -15,10 +15,12 @@ from core.security import ROLES
 from ui import booking, pages, pages_intel, pages_management, pages_promos, pages_tables, tenancy
 from ui.auth import logout_button, require_user
 from ui.context import PAGES, ctx
-from ui.styles import inject_css, sidebar_brand, sidebar_copyright, topbar
+from ui.styles import inject_css, installable, sidebar_brand, sidebar_copyright, topbar
 from core import clock
 
 st.set_page_config(page_title="Gestor de Ventas", page_icon=":material/storefront:", layout="wide")
+
+installable()
 
 # Several businesses in one app: decide which one this visit is for (or show the operator panel).
 if not tenancy.gate():
@@ -103,6 +105,14 @@ else:
     sections["Ayuda"] = [P["help"]]
 
 sidebar_brand(c.settings["business_name"], PRESETS[c.settings["business_type"]]["label"])
+if c.multi_location:
+    # Where this session sells, counts cash and moves stock. People pinned to a location can't change it.
+    ids = [loc["id"] for loc in c.locations]
+    if c.fixed_location or st.session_state.get("location") not in ids:
+        st.session_state["location"] = c.fixed_location or ids[0]
+    st.sidebar.selectbox("Local", ids, format_func={loc["id"]: loc["name"] for loc in c.locations}.get,
+                         key="location", disabled=bool(c.fixed_location),
+                         help="Las ventas, la caja, las mesas y el stock de esta sesión son de este local.")
 if c.can("admin") and c.store.can_replace_data() and st.sidebar.button(
         "Cambiar de negocio", icon=":material/swap_horiz:", width="stretch"):
     pages.switch_business_dialog()
@@ -125,7 +135,8 @@ logout_button(c.store, user)
 sidebar_copyright()
 
 now = clock.now()
-today = c.store.sales(start=now.replace(hour=0, minute=0, second=0, microsecond=0), include_cancelled=False)
+today = c.store.sales(start=now.replace(hour=0, minute=0, second=0, microsecond=0), include_cancelled=False,
+                      location_id=c.location_id if c.multi_location else None)
 if not c.can("encargado"):
     today = today[today["user_name"] == c.who]  # staff see their own figures
 next_up = ""
@@ -137,7 +148,7 @@ if show_agenda:
         when = (f"{first['starts_at']:%H:%M}" if first["starts_at"].date() == now.date()
                 else f"{first['starts_at']:%d/%m %H:%M}")
         next_up = f"Próxima: {when} · {first['who']}"
-topbar(c.settings["business_name"], c.money_short(today["total"].sum()), len(today), next_up,
+topbar(c.settings["business_name"] + (f" · {c.location_name}" if c.multi_location else ""), c.money_short(today["total"].sum()), len(today), next_up,
        person=f"{c.who} · {ROLES[c.role]}", own=not c.can("encargado"),
        alerts=pages_intel.alert_counts(c) if c.can("encargado") else None)
 if c.settings.get("demo_mode") == "si":

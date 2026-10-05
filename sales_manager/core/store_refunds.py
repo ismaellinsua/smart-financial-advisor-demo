@@ -134,8 +134,8 @@ class RefundsMixin:
                  item["tax_rate"] if item["tax_rate"] is not None else sale["tax_rate"],
                  None if vat is None else float(vat)),
             )
-            cur.execute("UPDATE products SET stock = stock + ? WHERE id = ? AND track_stock = 1",
-                        (qty, item["product_id"]))
+            if cur.execute("SELECT track_stock FROM products WHERE id = ?", (item["product_id"],)).fetchone()["track_stock"]:
+                self._move_stock(cur, item["product_id"], qty, sale.get("location_id"))  # back where it was sold
 
         if sale["customer_id"] is not None and sale["points_earned"] and float(sale["total"]):
             give_back = int(round(sale["points_earned"] * float(total) / float(sale["total"])))
@@ -215,11 +215,15 @@ class RefundsMixin:
             invoice = cur.execute("SELECT * FROM invoices WHERE id = ?", (refund["credit_note"]["invoice_id"],)).fetchone()
         return {**refund["credit_note"], "refund": refund, "invoice": invoice}
 
-    def refunds_by_method(self, day: date) -> dict[str, float]:
+    def refunds_by_method(self, day: date, location_id: int | None = None) -> dict[str, float]:
+        """Money handed back on a day, per method; with `location_id`, only refunds of that location's sales."""
         start = datetime.combine(day, time.min)
+        where = " AND s.location_id = ?" if location_id is not None else ""
         with self.db.tx() as cur:
             rows = cur.execute(
-                "SELECT method, SUM(total) AS t FROM refunds WHERE created_at >= ? AND created_at < ? GROUP BY method",
-                (start.isoformat(timespec="seconds"), (start + timedelta(days=1)).isoformat(timespec="seconds")),
+                "SELECT r.method, SUM(r.total) AS t FROM refunds r JOIN sales s ON s.id = r.sale_id "
+                "WHERE r.created_at >= ? AND r.created_at < ?" + where + " GROUP BY r.method",
+                (start.isoformat(timespec="seconds"), (start + timedelta(days=1)).isoformat(timespec="seconds"),
+                 *(() if location_id is None else (int(location_id),))),
             ).fetchall()
         return {r["method"]: round(float(r["t"]), 2) for r in rows}

@@ -243,6 +243,15 @@ def dashboard() -> None:
     m4.metric("Margen bruto", _pct(k["margin_pct"]), help="Sobre ventas netas, sin impuestos.")
 
     cur_sales = sales[(sales["status"] == "completada") & (sales["created_at"] >= start)]
+    if c.multi_location:
+        places = {loc["id"]: loc["name"] for loc in c.store.locations(include_inactive=True)}
+        per = (cur_sales.assign(place=cur_sales["location_id"].map(places).fillna("—"))
+               .groupby("place")["total"].agg(["sum", "count"]).reset_index().sort_values("sum", ascending=False))
+        per["ticket"] = per["sum"] / per["count"]
+        st.markdown("**Por local**")
+        st.dataframe(per, hide_index=True, width="stretch", column_config={
+            "place": "Local", "sum": st.column_config.NumberColumn("Facturación", format=f"%.2f {c.symbol}"),
+            "count": "Ventas", "ticket": st.column_config.NumberColumn("Ticket medio", format=f"%.2f {c.symbol}")})
     cur_lines = lines[lines["created_at"] >= start]
     accent = c.settings["accent_color"]
 
@@ -364,7 +373,7 @@ def _create_customer_from_pos() -> None:
 
 def _ticket_actions(c, sale: dict, preview_height: int = 420) -> None:
     """Print the ticket from the browser (A4 or thermal roll, as set in Configuración) or send it to the customer."""
-    components.html(with_print_button(receipt_html(sale, c.settings)), height=preview_height, scrolling=True)
+    components.html(with_print_button(receipt_html(sale, c.ticket_settings(sale.get("location_id")))), height=preview_height, scrolling=True)
     text = receipt_text(sale, c.settings)
     a, b, d = st.columns(3)
     number = whatsapp_number(sale.get("customer_phone") or "")
@@ -374,7 +383,7 @@ def _ticket_actions(c, sale: dict, preview_height: int = 420) -> None:
     subject = f"Ticket {sale['number']} · {c.settings.get('business_name', '')}"
     b.link_button("Email", f"mailto:{quote(email)}?subject={quote(subject)}&body={quote(text)}",
                   icon=":material/mail:", width="stretch", help="Abre tu correo con el ticket escrito.")
-    d.download_button("Archivo", receipt_html(sale, c.settings), file_name=f"{sale['number']}.html",
+    d.download_button("Archivo", receipt_html(sale, c.ticket_settings(sale.get("location_id"))), file_name=f"{sale['number']}.html",
                       mime="text/html", icon=":material/download:", width="stretch",
                       help="Descarga el ticket para guardarlo o imprimirlo más tarde.")
 
@@ -399,7 +408,7 @@ def point_of_sale() -> None:
         kind, msg = st.session_state.pop("pos_flash")
         getattr(st, kind)(msg)
 
-    products = c.store.products()
+    products = c.products_here()
     cart = _cart()
     # Drop items that were deactivated since they were added.
     for pid in [p for p in cart if p not in set(products["id"])]:
@@ -599,7 +608,14 @@ def _history_sales(c) -> None:
         return
     start = datetime.combine(rng[0], time.min)
     end = datetime.combine(rng[1] + timedelta(days=1), time.min)
-    df = c.store.sales(start, end)
+    places = {loc["id"]: loc["name"] for loc in c.store.locations(include_inactive=True)}
+    where = None
+    if c.multi_location and not staff:
+        options = [0, *places]
+        where = st.selectbox("Local", options, index=options.index(c.location_id) if c.location_id in options else 0,
+                             format_func=lambda i: places.get(i, "Todos los locales"), key="history_location") or None
+    df = c.store.sales(start, end, location_id=where)
+    df["place"] = df["location_id"].map(places).fillna("")
     if staff:
         df = df[df["user_name"] == c.who]
         st.caption(f"Ves tus propias ventas de los últimos {STAFF_HISTORY_DAYS} días.")
@@ -618,12 +634,14 @@ def _history_sales(c) -> None:
     m2.metric("Total facturado", c.money_short(done["total"].sum()))
     m3.metric("Impuestos repercutidos", c.money_short(done["tax"].sum()))
 
-    view = df[["id", "number", "created_at", "customer_name", "payment_method", "total", "status", "user_name"]]
+    view = df[["id", "number", "created_at", "customer_name", "payment_method", "total", "status", "user_name",
+               "place"]]
     event = st.dataframe(
         view, hide_index=True, width="stretch", on_select="rerun", selection_mode="single-row",
-        column_order=["number", "created_at", "customer_name", "payment_method", "total", "user_name", "status"],
+        column_order=["number", "created_at", *(["place"] if c.multi_location else []), "customer_name",
+                      "payment_method", "total", "user_name", "status"],
         column_config={
-            "number": "Ticket",
+            "number": "Ticket", "place": "Local",
             "created_at": st.column_config.DatetimeColumn("Fecha", format="DD/MM/YYYY HH:mm"),
             "customer_name": "Cliente",
             "payment_method": "Pago",
@@ -633,7 +651,7 @@ def _history_sales(c) -> None:
         },
     )
     if c.can("encargado"):
-        logged_download(st, "Exportar a CSV", _csv(df.drop(columns=["id"])), "ventas.csv", "text/csv",
+        logged_download(st, "Exportar a CSV", _csv(df.drop(columns=["id", "place"])), "ventas.csv", "text/csv",
                            icon=":material/download:")
 
     rows = event.selection.rows
@@ -659,7 +677,7 @@ def _history_sales(c) -> None:
         with st.expander("Imprimir o enviar el ticket", icon=":material/print:"):
             _ticket_actions(c, sale)
         a, b, d = st.columns(3)
-        a.download_button("Descargar ticket", receipt_html(sale, c.settings), f"{sale['number']}.html",
+        a.download_button("Descargar ticket", receipt_html(sale, c.ticket_settings(sale.get("location_id"))), f"{sale['number']}.html",
                           "text/html", icon=":material/receipt_long:", width="stretch")
         if invoice:
             full = c.store.invoice(invoice["id"])
@@ -802,7 +820,7 @@ def _offline_till_panel(c) -> None:
         a, b = st.columns([1, 2], vertical_alignment="bottom")
         device = a.selectbox("Número de caja", list(DEVICES),
                              help="Uno distinto por dispositivo: cada caja numera sus tickets en su propia serie.")
-        logged_download(b, "Descargar archivo de catálogo", c.store.offline_package(device),
+        logged_download(b, "Descargar archivo de catálogo", c.store.offline_package(device, c.location_id),
                         f"catalogo-caja{device}.json", mime="application/json", icon=":material/download:")
         st.link_button("Abrir la caja sin conexión", OFFLINE_TILL_URL, icon=":material/open_in_new:")
         st.caption("1) Abre la caja en el dispositivo e **instálala** (menú del navegador → Instalar o Añadir a pantalla "
@@ -829,14 +847,14 @@ def cash_page() -> None:
     c = ctx()
     if not _require(c, "encargado"):
         return
-    page_header("Cierre de caja", "Cuadra el efectivo al final del día y guarda el informe firmado.",
-                eyebrow="Caja")
+    page_header("Cierre de caja" + (f" · {c.location_name}" if c.multi_location else ""),
+                "Cuadra el efectivo al final del día y guarda el informe firmado.", eyebrow="Caja")
     if "cash_flash" in st.session_state:
         st.success(st.session_state.pop("cash_flash"))
     _offline_till_panel(c)
     day = st.date_input("Día", clock.today(), max_value=clock.today(), format="DD/MM/YYYY", key="cash_day")
-    summary = c.store.day_summary(day)
-    closing = c.store.cash_closing(day)
+    summary = c.store.day_summary(day, c.location_id)
+    closing = c.store.cash_closing(day, c.location_id)
 
     m1, m2, m3 = st.columns(3)
     m1.metric("Vendido", c.money_short(summary["total"]))
@@ -870,7 +888,7 @@ def cash_page() -> None:
             _open_cash_panel(c, day, summary)
 
     st.markdown("#### Cierres anteriores")
-    history = c.store.cash_closings()
+    history = c.store.cash_closings(c.location_id if c.multi_location else None)
     if history.empty:
         st.caption("Todavía no has cerrado ninguna caja.")
     else:
@@ -911,7 +929,7 @@ def _open_cash_panel(c, day: date, summary: dict) -> None:
     if st.button("Cerrar caja", type="primary", width="stretch", disabled=counted is None,
                  icon=":material/lock:"):
         try:
-            closing = c.store.close_cash(day, opening, counted, notes, closed_by=c.who)
+            closing = c.store.close_cash(day, opening, counted, notes, closed_by=c.who, location_id=c.location_id)
             c.store.audit(c.username, "caja_cerrada", f"{day:%d/%m/%Y} · diferencia {closing['difference']:+.2f}")
         except ValueError as exc:
             st.error(str(exc))
@@ -928,11 +946,11 @@ def _closed_cash_panel(c, day: date, closing: dict, summary: dict) -> None:
     if summary["count"] != closing["sales_count"] or abs(summary["total"] - closing["total_sales"]) >= 0.005:
         st.warning("Ha habido ventas o anulaciones después del cierre. Reabre la caja y ciérrala de nuevo "
                    "para incluirlas.", icon=":material/warning:")
-    st.download_button("Descargar informe (PDF)", cash_closing_pdf(closing, c.settings),
+    st.download_button("Descargar informe (PDF)", cash_closing_pdf(closing, c.ticket_settings(closing.get("location_id"))),
                        f"cierre-{day:%Y-%m-%d}.pdf", "application/pdf", type="primary",
                        width="stretch", icon=":material/picture_as_pdf:")
     if st.button("Reabrir caja", width="stretch", icon=":material/lock_open:"):
-        c.store.reopen_cash(day)
+        c.store.reopen_cash(day, c.location_id)
         c.store.audit(c.username, "caja_reabierta", f"{day:%d/%m/%Y}")
         st.rerun()
 
@@ -1036,7 +1054,7 @@ def _appointment_card(c, a) -> None:
                                               key=f"appt_pay_{aid}") or PAYMENT_METHODS[0]
                 if st.button("Cobrar ahora", type="primary", key=f"appt_charge_{aid}", width="stretch"):
                     try:
-                        sale = c.store.charge_appointment(aid, method, user_name=c.who)
+                        sale = c.store.charge_appointment(aid, method, user_name=c.who, location_id=c.location_id)
                     except SaleError as exc:
                         st.error(str(exc))
                     else:
@@ -1177,13 +1195,16 @@ def team_page() -> None:
                   "**Encargado:** panel, caja, catálogo, clientes, facturas y anulaciones. "
                   "**Empleado:** vender, agenda y consultar tickets.")
     st.caption(roles_help)
+    places = {loc["id"]: loc["name"] for loc in c.locations}
     st.dataframe(
         users.assign(role=users["role"].map(ROLES), active=users["active"].astype(bool),
                      two_factor=users["two_factor"].astype(bool),
-                     last_login=pd.to_datetime(users["last_login"].replace("", None))),
+                     last_login=pd.to_datetime(users["last_login"].replace("", None)),
+                     place=users["location_id"].map(places).fillna("Cualquiera")),
         hide_index=True, width="stretch",
-        column_order=["name", "username", "role", "active", "two_factor", "last_login"],
-        column_config={"name": "Nombre", "username": "Usuario", "role": "Rol",
+        column_order=["name", "username", "role", *(["place"] if c.multi_location else []), "active", "two_factor",
+                      "last_login"],
+        column_config={"name": "Nombre", "username": "Usuario", "role": "Rol", "place": "Local",
                        "active": st.column_config.CheckboxColumn("Activo"),
                        "two_factor": st.column_config.CheckboxColumn("Dos pasos"),
                        "last_login": st.column_config.DatetimeColumn("Último acceso", format="DD/MM/YYYY HH:mm")},
@@ -1308,11 +1329,20 @@ def _manage_user(c, target, uid: int) -> None:
     new_role = st.selectbox("Rol", list(ROLES), index=list(ROLES).index(target["role"]), format_func=ROLES.get,
                             key=f"team_role_{uid}")
     active = st.toggle("Puede entrar", value=bool(target["active"]), key=f"team_active_{uid}")
+    location = target.get("location_id")
+    if c.multi_location:
+        places = {0: "Cualquier local", **{loc["id"]: loc["name"] for loc in c.locations}}
+        current = int(location) if pd.notna(location) and int(location) in places else 0
+        location = st.selectbox("Local", list(places), index=list(places).index(current), format_func=places.get,
+                                key=f"team_location_{uid}",
+                                help="Fijado a un local, solo vende, cobra y ve la caja de ese local.") or None
     new_secret = st.text_input("Nuevo PIN o contraseña (opcional)", type="password", max_chars=128,
                                key=f"team_secret_{uid}")
     if st.button("Guardar cambios", type="primary", key=f"team_save_{uid}", icon=":material/save:"):
         try:
             c.store.update_user(uid, role=new_role, active=active, by=c.username)
+            if c.multi_location:
+                c.store.set_user_location(uid, location)
             if new_secret:
                 c.store.set_user_secret(uid, new_secret, by=c.username)
         except ValueError as exc:
@@ -1336,6 +1366,35 @@ def _same(a, b) -> bool:
     return (pd.isna(a) and pd.isna(b)) if (pd.isna(a) or pd.isna(b)) else a == b
 
 
+def _stock_by_location(c) -> None:
+    with st.expander("Stock por local y traspasos", icon=":material/swap_horiz:"):
+        table = c.store.stock_by_location()
+        names = [loc["name"] for loc in c.store.locations(include_inactive=True)]
+        st.dataframe(table, hide_index=True, width="stretch", column_order=["sku", "name", *names, "Total"],
+                     column_config={"sku": "Código", "name": "Artículo"})
+        products = dict(zip(table["id"].astype(int), table["name"]))
+        places = {loc["id"]: loc["name"] for loc in c.locations}
+        with st.form("transfer_stock", clear_on_submit=True):
+            st.markdown("**Traspasar stock**")
+            product = st.selectbox("Artículo", list(products), format_func=products.get)
+            a, b, d = st.columns(3)
+            origin = a.selectbox("Desde", list(places), format_func=places.get)
+            target = b.selectbox("Hasta", list(places), index=min(1, len(places) - 1), format_func=places.get)
+            quantity = d.number_input("Unidades", min_value=1, value=1, step=1)
+            if st.form_submit_button("Traspasar", type="primary", icon=":material/swap_horiz:"):
+                try:
+                    c.store.transfer_stock(product, quantity, origin, target, c.who)
+                except ValueError as exc:
+                    st.error(str(exc))
+                else:
+                    c.store.audit(c.username, "traspaso_stock",
+                                  f"{quantity} × {products[product]}: {places[origin]} → {places[target]}")
+                    st.session_state["products_flash"] = (f"Traspasadas {quantity} unidades de «{products[product]}» "
+                                                          f"de {places[origin]} a {places[target]}.")
+                    _bump("products_editor")
+                    st.rerun()
+
+
 def products_page() -> None:
     c = ctx()
     if not _require(c, "encargado"):
@@ -1347,6 +1406,9 @@ def products_page() -> None:
         st.success(st.session_state.pop("products_flash"))
 
     df = c.store.products(include_inactive=True)
+    if c.multi_location:  # the table shows (and adjusts) the stock at the location chosen in the menu
+        here = c.store.stock_at(c.location_id)
+        df["stock"] = df["id"].map(here).fillna(0).astype(int)
     vat_labels = {None: f"Por defecto ({c.tax_rate:g} %)", **{r: f"{r:g} %" for r in (21.0, 10.0, 5.0, 4.0, 0.0)}}
     vat_rates = {label: rate for rate, label in vat_labels.items()}
     categories = sorted(set(c.preset["categories"]) | set(df["category"]))
@@ -1376,7 +1438,8 @@ def products_page() -> None:
                 "cost": st.column_config.NumberColumn("Coste (sin IVA)", min_value=0, format=f"%.2f {c.symbol}"),
                 "margin": st.column_config.NumberColumn("Margen", format="%.1f %%",
                                                         help="Sobre el precio sin IVA, que es lo que te queda."),
-                "stock": st.column_config.NumberColumn("Stock", step=1),
+                "stock": st.column_config.NumberColumn(f"Stock en {c.location_name}" if c.multi_location else "Stock",
+                                                       step=1),
                 "min_stock": st.column_config.NumberColumn("Mínimo", min_value=0, step=1),
                 "state": "Estado",
                 "track_stock": st.column_config.CheckboxColumn("Controlar stock"),
@@ -1400,7 +1463,7 @@ def products_page() -> None:
                         c.store.audit(c.username, "producto_modificado", f"{after['sku']} · " + ", ".join(
                             f"{k}: {before[k]} → {after[k]}" for k in changes))
                     if delta:
-                        c.store.adjust_stock(pid, delta, "Ajuste en el catálogo", user_name=c.who)
+                        c.store.adjust_stock(pid, delta, "Ajuste en el catálogo", user_name=c.who, location_id=c.location_id)
                     changed += bool(changes or delta)
             except (ValueError, TypeError) as exc:
                 st.error(str(exc))
@@ -1409,6 +1472,8 @@ def products_page() -> None:
                 _bump("products_editor")
                 st.rerun()
 
+        if c.multi_location:
+            _stock_by_location(c)
         with st.expander("Ajustes de stock", icon=":material/history:"):
             moves = c.store.stock_moves()
             if moves.empty:
@@ -1710,6 +1775,53 @@ def _billing_register_section(c, s: dict) -> None:
                           "text/csv", width="stretch", icon=":material/download:", disabled=records.empty)
 
 
+def _locations_settings(c) -> None:
+    """Shops or premises of the business. With one place there's nothing to set up; the second one adds a
+    location picker to the menu and splits sales, cash, tables and stock by location."""
+    st.markdown("##### Locales")
+    every = c.store.locations(include_inactive=True)
+    with st.container(border=True):
+        if not every:
+            st.caption("Tu negocio tiene un solo local. Si abres otro, añádelo aquí: el actual pasará a llamarse "
+                       "«Principal» y conservará todo su stock, ventas y cierres.")
+        else:
+            st.caption("Cada local vende de su propio stock, cierra su caja y tiene sus mesas. Las personas fijadas "
+                       "a un local (en Equipo y seguridad) solo trabajan en él.")
+            main = every[0]["id"]
+            for loc in every:
+                with st.expander(f"{loc['name']}{'' if loc['active'] else ' · cerrado'}", icon=":material/storefront:"):
+                    with st.form(f"location_{loc['id']}"):
+                        name = st.text_input("Nombre", loc["name"], max_chars=60)
+                        address = st.text_input("Dirección (sale en sus tickets)", loc["address"], max_chars=250)
+                        phone = st.text_input("Teléfono", loc["phone"], max_chars=60)
+                        active = st.checkbox("Abierto", bool(loc["active"]), disabled=loc["id"] == main)
+                        if st.form_submit_button("Guardar"):
+                            try:
+                                c.store.update_location(loc["id"], name, address, phone, active)
+                            except ValueError as exc:
+                                st.error(str(exc))
+                            else:
+                                c.store.audit(c.username, "local_guardado", name)
+                                st.session_state["settings_flash"] = f"Local «{name}» guardado."
+                                st.rerun()
+        with st.form("new_location", clear_on_submit=True):
+            st.markdown("**Añadir un local**")
+            a, b = st.columns(2)
+            name = a.text_input("Nombre del local", max_chars=60, placeholder="Ej.: Centro, Playa, Calle Mayor")
+            phone = b.text_input("Teléfono del local", max_chars=60)
+            address = st.text_input("Dirección del local", max_chars=250)
+            if st.form_submit_button("Añadir local", icon=":material/add_business:"):
+                try:
+                    c.store.add_location(name, address, phone)
+                except ValueError as exc:
+                    st.error(str(exc))
+                else:
+                    c.store.audit(c.username, "local_creado", name)
+                    st.session_state["settings_flash"] = (f"Local «{name}» creado. Elige en el menú en qué local "
+                                                          "trabajas y pásale stock desde el catálogo.")
+                    st.rerun()
+
+
 def settings_page() -> None:
     c = ctx()
     if not _require(c, "admin"):
@@ -1802,6 +1914,8 @@ def settings_page() -> None:
                 if values.get("tax_id", "").strip() and (problem := tax_id_problem(values["tax_id"])):
                     st.session_state["settings_warning"] = f"{problem} Revísalo: saldrá en todas tus facturas."
                 st.rerun()
+
+    _locations_settings(c)
 
     replaceable = c.store.can_replace_data()
     st.markdown("##### Tipo de negocio y plantillas")
@@ -1915,6 +2029,19 @@ HELP = [
     ("encargado", "Cerrar la caja", [
         "Al final del día abre **Caja**, cuenta el efectivo y escribe lo contado: verás si hay descuadre.",
         "Descarga el cierre en PDF si lo necesitas para tu gestoría.",
+    ]),
+    ("admin", "Varios locales", [
+        "En **Configuración → Locales** añade tu segundo local: el actual pasa a llamarse «Principal» y conserva "
+        "todo su stock, ventas y cierres.",
+        "Elige en el menú lateral en qué local trabajas: ventas, caja, mesas y ajustes de stock son de ese local. "
+        "En **Equipo y seguridad** puedes fijar a cada persona en su local.",
+        "Pasa mercancía entre locales en **Catálogo → Stock por local y traspasos**. El Panel muestra la "
+        "facturación por local, y el Historial se filtra por local.",
+    ]),
+    ("empleado", "Instalar la app en el móvil o el ordenador", [
+        "Android o Chrome: menú del navegador → **Instalar aplicación** (o «Añadir a pantalla de inicio»).",
+        "iPhone o iPad (Safari): botón Compartir → **Añadir a pantalla de inicio**.",
+        "Se abre con su icono y en su propia ventana, sin la barra del navegador.",
     ]),
     ("encargado", "Si se cae internet", [
         "Prepáralo antes: en **Caja → Caja sin conexión** descarga el archivo de catálogo, abre la caja sin conexión "

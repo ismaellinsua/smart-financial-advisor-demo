@@ -69,6 +69,31 @@ def test_page_renders(demo_db, fn):
     assert not at.exception, at.exception
 
 
+@pytest.fixture(scope="module")
+def two_locations_db(module_targets):
+    """The demo restaurant with a second location that has some stock, tables and a sale of its own."""
+    target = module_targets.new()
+    store = Store(target)
+    store.load_preset("restaurant")
+    playa = store.add_location("Playa", "Paseo Marítimo 3", "910 000 001")
+    main = store.locations()[0]["id"]
+    product = store.products()
+    product = product[product["track_stock"] == 1].iloc[0]
+    store.transfer_stock(int(product["id"]), 3, main, playa, "Ana")
+    store.save_table("Terraza P1", "Terraza", 4, location_id=playa)
+    store.create_sale([{"product_id": int(product["id"]), "quantity": 1}], location_id=playa)
+    store.close()
+    return target
+
+
+@pytest.mark.parametrize("fn", PAGES)
+def test_page_renders_with_two_locations(two_locations_db, fn):
+    script = SCRIPT.format(root=ROOT, db=two_locations_db, fn=fn, role="admin").replace(
+        "ui.pages.{fn}()".format(fn=fn), f"st.session_state['location'] = store.locations()[1]['id']\nui.pages.{fn}()")
+    at = AppTest.from_string(script, default_timeout=30).run()
+    assert not at.exception, at.exception
+
+
 def test_point_of_sale_checkout(demo_db):
     at = AppTest.from_string(SCRIPT.format(root=ROOT, db=demo_db, fn="point_of_sale", role="empleado"), default_timeout=30).run()
     check = Store(demo_db)

@@ -18,4 +18,6 @@ gatherUsageStats = false
 # Backups are small; refuse large uploads.
 maxUploadSize = 20
 enableXsrfProtection = true
+# Serves sales_manager/static at /app/static: the manifest and icons that make the app installable.
+enableStaticServing = true
 enableCORS = true

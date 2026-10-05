@@ -437,7 +437,7 @@ def require_user(store: Store, settings: dict) -> dict | None:
         else:
             _write_cookie()
             st.session_state[SESSION_SEEN] = _time.time()
-            user = {k: fresh[k] for k in ("id", "username", "name", "role")}
+            user = {k: fresh[k] for k in ("id", "username", "name", "role", "location_id")}
             st.session_state[SESSION_USER] = user
             if st.session_state.get(NEW_CODES):
                 _show_new_codes()

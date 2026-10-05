@@ -56,7 +56,7 @@ def tables_page() -> None:
 
     page_header("Mesas", "Toca una mesa para abrirla o ver su comanda. Varios camareros pueden pedir en la misma "
                 "mesa a la vez.", eyebrow="Sala")
-    floor = c.store.dining_tables()
+    floor = c.store.dining_tables(location_id=c.location_id)
     busy = floor[floor["order_id"].notna()]
     m1, m2, m3 = st.columns(3)
     m1.metric("Mesas ocupadas", f"{len(busy)} de {len(floor)}")
@@ -110,11 +110,11 @@ def tables_page() -> None:
                 seats = z.number_input("Plazas", 1, 50, 4)
                 if st.form_submit_button("Añadir mesa", type="primary"):
                     try:
-                        c.store.save_table(name, zone, seats)
+                        c.store.save_table(name, zone, seats, location_id=c.location_id)
                         st.rerun()
                     except ValueError as exc:
                         st.error(str(exc))
-            for _, t in c.store.dining_tables(include_inactive=True).iterrows():
+            for _, t in c.store.dining_tables(include_inactive=True, location_id=c.location_id).iterrows():
                 if st.toggle(f"{t['name']} ({t['zone']})", value=bool(t["active"]), key=f"tbl_on_{t['id']}") \
                         != bool(t["active"]):
                     try:
@@ -155,7 +155,7 @@ def _order_view(c, order: dict) -> None:
 
     menu, ticket = st.columns([3, 2], gap="large")
     with menu:
-        products = c.store.products()
+        products = c.products_here()
         cats = sorted(products["category"].unique())
         chosen = st.pills("Categoría", cats, key=f"order_cat_{oid}", label_visibility="collapsed")
         if chosen:
@@ -198,7 +198,7 @@ def _order_view(c, order: dict) -> None:
             st.session_state["charging"] = None if charging else oid
             st.rerun()
         with b.popover("Más", width="stretch"):
-            free = c.store.dining_tables()
+            free = c.store.dining_tables(location_id=c.location_id)
             free = free[free["order_id"].isna()]
             options = dict(zip(free["id"].astype(int), free["name"]))
             target = st.selectbox("Mover a", list(options), format_func=options.get, key=f"move_{oid}")
@@ -248,12 +248,12 @@ def kitchen_page() -> None:
     categories = sorted(c.store.products()["category"].unique())
     default = [cat for cat in categories if cat.lower() != "bebidas"] or categories
     shown = st.multiselect("Qué ve esta pantalla", categories, default=default, key="kitchen_cats")
-    _kitchen_board(shown)
+    _kitchen_board(shown, c.location_id)
 
 
 @st.fragment(run_every="10s")
-def _kitchen_board(categories: list[str]) -> None:
-    queue = get_store().kitchen_queue(categories or None)
+def _kitchen_board(categories: list[str], location_id: int | None = None) -> None:
+    queue = get_store().kitchen_queue(categories or None, location_id)
     if queue.empty:
         st.success("No hay nada pendiente. ¡Cocina al día!", icon=":material/check_circle:")
         return

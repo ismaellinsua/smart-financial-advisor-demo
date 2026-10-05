@@ -1,5 +1,5 @@
 // Keeps the offline till working with no connection: every file it needs is served from the device's cache.
-const CACHE = "nk-caja-v1";
+const CACHE = "nk-caja-v2";
 const FILES = ["./", "index.html", "caja.css", "caja.js", "manifest.webmanifest", "icono.svg"];
 
 self.addEventListener("install", (event) => {

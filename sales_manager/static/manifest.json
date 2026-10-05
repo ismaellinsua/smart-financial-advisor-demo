@@ -1,0 +1,17 @@
+{
+  "name": "NirKanA · Gestor de ventas",
+  "short_name": "NirKanA",
+  "description": "Cobra, controla tu stock, tu caja y tu equipo.",
+  "lang": "es",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#F6F7FB",
+  "theme_color": "#3B5BFD",
+  "icons": [
+    {"src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+    {"src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+    {"src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ]
+}

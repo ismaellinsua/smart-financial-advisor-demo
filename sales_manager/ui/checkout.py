@@ -136,7 +136,7 @@ def checkout_panel(c, cart: list[dict], prefix: str, *, customer_widget=None, bu
         try:
             sale = (charge_fn or c.store.create_sale)(
                 cart, customer_id=customer_id, discount_pct=discount, user_name=c.who, payments=payments,
-                redeem_points=redeem, max_discount=limit, discount_approved_by=approver)
+                redeem_points=redeem, max_discount=limit, discount_approved_by=approver, location_id=c.location_id)
             st.session_state.pop(f"{prefix}_approval", None)
             return sale
         except SaleError as exc:

@@ -37,7 +37,7 @@ class OfflineMixin:
             self._save_settings(cur, {"offline_key": key})
         return key
 
-    def offline_package(self, device: int) -> bytes:
+    def offline_package(self, device: int, location_id: int | None = None) -> bytes:
         """The file the offline till loads: business data for the ticket, active catalogue and the device's series."""
         device = int(device)
         if device not in DEVICES:
@@ -45,6 +45,9 @@ class OfflineMixin:
         with self.db.tx() as cur:
             settings = self._settings(cur)
             key = self._offline_key(cur)
+            location_id = self._location_or_main(cur, location_id)
+            location = cur.execute("SELECT name, address, phone FROM locations WHERE id = ?",
+                                   (location_id,)).fetchone() if location_id else None
             products = cur.execute(
                 "SELECT id, name, category, price, tax_rate FROM products WHERE active = 1 ORDER BY category, name"
             ).fetchall()
@@ -57,10 +60,13 @@ class OfflineMixin:
         next_number = max((int(n) for n in used if n.isdigit()), default=0) + 1
         package = {
             "kind": "nirkana-caja", "version": PACKAGE_VERSION, "key": key, "device": device,
+            "location_id": location_id, "location": location["name"] if location else "",
             "series": series, "next_number": next_number,
             "generated_at": clock.now().isoformat(timespec="seconds"),
-            "business": {k: settings.get(k, "") for k in ("business_name", "tax_id", "address", "phone",
-                                                          "receipt_footer", "currency")},
+            "business": {**{k: settings.get(k, "") for k in ("business_name", "tax_id", "address", "phone",
+                                                             "receipt_footer", "currency")},
+                         **({"address": location["address"] or settings.get("address", ""),
+                             "phone": location["phone"] or settings.get("phone", "")} if location else {})},
             "payment_methods": [m for m in PAYMENT_METHODS if m != "Transferencia"],
             "products": [{"id": p["id"], "name": p["name"], "category": p["category"], "price": float(p["price"]),
                           "vat": float(p["tax_rate"] if p["tax_rate"] is not None else default_rate)}
@@ -86,7 +92,8 @@ class OfflineMixin:
                 raise OfflineImportError("Este archivo es de la caja de otro negocio (o de otra base de datos).")
         for sale in sales:
             try:
-                outcome = self._import_offline_sale(sale, payload.get("device"), user_name, now)
+                outcome = self._import_offline_sale(sale, payload.get("device"), user_name, now,
+                                                    payload.get("location_id"))
             except ValueError as exc:
                 result["rejected"] += 1
                 number = sale.get("number") if isinstance(sale, dict) else None
@@ -104,7 +111,7 @@ class OfflineMixin:
                             f"{result['imported']} ventas importadas de la caja {payload.get('device')}")
         return result
 
-    def _import_offline_sale(self, sale, device, user_name: str, now: datetime) -> dict | None:
+    def _import_offline_sale(self, sale, device, user_name: str, now: datetime, location_id=None) -> dict | None:
         if not isinstance(sale, dict):
             raise ValueError("formato no válido.")
         offline_id = str(sale.get("id") or "")
@@ -127,6 +134,7 @@ class OfflineMixin:
             raise ValueError("no tiene líneas.")
         notes = []
         with self.db.tx() as cur:
+            location_id = self._location_or_main(cur, location_id) if location_id else self._main_location(cur)
             if cur.execute("SELECT 1 FROM sales WHERE offline_id = ?", (offline_id,)).fetchone():
                 return None  # already imported (the same file, or an older export, sent twice)
             if cur.execute("SELECT 1 FROM sales WHERE number = ?", (number,)).fetchone():
@@ -152,10 +160,12 @@ class OfflineMixin:
                                  "las líneas).")
             row = cur.execute(
                 "INSERT INTO sales(number, created_at, payment_method, discount_pct, tax_rate, subtotal, discount, "
-                "tax, total, user_name, offline_id) VALUES (?, ?, ?, 0, ?, ?, 0, ?, ?, ?, ?) RETURNING id",
+                "tax, total, user_name, offline_id, location_id) VALUES (?, ?, ?, 0, ?, ?, 0, ?, ?, ?, ?, ?) "
+                "RETURNING id",
                 (number, when.isoformat(timespec="seconds"), method, float(lines[0][1]["tax_rate"]),
                  totals["subtotal"], totals["tax"], totals["total"],
-                 (f"Caja sin conexión {device}" + (f" · {user_name}" if user_name else ""))[:120], offline_id),
+                 (f"Caja sin conexión {device}" + (f" · {user_name}" if user_name else ""))[:120], offline_id,
+                 location_id),
             ).fetchone()
             sale_id = row["id"]
             for (p, line), net, vat_amount, gross in zip(lines, totals["net_amounts"], totals["tax_amounts"],
@@ -169,10 +179,10 @@ class OfflineMixin:
                 )
                 if p["track_stock"]:
                     # Already sold: the stock goes down even if the app thought there was less; never below zero.
-                    if p["stock"] < line["quantity"]:
+                    have = max(self._stock_at(cur, p["id"], location_id), 0)
+                    if have < line["quantity"]:
                         notes.append(f"{number}: revisa el stock de «{p['name']}» (se vendieron más de los que había).")
-                    cur.execute("UPDATE products SET stock = CASE WHEN stock >= ? THEN stock - ? ELSE 0 END "
-                                "WHERE id = ?", (line["quantity"], line["quantity"], p["id"]))
+                    self._move_stock(cur, p["id"], -min(have, line["quantity"]), location_id)
             if totals["total"] > 0:
                 cur.execute("INSERT INTO sale_payments(sale_id, method, amount, tendered) VALUES (?, ?, ?, 0)",
                             (sale_id, method, totals["total"]))
