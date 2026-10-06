@@ -79,6 +79,10 @@ EVENTS_KEPT_DAYS = 90
 # Payments that went back to the customer: Stripe does not end the subscription for them, so the operator is told.
 MONEY_BACK = {"charge.refunded": "reembolso", "charge.dispute.created": "contracargo_abierto",
               "charge.dispute.closed": "contracargo_cerrado"}
+BILLING_ALERTS = {"suscripcion_duplicada": "Cobro doble: cancela y reembolsa una de las suscripciones en Stripe",
+                  "contracargo_abierto": "Contracargo abierto: responde en Stripe antes de la fecha límite",
+                  "contracargo_cerrado": "Contracargo cerrado",
+                  "reembolso": "Reembolso hecho"}
 
 
 class AlreadySubscribed(BillingError):
@@ -322,6 +326,8 @@ class Directory:
                                   utc_now().isoformat(timespec="seconds"))).rowcount
             if not fresh:
                 return "repetido"
+            if stripe is not None and "livemode" in event and bool(event["livemode"]) != stripe.live:
+                return "otro_modo"  # a test-mode notice reaching the live service (or the other way round)
             return self._apply_event(conn, event, stripe)
 
     def _apply_event(self, conn, event: dict, stripe) -> str:
@@ -340,9 +346,10 @@ class Directory:
             elif isinstance(subscription, dict):
                 self._record(conn, tenant, subscription, "suscripcion_contratada")
             else:  # not expanded: link the customer now; the subscription's own event (any order) brings its state
-                self._billing_update(conn, tenant["code"], {"stripe_customer": customer,
-                                                            "stripe_subscription": subscription or ""},
-                                     "suscripcion_contratada")
+                fields = {"stripe_customer": customer}
+                if not (tenant["stripe_subscription"] and tenant["billing_status"] in PAID):
+                    fields["stripe_subscription"] = subscription or ""  # never hide one that is paid
+                self._billing_update(conn, tenant["code"], fields, "suscripcion_contratada")
             return "vinculado"
         if kind.startswith("customer.subscription."):
             code = (obj.get("metadata") or {}).get("tenant") or self._code_for_customer(conn, customer)
@@ -365,7 +372,7 @@ class Directory:
             cents = obj.get("amount_refunded") if kind == "charge.refunded" else obj.get("amount")
             detail = " · ".join(str(x) for x in (
                 code, _stripe_id(obj.get("charge")) or obj.get("id", ""),
-                f"{int(cents or 0) / 100:.2f} {str(obj.get('currency', '')).upper()}".strip(),
+                f"{int(cents or 0) / 100:.2f}".replace(".", ",") + f" {str(obj.get('currency', '')).upper()}".rstrip(),
                 obj.get("reason") or "", obj.get("status") if kind != "charge.refunded" else "") if x)
             self._log(conn, MONEY_BACK[kind], detail)
             log.warning("billing_money_back type=%s tenant=%s", kind, code)
@@ -400,6 +407,16 @@ class Directory:
                 self._billing_update(conn, code, {"stripe_customer": customer}, "")
             tenant = self.get(code)
         return stripe.checkout_url(tenant, email, success_url, cancel_url)
+
+    def billing_alerts(self, days: int = 30) -> list[dict]:
+        """Money matters the operator must act on in Stripe (a business paying twice, refunds, disputes), once each
+        with how often and when last it was seen."""
+        since = (clock.now() - timedelta(days=days)).isoformat(timespec="seconds")
+        with self._connect() as conn:
+            return conn.execute(f"SELECT action, detail, COUNT(*) AS times, MAX(happened_at) AS last "
+                                f"FROM {DIRECTORY_SCHEMA}.operator_log WHERE action = ANY(%s) AND happened_at >= %s "
+                                "GROUP BY action, detail ORDER BY MAX(happened_at) DESC",
+                                (list(BILLING_ALERTS), since)).fetchall()
 
     def log(self, limit: int = 100) -> list[dict]:
         with self._connect() as conn:

@@ -478,5 +478,35 @@ def test_refunds_and_disputes_reach_the_operator_log(directory):
                                                                     "status": "needs_response"}),
                                    StripeNow()) == "registrado"
     log = {r["action"]: r["detail"] for r in directory.log()}
-    assert log["reembolso"].startswith("cafe · ch_1 · 24.20 EUR")
-    assert log["contracargo_abierto"].startswith("cafe · ch_1 · 24.20 EUR · fraudulent")
+    assert log["reembolso"].startswith("cafe · ch_1 · 24,20 EUR")
+    assert log["contracargo_abierto"].startswith("cafe · ch_1 · 24,20 EUR · fraudulent")
+
+
+class LiveStripe(StripeNow):
+    live = True
+
+
+@needs_pg
+def test_notices_from_the_other_stripe_mode_and_late_checkouts_change_nothing(directory):
+    directory.create("cafe", "Café")
+    directory.record_subscription("cafe", subscription("active"))
+    test_notice = event(obj=subscription("canceled", days=-1))
+    test_notice["livemode"] = False
+    assert directory.process_event(test_notice, LiveStripe()) == "otro_modo"
+    # A checkout's notice without the subscription in it does not hide the one already paid.
+    directory.process_event(event("checkout.session.completed", {"client_reference_id": "cafe", "customer": "cus_1",
+                                                                 "subscription": "sub_9"}))
+    t = directory.get("cafe")
+    assert (t["billing_status"], t["stripe_subscription"]) == ("active", "sub_1")
+
+
+@needs_pg
+def test_the_operator_sees_what_to_do_in_stripe(directory):
+    directory.create("cafe", "Café")
+    for sub_id in ("sub_1", "sub_2", "sub_2"):
+        directory.process_event(event("customer.subscription.updated", subscription("active", sub_id=sub_id)))
+    directory.process_event(event("charge.refunded", {"id": "ch_1", "customer": "cus_1", "amount_refunded": 2000,
+                                                      "currency": "eur"}))
+    alerts = {a["action"]: a for a in directory.billing_alerts()}
+    assert set(alerts) == {"suscripcion_duplicada", "reembolso"}
+    assert alerts["suscripcion_duplicada"]["detail"] == "cafe · sub_1, sub_2"
