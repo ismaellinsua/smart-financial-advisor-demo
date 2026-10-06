@@ -39,9 +39,9 @@ jobs:
         options: >-
           --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 12
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
         with:
           python-version-file: .python-version
           cache: pip
@@ -85,3 +85,11 @@ jobs:
           done
           ! echo "$headers" | grep -qi "^Server:" || { echo "::error::La cabecera Server delata el software"; exit 1; }
           test "$(docker exec app id -u)" != "0" || { echo "::error::La app corre como root"; exit 1; }
+          # The sign-in cookie is written by the server, HttpOnly; another site cannot plant one.
+          cookie=$(curl -si -X POST -H 'Sec-Fetch-Site: same-origin' -H 'Content-Type: application/json' \
+            -d '{"name":"nk_sesion","token":"ci_token_0123456789abcdefghij"}' http://localhost:8080/_nk/sesion)
+          echo "$cookie" | grep -qi "^Set-Cookie: __Host-nk_sesion=ci_token_0123456789abcdefghij;.*HttpOnly" \
+            || { echo "::error::La cookie de sesión no es HttpOnly"; exit 1; }
+          test "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Sec-Fetch-Site: cross-site' \
+            -H 'Content-Type: application/json' -d '{"name":"nk_sesion","token":"x"}' \
+            http://localhost:8080/_nk/sesion)" = "403" || { echo "::error::Otra web puede fijar la sesión"; exit 1; }

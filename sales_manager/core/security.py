@@ -107,13 +107,21 @@ def totp_code(secret: str, at: float | None = None, step: int = 30, digits: int 
     return f"{value:0{digits}d}"
 
 
-def verify_totp(secret: str, code: str, at: float | None = None) -> bool:
-    """Accept the current code and the ones just before and after (phone clocks drift)."""
+def totp_step(secret: str, code: str, at: float | None = None, step: int = 30) -> int | None:
+    """The time step a valid code belongs to (current, previous or next: phone clocks drift), or None. Callers that
+    remember the last step used can refuse the same code twice."""
     code = re.sub(r"\D", "", str(code or ""))
     if not secret or len(code) != 6:
-        return False
+        return None
     now = time.time() if at is None else at
-    return any(hmac.compare_digest(totp_code(secret, now + drift), code) for drift in (-30, 0, 30))
+    for drift in (-step, 0, step):
+        if hmac.compare_digest(totp_code(secret, now + drift), code):
+            return int((now + drift) // step)
+    return None
+
+
+def verify_totp(secret: str, code: str, at: float | None = None) -> bool:
+    return totp_step(secret, code, at) is not None
 
 
 def totp_uri(secret: str, account: str, issuer: str = "NirKanA") -> str:

@@ -28,6 +28,8 @@ services:
       # Several businesses in one app, and charging them with Stripe (see the README).
       - key: MULTI_TENANT
         sync: false
+      - key: DATA_KEY
+        sync: false
       - key: OPERATOR_PASSWORD
         sync: false
       - key: OPERATOR_TOTP_SECRET

@@ -229,3 +229,27 @@ def test_public_page_books_and_cancels(module_targets):
     assert "Lucía" in cancel.markdown[-1].value or any("Lucía" in m.value for m in cancel.markdown)
     cancel.button[0].click().run()
     assert not cancel.exception and "cancelada" in cancel.info[0].value
+
+
+def test_public_booking_cannot_be_used_to_spam(diary):
+    """Names with links are refused, an email holds at most two pending bookings, and the whole business takes at
+    most MAX_ONLINE_PER_HOUR online bookings an hour."""
+    from core import store_bookings
+
+    diary.save_booking_rules({**RULES, "hours": {d: "08:00-22:00" for d in range(7)}, "step": 15, "duration": 15})
+    slots = [s for d in diary.bookable_days(NOW) for s in diary.free_slots(d, now=NOW)]
+    with pytest.raises(ValueError, match="sin enlaces"):
+        diary.book_online(slots[0], "Gana dinero en http://estafa.example", "600111222", now=NOW)
+    with pytest.raises(ValueError, match="sin enlaces"):
+        diary.book_online(slots[0], "visita ejemplo.com", "600111222", now=NOW)
+    for i in range(2):
+        diary.book_online(slots[i], "Ana", f"60011122{i}", email="victima@example.com", now=NOW)
+    with pytest.raises(ValueError, match="este email"):
+        diary.book_online(slots[2], "Ana", "600111229", email="VICTIMA@example.com", now=NOW)
+    for i in range(store_bookings.MAX_ONLINE_PER_HOUR - 2):
+        diary.book_online(slots[3 + i], "Cliente", f"6{i:08d}", now=NOW)
+    with pytest.raises(ValueError, match="más reservas online"):
+        diary.book_online(slots[40], "Otra", "699999999", now=NOW)
+    later = NOW + timedelta(hours=1, minutes=1)  # the next hour opens again
+    free = [s for d in diary.bookable_days(later) for s in diary.free_slots(d, now=later)]
+    diary.book_online(free[-1], "Otra", "699999999", now=later)

@@ -497,3 +497,24 @@ def test_container_refuses_to_keep_data_on_its_own_disk(monkeypatch):
     assert at.error and "DATABASE_URL" in at.error[0].value
     assert opened == []  # no local file was opened
     context._single_store.clear()
+
+
+def test_an_unpaid_business_can_look_but_not_change(module_targets):
+    """In read-only mode (subscription not active) even a manager cannot void, invoice or refund from Historial."""
+    script = """
+import sys
+sys.path.insert(0, {root!r})
+import streamlit as st
+from core.billing import Access
+from core.db import Store
+from ui.context import Ctx
+c = Ctx(store=Store({db!r}), settings={{}}, preset={{}}, symbol="€", user={{"role": "encargado"}})
+st.session_state["billing_access"] = Access({level!r})
+st.write(f"can={{c.can('encargado')}} change={{c.can_change('encargado')}} read_only={{c.read_only}}")
+"""
+    target = module_targets.new()
+    Store(target).close()
+    for level, expected in (("readonly", "can=True change=False read_only=True"),
+                            ("full", "can=True change=True read_only=False")):
+        at = AppTest.from_string(script.format(root=ROOT, db=target, level=level), default_timeout=30).run()
+        assert not at.exception and at.markdown[0].value == expected

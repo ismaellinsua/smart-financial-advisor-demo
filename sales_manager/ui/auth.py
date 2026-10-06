@@ -45,14 +45,13 @@ def configured_password() -> str | None:
 
 
 def client_key() -> str:
-    """The visitor's address as seen by the hosting proxy (its last X-Forwarded-For entry), or the socket peer."""
+    """The visitor's address behind our proxies (see core.throttle.client_address), for per-device limits."""
     try:
         forwarded = st.context.headers.get("X-Forwarded-For") or ""
-        if forwarded.strip():
-            return forwarded.split(",")[-1].strip()
-        return st.context.ip_address or "local"
+        peer = st.context.ip_address or ""
     except Exception:  # no request context (tests, bare mode)
         return "local"
+    return throttle.client_address(forwarded, peer, setting("trusted_proxies"))
 
 
 def client_blocked_minutes(key: str, now: float | None = None, store=None) -> int:
@@ -108,14 +107,22 @@ def _write_cookie() -> None:
     if token is None and not clear:
         return
     value, age = (token, COOKIE_DAYS * 86400) if token else ("", 0)
+    # Inside the container the server writes it (ops/deploy/sessions.py): HttpOnly, so no script on the page can
+    # read it. Elsewhere (Streamlit Cloud, local runs) that service does not exist and the page writes it itself.
     # Over HTTPS the name carries the __Host- prefix: the browser then refuses it unless it is Secure, for this
     # exact host and path /, so no other subdomain or plain-HTTP page can plant or overwrite it.
     st.html(f"""<script>
 (() => {{
   const name = "{_cookie_name()}", secure = location.protocol === "https:";
-  document.cookie = (secure ? "__Host-" : "") + name + "={value}; Path=/; Max-Age={age}; SameSite=Strict"
-    + (secure ? "; Secure" : "");
-  if (secure) document.cookie = name + "=; Path=/; Max-Age=0; SameSite=Strict";  // the old, unprefixed one
+  const byPage = () => {{
+    document.cookie = (secure ? "__Host-" : "") + name + "={value}; Path=/; Max-Age={age}; SameSite=Strict"
+      + (secure ? "; Secure" : "");
+    if (secure) document.cookie = name + "=; Path=/; Max-Age=0; SameSite=Strict";  // the old, unprefixed one
+  }};
+  if (!secure) return byPage();
+  fetch("/_nk/sesion", {{method: "POST", credentials: "same-origin", headers: {{"Content-Type": "application/json"}},
+                        body: JSON.stringify({{name: name, token: "{value}"}})}})
+    .then((r) => {{ if (r.status !== 204) byPage(); }}).catch(byPage);
 }})();
 </script>""", unsafe_allow_javascript=True)
 
@@ -292,11 +299,14 @@ def _email_reset(store: Store, key: str) -> None:
             st.info("Si ese usuario es administrador y el negocio tiene email, te hemos enviado un código al email "
                     "del negocio. ¿No llega en unos minutos? Usa uno de tus códigos de recuperación.")
     with st.form("email_reset_finish", clear_on_submit=True, border=False):
-        code = st.text_input("Código recibido", max_chars=6)
+        code = st.text_input("Código recibido", max_chars=8)
         new = st.text_input("Nueva contraseña", type="password", max_chars=128,
                             help="Al menos 8 caracteres, con letras y números o símbolos.")
         repeat = st.text_input("Repite la nueva contraseña", type="password", max_chars=128)
         if st.form_submit_button("Cambiar contraseña", width="stretch"):
+            if minutes := client_blocked_minutes(key, store=store):
+                st.error(f"Demasiados intentos desde este dispositivo. Espera {minutes} min.")
+                return
             if new != repeat:
                 st.error("Las contraseñas no coinciden.")
                 return

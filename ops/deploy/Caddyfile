@@ -27,6 +27,13 @@
 		}
 		reverse_proxy 127.0.0.1:8502
 	}
+	# The sign-in cookie, written by the server so page scripts cannot read it (ops/deploy/sessions.py).
+	handle /_nk/sesion {
+		request_body {
+			max_size 1KB
+		}
+		reverse_proxy 127.0.0.1:8503
+	}
 	handle {
 		reverse_proxy 127.0.0.1:8501
 	}

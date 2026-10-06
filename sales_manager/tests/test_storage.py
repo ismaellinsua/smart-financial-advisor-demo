@@ -121,3 +121,20 @@ def test_settings_and_locations_are_reused_but_never_stale_after_a_write(shop, m
     calls.clear()
     shop.settings()
     assert len(calls) == 1
+
+
+def test_remote_database_certificate_is_checked():
+    """With the app's settings a server whose certificate is not from a trusted authority is refused: here the
+    local test server, which uses a self-signed one, reached by an address the app treats as remote."""
+    import psycopg
+
+    from conftest import PG_URL
+    from core.engines import secure_url
+
+    if not PG_URL or "localhost" not in PG_URL:
+        pytest.skip("needs the local PostgreSQL of the test suite")
+    url = secure_url(PG_URL.replace("localhost", "pg.example.invalid"))  # what the app would use for a remote host
+    assert "sslmode=verify-full" in url
+    checked = url.replace("pg.example.invalid", "127.0.0.1")
+    with pytest.raises(psycopg.OperationalError, match="certificate|SSL|ssl"):
+        psycopg.connect(checked, connect_timeout=5).close()

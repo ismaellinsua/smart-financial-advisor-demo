@@ -23,6 +23,12 @@ WEEKDAYS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Do
 CONTACT_DAYS = 90
 UNKNOWN_PARTY = 2  # diners counted for a reservation saved without the number of people
 MAX_PENDING_PER_PHONE = 2
+MAX_PENDING_PER_EMAIL = 2
+# The public page is open to anyone: a ceiling on online bookings per hour for the whole business keeps a script
+# from filling the diary or making the business's email account send confirmations to strangers.
+MAX_ONLINE_PER_HOUR = 20
+# A name never contains a link or an address: it is quoted in the confirmation email.
+_LINK_IN_NAME = re.compile(r"https?:|www\.|@|://|\.(com|net|org|io|es|ru|xyz|info|top)\b", re.I)
 _RANGE = re.compile(r"^\s*(\d{1,2})[:.](\d{2})\s*[-–]\s*(\d{1,2})[:.](\d{2})\s*$")
 
 
@@ -190,6 +196,8 @@ class BookingMixin:
         name = clean_text(name, "Nombre", "name")
         if not name:
             raise ValueError("Escribe tu nombre.")
+        if _LINK_IN_NAME.search(name):
+            raise ValueError("Escribe solo tu nombre, sin enlaces ni direcciones.")
         phone = clean_phone(phone)
         email = clean_text(email, "Email", "email").lower()
         if email and not valid_email(email):
@@ -223,6 +231,15 @@ class BookingMixin:
             ).fetchone()["n"]
             if pending >= MAX_PENDING_PER_PHONE:
                 raise ValueError("Ya tienes reservas pendientes con este teléfono. Si necesitas otra, llama al negocio.")
+            if email and cur.execute(
+                    "SELECT COUNT(*) AS n FROM appointments WHERE email = ? AND status = 'pendiente' AND starts_at >= ?",
+                    (email, now.isoformat(timespec="seconds"))).fetchone()["n"] >= MAX_PENDING_PER_EMAIL:
+                raise ValueError("Ya tienes reservas pendientes con este email. Si necesitas otra, llama al negocio.")
+            recent = cur.execute("SELECT COUNT(*) AS n FROM appointments WHERE source = 'online' AND created_at >= ?",
+                                 ((now - timedelta(hours=1)).isoformat(timespec="seconds"),)).fetchone()["n"]
+            if recent >= MAX_ONLINE_PER_HOUR:
+                raise ValueError("Ahora mismo no podemos aceptar más reservas online. Prueba en un rato o llama al "
+                                 "negocio.")
             if not self._fits(rules, self._taken(cur, starts_at.date()), starts_at, people):
                 raise ValueError("Esa hora se acaba de ocupar. Elige otra.")
             row = cur.execute(

@@ -21,6 +21,8 @@ SESSION_MAX_AGE = timedelta(days=7)  # a remembered sign-in never outlives this,
 RESET_VALID = timedelta(minutes=15)
 RESET_MAX_ATTEMPTS = 5
 RESET_MAX_PER_HOUR = 3
+RESET_MAX_PER_DAY = 6  # with 8-digit codes: at most 30 guesses a day, about one chance in 9,000 in a whole year
+RESET_DIGITS = 8
 
 
 def _digest(token: str) -> str:
@@ -112,9 +114,11 @@ class SessionsMixin:
                 return None
             recent = cur.execute("SELECT COUNT(*) AS n FROM password_resets WHERE user_id = ? AND created_at >= ?",
                                  (user["id"], (now - timedelta(hours=1)).isoformat(timespec="seconds"))).fetchone()
-            if recent["n"] >= RESET_MAX_PER_HOUR:
+            today = cur.execute("SELECT COUNT(*) AS n FROM password_resets WHERE user_id = ? AND created_at >= ?",
+                                (user["id"], (now - timedelta(days=1)).isoformat(timespec="seconds"))).fetchone()
+            if recent["n"] >= RESET_MAX_PER_HOUR or today["n"] >= RESET_MAX_PER_DAY:
                 return None
-            code = f"{secrets.randbelow(1_000_000):06d}"
+            code = f"{secrets.randbelow(10 ** RESET_DIGITS):0{RESET_DIGITS}d}"
             cur.execute("UPDATE password_resets SET used_at = ? WHERE user_id = ? AND used_at = ''",
                         (now.isoformat(timespec="seconds"), user["id"]))  # only the newest code works
             cur.execute("INSERT INTO password_resets(user_id, code_hash, created_at, expires_at) VALUES (?, ?, ?, ?)",

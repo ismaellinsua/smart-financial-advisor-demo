@@ -133,7 +133,7 @@ def test_a_reload_signs_back_in_from_the_cookie(tmp_path):
     store.close()
 
 
-def test_password_reset_by_email(store, monkeypatch):
+def test_password_reset_by_email(store):
     from core.db import AuthError
 
     assert store.start_password_reset("ana") is None  # no business email yet
@@ -141,9 +141,9 @@ def test_password_reset_by_email(store, monkeypatch):
     assert store.start_password_reset("luis") is None  # staff reset their PIN with an administrator
     assert store.start_password_reset("nadie") is None
     code, email = store.start_password_reset("ana")
-    assert email == "duena@example.com" and len(code) == 6
+    assert email == "duena@example.com" and len(code) == 8 and code.isdigit()
     token = store.create_session(_uid(store, "ana"))
-    assert not store.finish_password_reset("ana", "000000" if code != "000000" else "111111", "NuevaClave2026!")
+    assert not store.finish_password_reset("ana", "00000000" if code != "00000000" else "11111111", "NuevaClave2026!")
     with pytest.raises(ValueError):
         store.finish_password_reset("ana", code, "corta")
     assert store.finish_password_reset("ana", code, "NuevaClave2026!")
@@ -154,12 +154,54 @@ def test_password_reset_by_email(store, monkeypatch):
         store.authenticate("ana", "Segura2026!")
 
 
-def test_password_reset_codes_resist_guessing_and_flooding(store):
+def test_password_reset_codes_resist_guessing_and_flooding(store, monkeypatch):
+    from datetime import timedelta
+
+    import core.store_sessions as sessions
+
     store.save_settings({"email": "duena@example.com"})
     code, _ = store.start_password_reset("ana")
-    wrong = "123456" if code != "123456" else "654321"
+    wrong = "12345678" if code != "12345678" else "87654321"
     for _ in range(5):
         assert not store.finish_password_reset("ana", wrong, "NuevaClave2026!")
     assert not store.finish_password_reset("ana", code, "NuevaClave2026!")  # locked after 5 wrong tries
     assert store.start_password_reset("ana") and store.start_password_reset("ana")
     assert store.start_password_reset("ana") is None  # at most 3 codes an hour
+    later = sessions.clock.now() + timedelta(hours=2)  # a new hour, but already 3 codes today…
+    with store.db.tx() as cur:  # …plus three more earlier today: six in the last day
+        for _ in range(3):
+            cur.execute("INSERT INTO password_resets(user_id, code_hash, created_at, expires_at) "
+                        "SELECT user_id, code_hash, ?, expires_at FROM password_resets LIMIT 1",
+                        ((later - timedelta(hours=5)).isoformat(timespec="seconds"),))
+    monkeypatch.setattr(sessions.clock, "now", lambda: later)
+    assert store.start_password_reset("ana") is None  # at most 6 codes a day
+
+def test_two_step_codes_work_once_and_keys_are_encrypted(make_store, monkeypatch):
+    import time
+
+    from core.db import AuthError
+    from core.secretbox import PREFIX
+    from core.security import new_totp_secret, totp_code
+
+    store = make_store()
+    admin = store.create_user("Elena", "elena", "admin", "Segura2026")
+    plain = new_totp_secret()
+    store.enable_two_factor(admin, plain, totp_code(plain))  # no DATA_KEY yet: kept as before
+    with store.db.tx() as cur:
+        assert cur.execute("SELECT totp_secret FROM users WHERE id = ?", (admin,)).fetchone()["totp_secret"] == plain
+
+    monkeypatch.setenv("DATA_KEY", "una-clave-larga-y-aleatoria-de-prueba")
+    code = totp_code(plain, time.time() - 30)
+    assert store.authenticate("elena", "Segura2026", otp=code)["id"] == admin
+    with store.db.tx() as cur:  # encrypted at that sign-in
+        stored = cur.execute("SELECT totp_secret FROM users WHERE id = ?", (admin,)).fetchone()["totp_secret"]
+    assert stored.startswith(PREFIX) and plain not in stored
+    with pytest.raises(AuthError):
+        store.authenticate("elena", "Segura2026", otp=code)  # the same code, again: refused
+    with pytest.raises(AuthError):
+        store.authenticate("elena", "Segura2026", otp=totp_code(plain, time.time() - 60))  # an older one too
+    assert store.authenticate("elena", "Segura2026", otp=totp_code(plain))["id"] == admin  # a new one works
+
+    monkeypatch.setenv("DATA_KEY", "otra-clave")  # a different key: the check fails safely, never lets anyone in
+    with pytest.raises(AuthError):
+        store.authenticate("elena", "Segura2026", otp=totp_code(plain, time.time() + 30))

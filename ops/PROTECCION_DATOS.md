@@ -44,8 +44,8 @@ marketing (consentimiento revocable con fecha). Cada exportación o supresión q
 | Medida | Detalle |
 |---|---|
 | Aislamiento entre negocios | Un esquema de PostgreSQL por negocio; cada consulta usa solo el suyo (`core/tenants.py`) |
-| Acceso | Cuentas individuales con roles; bloqueo tras intentos fallidos; 2FA para administradores y para el panel de operador; intentos fallidos contados en la base de datos; códigos de recuperación; re-confirmar la contraseña antes de borrar o restaurar datos |
-| Cifrado en tránsito | HTTPS (HSTS en el contenedor); PostgreSQL remoto solo con TLS (`sslmode=require`) |
+| Acceso | Cuentas individuales con roles; bloqueo tras intentos fallidos, contados por la IP real del visitante; cookie de sesión HttpOnly en el contenedor; claves de verificación en dos pasos cifradas (`DATA_KEY`) y códigos de un solo uso; 2FA para administradores y para el panel de operador; intentos fallidos contados en la base de datos; códigos de recuperación; re-confirmar la contraseña antes de borrar o restaurar datos |
+| Cifrado en tránsito | HTTPS (HSTS en el contenedor); PostgreSQL remoto solo con TLS comprobando el certificado del servidor (`sslmode=verify-full`) |
 | Cifrado de copias | Copias diarias cifradas con frase de paso (`ops/backup.py`), una por negocio |
 | Cabeceras | Protección contra incrustar la app en otras webs, `nosniff`, `Referrer-Policy`, `Permissions-Policy` |
 | Sin terceros en el navegador | Fuentes e iconos servidos por la propia app: el navegador del usuario no contacta con Google ni con nadie más |

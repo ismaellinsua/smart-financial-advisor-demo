@@ -7,6 +7,7 @@ fallback when there is no database at hand. Addresses are stored hashed.
 """
 
 import hashlib
+import ipaddress
 import json
 import threading
 import time
@@ -19,6 +20,44 @@ log = logs.get("throttle")
 MAX_FAILURES, WINDOW_SECONDS = 8, 15 * 60
 FIRST_BLOCK_MINUTES, MAX_BLOCK_MINUTES = 15, 24 * 60
 FORGET_AFTER_SECONDS = 2 * 24 * 3600  # rows untouched for this long are deleted
+
+
+# Where reverse proxies live: private networks (RFC 1918, carrier-grade NAT, IPv6 unique-local), loopback and
+# link-local. A visitor never reaches us from one of these.
+INTERNAL_NETWORKS = tuple(ipaddress.ip_network(n) for n in (
+    "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "100.64.0.0/10", "127.0.0.0/8", "169.254.0.0/16",
+    "::1/128", "fc00::/7", "fe80::/10"))
+
+
+def client_address(forwarded: str, peer: str, trusted: str = "") -> str:
+    """The visitor's address behind reverse proxies (Render, Caddy…).
+
+    X-Forwarded-For lists the client first and each proxy appends the address it received from, so the right-most
+    entries are our own proxies. Walking from the right, private and loopback addresses (and those in `trusted`,
+    comma-separated networks) are proxies; the first other address is the visitor. Entries to its left were sent by
+    the visitor and could be invented, so they are never used. Without a public address, the nearest one counts.
+    """
+    networks = list(INTERNAL_NETWORKS)
+    for item in str(trusted or "").split(","):
+        try:
+            networks.append(ipaddress.ip_network(item.strip(), strict=False)) if item.strip() else None
+        except ValueError:
+            continue
+
+    def is_proxy(address) -> bool:
+        return any(address.version == net.version and address in net for net in networks)
+
+    chain = [part.strip() for part in str(forwarded or "").split(",") if part.strip()] + [str(peer or "").strip()]
+    nearest = ""
+    for raw in reversed(chain):
+        try:
+            address = ipaddress.ip_address(raw.split("%")[0])
+        except ValueError:
+            continue  # garbage (or a port we do not expect): skip, never trust it
+        nearest = nearest or str(address)
+        if not is_proxy(address):
+            return str(address)
+    return nearest or "local"
 
 
 def key_hash(key: str) -> str:

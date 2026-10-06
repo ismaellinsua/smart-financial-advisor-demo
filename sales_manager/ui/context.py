@@ -103,6 +103,16 @@ class Ctx:
     def can(self, needed: str) -> bool:
         return Store.can(self.role, needed)
 
+    @property
+    def read_only(self) -> bool:
+        """The business's subscription is not active: it may look up and download, never change anything."""
+        access = st.session_state.get("billing_access")
+        return access is not None and access.level == "readonly"
+
+    def can_change(self, needed: str) -> bool:
+        """`can`, and the business may still record things (see read_only)."""
+        return self.can(needed) and not self.read_only
+
     def money(self, value: float) -> str:
         return format_money(float(value), self.symbol)
 

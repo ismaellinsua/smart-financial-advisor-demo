@@ -7,9 +7,10 @@ import pandas as pd
 
 from . import clock
 from .errors import AuthError
+from .secretbox import is_sealed, seal, unseal
 from .security import (
     DUMMY_HASH, RECOVERY_CODE_COUNT, RECOVERY_ITERATIONS, ROLE_RANK, ROLES, USERNAME_RE, check_secret_strength,
-    clean_text, hash_secret, new_recovery_code, normalize_recovery_code, verify_secret, verify_totp,
+    clean_text, hash_secret, new_recovery_code, normalize_recovery_code, totp_step, verify_secret, verify_totp,
 )
 
 # An account locks for a fixed, short time after many failures. A long or growing lock would let anyone who knows a
@@ -105,9 +106,19 @@ class UsersMixin:
             self._audit(cur, by, "contraseña_cambiada", user["username"])
 
     def authorize(self, username: str, secret: str, needed: str = "encargado", otp: str = "",
-                  purpose: str = "") -> dict:
-        """A manager confirms an action at someone else's till. Same checks, lockout and log as a login."""
-        user = self.authenticate(username, secret, otp=otp, purpose=purpose or "autorización")
+                  purpose: str = "", now: float | None = None) -> dict:
+        """A manager confirms an action at someone else's till. Same password checks and log as a login, but its
+        failures have their own counter (core/throttle.py, per manager): someone at the till can neither lock the
+        manager out of their own sign-in nor keep guessing their PIN."""
+        key = "autorizacion:" + str(username or "").strip().lower()
+        if minutes := self.throttle_blocked_minutes(key, now):
+            raise AuthError(f"Demasiados intentos para autorizar con esa cuenta. Espera {minutes} min.")
+        try:
+            user = self.authenticate(username, secret, otp=otp, purpose=purpose or "autorización")
+        except AuthError:
+            self.throttle_failed(key, now)
+            raise
+        self.throttle_succeeded(key)
         if not self.can(user["role"], needed):
             raise AuthError("Esa persona no puede autorizarlo: hace falta un encargado o el administrador.")
         return user
@@ -118,7 +129,9 @@ class UsersMixin:
         failures. The error never says which part was wrong, nor whether the user exists."""
         now = now or clock.now()
         username = str(username or "").strip().lower()
-        generic = AuthError("Usuario, contraseña o código incorrectos.")
+        # One answer for every failure, a locked account included: it must not reveal which usernames exist.
+        generic = AuthError("Usuario, contraseña o código incorrectos. Tras varios fallos seguidos, la cuenta espera "
+                            f"{LOCKOUT_MINUTES} minutos (el administrador puede entrar con un código de recuperación).")
         locked = ""
         with self.db.tx() as cur:
             user = cur.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
@@ -129,11 +142,9 @@ class UsersMixin:
             if user is None:
                 pass  # the failed attempt is recorded; raise once the transaction has committed
             elif user["locked_until"] and datetime.fromisoformat(user["locked_until"]) > now:
-                minutes = max(1, round((datetime.fromisoformat(user["locked_until"]) - now).total_seconds() / 60))
-                raise AuthError(f"Demasiados intentos fallidos. Vuelve a intentarlo en {minutes} min. Si eres el "
-                                "administrador, puedes entrar con un código de recuperación.")
-            elif verify_secret(secret, user["secret_hash"]) and (
-                    not user["totp_secret"] or verify_totp(user["totp_secret"], otp)):
+                verify_secret(secret, DUMMY_HASH)  # same time as any other answer
+                self._audit(cur, username, "acceso_bloqueado", "cuenta en espera por intentos fallidos")
+            elif verify_secret(secret, user["secret_hash"]) and self._totp_ok(cur, user, otp):
                 if purpose:  # an authorisation, not a sign-in
                     cur.execute("UPDATE users SET failed_attempts = 0, locked_until = '' WHERE id = ?", (user["id"],))
                     self._audit(cur, username, "autorizacion", purpose)
@@ -142,6 +153,8 @@ class UsersMixin:
                                 "WHERE id = ?", (now.isoformat(timespec="seconds"), user["id"]))
                     self._audit(cur, username, "acceso", "")
                 return {k: user[k] for k in ("id", "username", "name", "role")}
+            elif purpose:  # a failed authorisation: counted apart (see authorize), never locks the account
+                self._audit(cur, username, "autorizacion_fallida", purpose)
             else:
                 failed = user["failed_attempts"] + 1
                 if failed >= MAX_FAILED_LOGINS:
@@ -150,9 +163,20 @@ class UsersMixin:
                 cur.execute("UPDATE users SET failed_attempts = ?, locked_until = ? WHERE id = ?",
                             (failed, locked, user["id"]))
                 self._audit(cur, username, "acceso_fallido", "cuenta bloqueada" if locked else f"intento {failed}")
-        if locked:
-            raise AuthError(f"Demasiados intentos fallidos. Cuenta bloqueada {LOCKOUT_MINUTES} minutos.")
         raise generic
+
+    @staticmethod
+    def _totp_ok(cur, user, otp: str) -> bool:
+        """No two-step verification, or a code from its app not used before (a code seen over someone's shoulder or
+        captured on the way cannot be replayed). Encrypts an old plain key the first time DATA_KEY allows it."""
+        if not user["totp_secret"]:
+            return True
+        step = totp_step(unseal(user["totp_secret"]), otp)
+        if step is None or step <= int(user["totp_last_step"] or 0):
+            return False
+        sealed = user["totp_secret"] if is_sealed(user["totp_secret"]) else seal(user["totp_secret"])
+        cur.execute("UPDATE users SET totp_last_step = ?, totp_secret = ? WHERE id = ?", (step, sealed, user["id"]))
+        return True
 
     def confirm_secret(self, user_id: int, secret: str) -> bool:
         """Re-check the signed-in person's PIN or password before an action that replaces data."""
@@ -227,13 +251,13 @@ class UsersMixin:
             raise ValueError("El código no es correcto. Comprueba que la hora del móvil es la correcta y prueba otra vez.")
         with self.db.tx() as cur:
             user = cur.execute("SELECT username FROM users WHERE id = ?", (int(user_id),)).fetchone()
-            cur.execute("UPDATE users SET totp_secret = ? WHERE id = ?", (secret, int(user_id)))
+            cur.execute("UPDATE users SET totp_secret = ?, totp_last_step = 0 WHERE id = ?", (seal(secret), int(user_id)))
             self._audit(cur, user["username"], "verificacion_dos_pasos", "activada")
 
     def disable_two_factor(self, user_id: int, code: str) -> None:
         with self.db.tx() as cur:
             user = cur.execute("SELECT username, totp_secret FROM users WHERE id = ?", (int(user_id),)).fetchone()
-            if not user or not verify_totp(user["totp_secret"], code):
+            if not user or not verify_totp(unseal(user["totp_secret"]), code):
                 raise ValueError("El código no es correcto.")
             cur.execute("UPDATE users SET totp_secret = '' WHERE id = ?", (int(user_id),))
             self._audit(cur, user["username"], "verificacion_dos_pasos", "desactivada")

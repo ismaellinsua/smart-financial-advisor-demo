@@ -141,21 +141,26 @@ segundos en despertar la primera vez; la app se reconecta sola.
 Para clientes de pago: la app en Frankfurt, junto a la base de Neon (también en Frankfurt), sin que se duerma y con
 cabeceras de seguridad. El `Dockerfile` de la raíz pone [Caddy](https://caddyserver.com) delante de Streamlit, que solo
 escucha dentro del contenedor, y añade HSTS, `X-Frame-Options`/`frame-ancestors` (nadie puede incrustar la app en otra
-web), `nosniff`, `Referrer-Policy` y `Permissions-Policy`. La app no corre como administrador del sistema.
+web), `nosniff`, `Referrer-Policy` y `Permissions-Policy`. La app no corre como administrador del sistema. La cookie
+de sesión la escribe el propio servidor como **HttpOnly** (ningún script de la página puede leerla). **Para clientes
+reales usa solo este contenedor:** en Streamlit Community Cloud no hay Caddy, así que faltan esas cabeceras y la cookie
+de sesión la escribe la página.
 
 1. Crea la base en Neon (sección anterior) y copia su cadena de conexión.
 2. En [render.com](https://render.com): **New → Blueprint** y elige este repositorio. Lee `render.yaml`: servicio
    `nirkana` en **Frankfurt**, plan *Starter* (de pago, no se duerme).
 3. Render te pide las variables marcadas como secretas: `DATABASE_URL` (la de Neon), `APP_PASSWORD` (la contraseña de
-   instalación) y, si quieres emails, `SMTP_HOST`, `SMTP_USER`, `SMTP_PASSWORD` y `SMTP_FROM`. Se guardan en Render,
-   nunca en el repositorio.
+   instalación), `DATA_KEY` (una frase larga y aleatoria con la que se cifran las claves de verificación en dos pasos;
+   guárdala también fuera de Render) y, si quieres emails, `SMTP_HOST`, `SMTP_USER`, `SMTP_PASSWORD` y `SMTP_FROM`. Se
+   guardan en Render, nunca en el repositorio.
 4. Cuando el despliegue diga *Live*, en el servicio → **Settings → Custom Domains** añade, por ejemplo,
    `app.nirkana.es`. Render te dirá qué registro **CNAME** crear en IONOS; el HTTPS lo pone Render.
 5. Los despliegues son manuales (`autoDeploy: false`): pulsa **Manual Deploy** cuando los tests de GitHub estén en verde.
 
 Sin `DATABASE_URL` el contenedor **no arranca la app**: muestra un aviso en lugar de guardar los datos en su propio disco,
-que Render borra en cada despliegue. Va en una sola instancia (`numInstances: 1`): los límites de intentos de acceso
-viven en la memoria de la app.
+que Render borra en cada despliegue. Los límites de intentos de acceso se cuentan por la IP real de cada visitante
+(la app salta las direcciones internas de Render y Caddy) y se guardan en la base de datos. Si algún día pones delante
+otro proxy con IP pública (Cloudflare…), declara sus redes en `TRUSTED_PROXIES`.
 
 **Pasar de Streamlit Community Cloud a Render sin perder nada:**
 
@@ -292,7 +297,7 @@ Gratis con una cuenta de Gmail (por ejemplo nirkana.oficial@gmail.com):
 4. Cada negocio decide en **Configuración → Avisos por email** si los quiere, y los recibe en el email del negocio.
    Nunca se envía nada en modo demostración ni dos veces lo mismo, aunque el flujo se ejecute de nuevo.
 
-Con el correo configurado, la pantalla de acceso ofrece al administrador recibir un **código de 6 cifras** en el
+Con el correo configurado, la pantalla de acceso ofrece al administrador recibir un **código de 8 cifras** en el
 email del negocio para cambiar su contraseña: caduca en 15 minutos, sirve una vez, admite 5 intentos y como mucho se
 piden 3 por hora. La respuesta es la misma exista o no el usuario.
 
