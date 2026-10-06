@@ -10,20 +10,20 @@ MONTHS = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agost
           "septiembre", "octubre", "noviembre", "diciembre"]
 
 
-def _today_label() -> str:
+def today_label() -> str:
     d = clock.today()
     return f"{automation.WEEKDAYS[d.weekday()].capitalize()}, {d.day} de {MONTHS[d.month - 1]} de {d.year}"
 
 
-def _pct(value: float, signed: bool = False) -> str:
+def fmt_pct(value: float, signed: bool = False) -> str:
     return (f"{value:+.1f}" if signed else f"{value:.1f}").replace(".", ",") + " %"
 
 
-def _delta(value) -> str | None:
-    return None if value is None else _pct(value, signed=True)
+def fmt_delta(value) -> str | None:
+    return None if value is None else fmt_pct(value, signed=True)
 
 
-def _require(c, role: str) -> bool:
+def require_role(c, role: str) -> bool:
     """Second line of defence: pages also check the role, not only the menu."""
     if c.can(role):
         return True
@@ -31,6 +31,6 @@ def _require(c, role: str) -> bool:
     return False
 
 
-def _csv(df: pd.DataFrame) -> bytes:
+def csv_bytes(df: pd.DataFrame) -> bytes:
     # UTF-8 with BOM and semicolons so it opens cleanly in Spanish-locale Excel.
     return csv_safe(df).to_csv(index=False, sep=";", decimal=",").encode("utf-8-sig")

@@ -8,7 +8,7 @@ import streamlit as st
 from core import clock
 from core.pdfs import cash_closing_pdf
 from ui.context import ctx, logged_download
-from ui.pages_common import _csv, _require
+from ui.pages_common import csv_bytes, require_role
 from ui.styles import page_header
 
 # ---------------------------------------------------------------------- cash
@@ -51,7 +51,7 @@ def _offline_till_panel(c) -> None:
 
 def cash_page() -> None:
     c = ctx()
-    if not _require(c, "encargado"):
+    if not require_role(c, "encargado"):
         return
     page_header("Cierre de caja" + (f" · {c.location_name}" if c.multi_location else ""),
                 "Cuadra el efectivo al final del día y guarda el informe firmado.", eyebrow="Caja")
@@ -107,7 +107,7 @@ def cash_page() -> None:
                          "counted_cash": st.column_config.NumberColumn("Contado", format=f"%.2f {c.symbol}"),
                          "difference": st.column_config.NumberColumn("Diferencia", format=f"%+.2f {c.symbol}"),
                      })
-        logged_download(st, "Exportar cierres a CSV", _csv(history), "cierres_de_caja.csv", "text/csv",
+        logged_download(st, "Exportar cierres a CSV", csv_bytes(history), "cierres_de_caja.csv", "text/csv",
                            icon=":material/download:")
 
 

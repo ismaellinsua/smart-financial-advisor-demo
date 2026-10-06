@@ -379,6 +379,17 @@ cd sales_manager && python -m pytest -q
 TEST_DATABASE_URL=postgresql://usuario:clave@localhost:5432/pruebas python -m pytest -q
 ```
 
+La CI además pasa `ruff check` y exige al menos un 80 % de cobertura (`--cov=core --cov=ui`). Herramientas de
+desarrollo: `pip install -r requirements-dev.txt`.
+
+**Configuración:** todos los ajustes que lee la app y los scripts están en `core/config.py`, con su descripción y valor
+por defecto; `.env.example` (en la raíz) se genera de ahí con `python -m core.config` y un test comprueba que está al
+día. **Dependencias:** `requirements.txt` dice qué necesita la app; `requirements.lock` fija esas y todas las demás
+con versión y hash, y es lo que instalan el contenedor y la CI (cómo regenerarlo, en su cabecera). Python 3.12
+(`.python-version`); imágenes del contenedor fijadas por digest; Dependabot propone las actualizaciones cada semana.
+Al arrancar, el contenedor pone al día las tablas de todos los negocios (`ops/deploy/migrate.py`) antes de atender a
+nadie. El registro del servidor (`core/logs.py`, nivel con `LOG_LEVEL`) no guarda datos de clientes.
+
 ## Capturas de pantalla
 
 Las capturas del README, de la web y de los anuncios se rehacen solas, con negocios y personas ficticios (Café Aurora,

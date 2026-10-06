@@ -27,7 +27,7 @@ jobs:
     services:
       # Stripe's official simulator: every Stripe call the app makes is checked against Stripe's API description.
       stripe:
-        image: stripe/stripe-mock:latest
+        image: stripe/stripe-mock:v0.206.0
         ports:
           - 12111:12111
       postgres:
@@ -43,11 +43,14 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version-file: .python-version
           cache: pip
+          cache-dependency-path: |
+            requirements.lock
+            requirements-dev.txt
 
       - name: Dependencias
-        run: pip install --quiet -r requirements.txt pytest pyflakes playwright==1.63.0
+        run: pip install --quiet --require-hashes -r requirements.lock && pip install --quiet -r requirements-dev.txt
 
       - name: Navegador para la prueba en móvil
         run: python -m playwright install --with-deps chromium
@@ -56,11 +59,14 @@ jobs:
         run: command -v pg_dump || { sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client-16; }
 
       - name: Revisión estática
-        run: python -m pyflakes sales_manager ops
+        run: |
+          python -m pyflakes sales_manager ops
+          ruff check sales_manager ops
 
       - name: Tests (SQLite y PostgreSQL)
         working-directory: sales_manager
-        run: python -m pytest -q -p no:cacheprovider
+        # Fails if coverage of core/ and ui/ drops below 80 % (it was 83 % when the gate was added).
+        run: python -m pytest -q -p no:cacheprovider --cov=core --cov=ui --cov-report=term --cov-fail-under=80
 
       # The image that goes to production: it must build, answer its health check and send the security headers.
       - name: Construir la imagen del contenedor

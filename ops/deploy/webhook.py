@@ -11,7 +11,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "sales_manager"))
 
+from core import logs  # noqa: E402
 from core.billing import BillingError, verify_webhook  # noqa: E402
+
+log = logs.get("webhook")
 
 PATH = "/stripe/webhook"
 MAX_BODY = 512 * 1024
@@ -48,9 +51,9 @@ def make_handler(secret: str, directory_factory):
                     directory["d"] = directory_factory()
                 outcome = directory["d"].process_event(event)
             except Exception as exc:  # noqa: BLE001 - Stripe retries any non-2xx answer later
-                print(f"webhook {event.get('id')}: {type(exc).__name__}", file=sys.stderr, flush=True)
+                log.error("webhook_failed id=%s error=%s", event.get("id"), type(exc).__name__)
                 return self._reply(500, "retry later")
-            print(f"webhook {event['id']} {event.get('type')}: {outcome}", flush=True)
+            log.info("webhook id=%s type=%s outcome=%s", event["id"], event.get("type"), outcome)
             return self._reply(200, outcome)
 
         def do_GET(self):  # noqa: N802

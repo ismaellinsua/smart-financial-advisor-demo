@@ -76,8 +76,8 @@ def test_a_set_up_database_opens_with_one_query(shop, monkeypatch):
         with shop.db.tx() as cur:
             target = cur.execute("PRAGMA database_list").fetchone()["file"]
     calls = []
-    original = db._Cursor.execute
-    monkeypatch.setattr(db._Cursor, "execute", lambda self, sql, params=(): calls.append(sql) or original(self, sql,
+    original = db.Cursor.execute
+    monkeypatch.setattr(db.Cursor, "execute", lambda self, sql, params=(): calls.append(sql) or original(self, sql,
                                                                                                          params))
     db.Store(target).close()
     assert len(calls) == 1  # already set up by this version of the code
@@ -98,8 +98,8 @@ def test_settings_and_locations_are_reused_but_never_stale_after_a_write(shop, m
     import core.engines as engines
 
     calls = []
-    original = db._Cursor.execute
-    monkeypatch.setattr(db._Cursor, "execute", lambda self, sql, params=(): calls.append(sql) or original(self, sql,
+    original = db.Cursor.execute
+    monkeypatch.setattr(db.Cursor, "execute", lambda self, sql, params=(): calls.append(sql) or original(self, sql,
                                                                                                          params))
     shop.settings(), shop.locations()
     calls.clear()

@@ -5,13 +5,13 @@ from urllib.parse import urlencode, urlsplit
 import streamlit as st
 
 from core import billing, clock
-from ui.context import _secret, ctx, logged_download, stripe_client, tenant_code
+from ui.context import ctx, logged_download, setting, stripe_client, tenant_code
 from ui.styles import page_header
 
 
 def _base_url() -> str:
     """Where Stripe sends the customer back: the `app_url` secret, or this app's own address."""
-    configured = _secret("app_url").rstrip("/")
+    configured = setting("app_url").rstrip("/")
     if configured:
         return configured
     try:
@@ -27,12 +27,12 @@ def _date(text: str) -> str:
 
 
 def billing_page() -> None:
-    from ui.tenancy import _tenant
+    from ui.tenancy import tenant_info
 
     c = ctx()
     page_header("Suscripción", "Tu plan de NirKanA, la tarjeta y las facturas del servicio.", eyebrow="Ajustes")
     stripe, code = stripe_client(), tenant_code()
-    tenant = _tenant(code) if code else None
+    tenant = tenant_info(code) if code else None
     if stripe is None or tenant is None:
         st.info("Este negocio no tiene cuotas que pagar.")
         return

@@ -146,7 +146,7 @@ class RefundsMixin:
                             "VALUES (?, ?, ?, 'devolución', ?)", (sale["customer_id"], sale_id, -take, stamp))
 
         rates: dict[float, list] = {}
-        for item, qty, net, vat in lines:
+        for item, _qty, net, vat in lines:
             rate = float(item["tax_rate"] if item["tax_rate"] is not None else sale["tax_rate"])
             share = rates.setdefault(rate, [Decimal("0"), Decimal("0")])
             share[0] += net

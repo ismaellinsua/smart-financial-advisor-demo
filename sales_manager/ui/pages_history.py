@@ -12,8 +12,8 @@ from core.pdfs import credit_note_pdf, invoice_pdf
 from core.presets import PAYMENT_METHODS
 from core.receipts import receipt_html, refund_receipt_html
 from ui.context import ctx, logged_download
-from ui.pages_common import _csv
-from ui.pages_pos import _ticket_actions
+from ui.pages_common import csv_bytes
+from ui.pages_pos import ticket_actions
 from ui.styles import page_header
 
 
@@ -154,7 +154,7 @@ def _history_sales(c) -> None:
         },
     )
     if c.can("encargado"):
-        logged_download(st, "Exportar a CSV", _csv(df.drop(columns=["id", "place"])), "ventas.csv", "text/csv",
+        logged_download(st, "Exportar a CSV", csv_bytes(df.drop(columns=["id", "place"])), "ventas.csv", "text/csv",
                            icon=":material/download:")
 
     rows = event.selection.rows
@@ -178,7 +178,7 @@ def _history_sales(c) -> None:
         if invoice:
             st.caption(f"Facturada con el número **{invoice['number']}**.")
         with st.expander("Imprimir o enviar el ticket", icon=":material/print:"):
-            _ticket_actions(c, sale)
+            ticket_actions(c, sale)
         a, b, d = st.columns(3)
         a.download_button("Descargar ticket", receipt_html(sale, c.ticket_settings(sale.get("location_id"))), f"{sale['number']}.html",
                           "text/html", icon=":material/receipt_long:", width="stretch")
@@ -266,7 +266,7 @@ def _history_refunds(c) -> None:
             "credit_note": "Rectificativa", "user_name": "Registró",
         },
     )
-    logged_download(st, "Exportar devoluciones a CSV", _csv(df.drop(columns=["id"])), "devoluciones.csv", "text/csv",
+    logged_download(st, "Exportar devoluciones a CSV", csv_bytes(df.drop(columns=["id"])), "devoluciones.csv", "text/csv",
                        icon=":material/download:")
     if event.selection.rows:
         refund = c.store.refund(int(df.iloc[event.selection.rows[0]]["id"]))
@@ -296,7 +296,7 @@ def _history_invoices(c) -> None:
             "total": st.column_config.NumberColumn("Total", format=f"%.2f {c.symbol}"),
         },
     )
-    logged_download(st, "Exportar facturas a CSV", _csv(df.drop(columns=["id"])), "facturas.csv", "text/csv",
+    logged_download(st, "Exportar facturas a CSV", csv_bytes(df.drop(columns=["id"])), "facturas.csv", "text/csv",
                        icon=":material/download:")
     rows = event.selection.rows
     if rows:

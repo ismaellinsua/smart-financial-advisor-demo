@@ -90,7 +90,7 @@ def checkout_panel(c, cart: list[dict], prefix: str, *, customer_widget=None, bu
         customer_id = st.selectbox("Cliente", [0, *names], key=key,
                                    format_func=lambda i: names.get(i, "Cliente general")) or None
 
-    loyalty = c.store._loyalty_settings(c.settings)
+    loyalty = c.store.loyalty_settings(c.settings)
     redeem = 0
     if customer_id and loyalty["enabled"]:
         balance = c.store.customer_points(customer_id)

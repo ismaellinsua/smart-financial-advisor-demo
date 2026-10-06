@@ -12,6 +12,10 @@ import threading
 import time
 from collections import deque
 
+from . import logs
+
+log = logs.get("throttle")
+
 MAX_FAILURES, WINDOW_SECONDS = 8, 15 * 60
 FIRST_BLOCK_MINUTES, MAX_BLOCK_MINUTES = 15, 24 * 60
 FORGET_AFTER_SECONDS = 2 * 24 * 3600  # rows untouched for this long are deleted
@@ -86,6 +90,8 @@ class ThrottleMixin:
                               (hashed,)).fetchone()
             fails, until, level = (json.loads(row["fails"]), row["blocked_until"], row["level"]) if row else ([], 0, 0)
             fails, until, level = after_failure(fails, until, level, now)
+            if until > now and not fails:
+                log.warning("sign_in_blocked key=%s minutes=%s", hashed[:12], blocked_minutes(until, now))
             # Whole seconds: plain integers on both engines.
             cur.execute("INSERT INTO login_throttle(key, fails, blocked_until, level, updated) VALUES (?, ?, ?, ?, ?) "
                         "ON CONFLICT(key) DO UPDATE SET fails = excluded.fails, blocked_until = excluded.blocked_until, "

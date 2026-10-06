@@ -133,7 +133,7 @@ def switch_business_dialog() -> None:
         st, "Antes, descargar una copia de mis datos", c.store.backup_bytes, f"ventas-{clock.today():%Y-%m-%d}.db",
         "application/octet-stream", icon=":material/download:", width="stretch",
     )
-    confirmed = _identity_confirmed(c, "switch_secret")
+    confirmed = identity_confirmed(c, "switch_secret")
     if st.button(f"Cambiar a «{PRESETS[business_type]['label']}»", type="primary", width="stretch",
                  icon=":material/swap_horiz:", disabled=not confirmed):
         if not c.can("admin"):
@@ -151,7 +151,7 @@ def switch_business_dialog() -> None:
         st.rerun()
 
 
-def _identity_confirmed(c, key: str) -> bool:
+def identity_confirmed(c, key: str) -> bool:
     """Ask again for the PIN or password before replacing data: a device left signed in is not enough."""
     secret = st.text_input("Tu PIN o contraseña, para confirmar", type="password", max_chars=128, key=key)
     if not secret:
@@ -179,7 +179,7 @@ def _start_for_real_dialog() -> None:
              "a conservarlas.")
     c = ctx()
     if st.checkbox("Entiendo que se borrarán los datos de ejemplo", key="start_real_confirm") and \
-            _identity_confirmed(c, "start_real_secret") and st.button(
+            identity_confirmed(c, "start_real_secret") and st.button(
             "Borrar ejemplos y empezar", type="primary", width="stretch"):
         if not c.can("admin"):
             st.error("Solo el administrador puede hacerlo.")

@@ -5,14 +5,14 @@ import streamlit as st
 
 from core.security import ROLES, new_totp_secret, totp_uri
 from ui.context import ctx, logged_download
-from ui.pages_common import _csv, _require
+from ui.pages_common import csv_bytes, require_role
 from ui.styles import page_header
 
 
 # ---------------------------------------------------------------------- team
 def team_page() -> None:
     c = ctx()
-    if not _require(c, "admin"):
+    if not require_role(c, "admin"):
         return
     page_header("Equipo y seguridad", "Da de alta a tu equipo: cada persona entra con su nombre y su PIN, y todo "
                 "lo que hace queda firmado.", eyebrow="Ajustes")
@@ -88,7 +88,7 @@ def team_page() -> None:
         "happened_at": st.column_config.DatetimeColumn("Cuándo", format="DD/MM/YYYY HH:mm:ss"),
         "username": "Usuario", "action": "Acción", "detail": "Detalle",
     })
-    logged_download(st, "Exportar registro a CSV", _csv(log), "registro_actividad.csv", "text/csv",
+    logged_download(st, "Exportar registro a CSV", csv_bytes(log), "registro_actividad.csv", "text/csv",
                        icon=":material/download:")
     errors = c.store.recent_errors(7)
     with st.expander(f"Errores de la app en 7 días: {len(errors)}", icon=":material/bug_report:"):

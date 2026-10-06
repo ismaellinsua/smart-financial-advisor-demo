@@ -12,14 +12,15 @@ import secrets
 import time
 from datetime import datetime, timedelta
 
-from . import clock
+from . import clock, logs
 from .billing import TRIAL_DAYS, Access, BillingError, access, parse_when, subscription_fields, utc_now
 from .db import Store
-from .engines import _secure_url, acquire_pool, release_pool
+from .engines import secure_url, acquire_pool, release_pool
 from .throttle import after_failure, blocked_minutes, key_hash
 from .security import hash_secret, verify_secret
 
 DIRECTORY_SCHEMA = "nirkana_operador"
+log = logs.get("tenants")
 CODE_RE = re.compile(r"[a-z0-9](?:[a-z0-9-]{1,38}[a-z0-9])")
 STATUSES = {"activo": "Activo", "suspendido": "Suspendido"}
 TENANT_FIELDS = ("code, name, schema_name, status, contact, created_at, setup_used_at, billing_status, trial_ends, "
@@ -82,7 +83,7 @@ class Directory:
     """The list of businesses served by one database. Only the operator creates, suspends or lists them."""
 
     def __init__(self, url: str):
-        self._url = _secure_url(url)
+        self._url = secure_url(url)
         # The same pool as the businesses' stores on this database, instead of a new connection per call.
         self._pool_key, pool = acquire_pool(url)
         self._connect = pool.connection
@@ -314,7 +315,8 @@ class Directory:
                 tenant = self.sync_subscription(tenant["code"], stripe) or tenant
                 refreshed = True
             except BillingError:
-                pass  # Stripe unreachable: keep what we know and try again on a later visit
+                # Stripe unreachable: keep what we know and try again on a later visit (logged by billing).
+                pass
         return access(tenant, utc_now()), message, refreshed
 
     # ------------------------------------------------- operator sign-in throttle
@@ -334,6 +336,8 @@ class Directory:
                                "WHERE key = %s FOR UPDATE", (hashed,)).fetchone()
             fails, until, level = (json.loads(row["fails"]), row["blocked_until"], row["level"]) if row else ([], 0, 0)
             fails, until, level = after_failure(fails, until, level, now)
+            if until > now and not fails:
+                log.warning("operator_sign_in_blocked key=%s minutes=%s", hashed[:12], blocked_minutes(until, now))
             conn.execute(f"INSERT INTO {DIRECTORY_SCHEMA}.login_throttle(key, fails, blocked_until, level, updated) "
                          "VALUES (%s, %s, %s, %s, %s) ON CONFLICT (key) DO UPDATE SET fails = excluded.fails, "
                          "blocked_until = excluded.blocked_until, level = excluded.level, updated = excluded.updated",
@@ -357,9 +361,22 @@ def businesses_in(url: str) -> list[tuple[str, str | None]]:
     import psycopg
     from psycopg.rows import dict_row
 
-    with psycopg.connect(_secure_url(url), row_factory=dict_row, connect_timeout=30) as conn:
+    with psycopg.connect(secure_url(url), row_factory=dict_row, connect_timeout=30) as conn:
         if not conn.execute("SELECT to_regclass(%s) AS t", (f"{DIRECTORY_SCHEMA}.tenants",)).fetchone()["t"]:
             return [("", None)]
         rows = conn.execute(f"SELECT code, schema_name FROM {DIRECTORY_SCHEMA}.tenants WHERE status = 'activo' "
                             "ORDER BY code").fetchall()
     return [(r["code"], r["schema_name"]) for r in rows]
+
+
+def migrate_all(url: str) -> list[tuple[str, int]]:
+    """Bring every business on a database up to this version's schema, before the app serves anyone: a change
+    then fails at deploy time, in the log, instead of on some business's first visit. Returns (code, version)."""
+    done = []
+    for code, schema in businesses_in(url):
+        store = Store(url, schema=schema)  # sets up or migrates the schema; a no-op when it is current
+        try:
+            done.append((code, store.schema_version()))
+        finally:
+            store.close()
+    return done

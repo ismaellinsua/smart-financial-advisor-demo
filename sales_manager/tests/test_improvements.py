@@ -88,7 +88,7 @@ def test_fixed_expenses_once_a_month_even_posted_twice(make_store):
     store.load_preset("retail", with_demo_sales=False)
     rid = store.save_recurring("Alquiler", "Local", 800, 1)
     store.apply_recurring(until=date(2026, 10, 5))
-    with pytest.raises(Exception):  # the database itself refuses a second one for the same month
+    with pytest.raises(store.db.integrity_errors):  # the database itself refuses a second one for the same month
         store.add_expense(date(2026, 10, 2), "Alquiler", "Local", 800, recurring_id=rid)
     assert store.apply_recurring(until=date(2026, 10, 5)) == 0
     expenses = store.expenses(date(2026, 10, 1), date(2026, 11, 1))

@@ -72,7 +72,7 @@ def apply_promotions(lines: list[dict], promotions: list[dict], when: datetime) 
 
 
 # -------------------------------------------------------------------- totals
-def _allocate(amount: Decimal, weights: list[Decimal]) -> list[Decimal]:
+def allocate(amount: Decimal, weights: list[Decimal]) -> list[Decimal]:
     """Split `amount` in proportion to `weights` in cents; the last share takes the remainder so it adds up."""
     total = sum(weights, Decimal("0"))
     shares, allocated = [], Decimal("0")
@@ -111,10 +111,10 @@ def compute_totals(lines, discount_pct: float = 0.0, tax_rate: float = 0.0, loya
     subtotal, promo = sum(gross_lines, Decimal("0")), sum(promo_lines, Decimal("0"))
     after_promo_total = subtotal - promo
     manual = _money(after_promo_total * Decimal(str(discount_pct)) / 100)
-    manual_lines = _allocate(manual, after_promo) if lines else []
+    manual_lines = allocate(manual, after_promo) if lines else []
     after_manual = [a - m for a, m in zip(after_promo, manual_lines)]
     loyalty = min(_money(loyalty_amount), after_promo_total - manual)
-    loyalty_lines = _allocate(loyalty, after_manual) if lines else []
+    loyalty_lines = allocate(loyalty, after_manual) if lines else []
     final = [a - l for a, l in zip(after_manual, loyalty_lines)]
     total = sum(final, Decimal("0"))
 
@@ -124,7 +124,7 @@ def compute_totals(lines, discount_pct: float = 0.0, tax_rate: float = 0.0, loya
         idx = [i for i, r in enumerate(rates) if r == rate]
         gross = sum((final[i] for i in idx), Decimal("0"))
         base = _money(gross / (1 + rate / 100))
-        for i, share in zip(idx, _allocate(base, [final[i] for i in idx])):
+        for i, share in zip(idx, allocate(base, [final[i] for i in idx])):
             net_amounts[i], tax_amounts[i] = share, final[i] - share
         taxes.append({"rate": float(rate), "base": float(base), "tax": float(gross - base), "total": float(gross)})
     base_total = sum((t["base"] for t in taxes), 0.0)

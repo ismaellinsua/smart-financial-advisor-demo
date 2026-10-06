@@ -88,7 +88,7 @@ def two_locations_db(module_targets):
 @pytest.mark.parametrize("fn", PAGES)
 def test_page_renders_with_two_locations(two_locations_db, fn):
     script = SCRIPT.format(root=ROOT, db=two_locations_db, fn=fn, role="admin").replace(
-        "ui.pages.{fn}()".format(fn=fn), f"st.session_state['location'] = store.locations()[1]['id']\nui.pages.{fn}()")
+        f"ui.pages.{fn}()", f"st.session_state['location'] = store.locations()[1]['id']\nui.pages.{fn}()")
     at = AppTest.from_string(script, default_timeout=30).run()
     assert not at.exception, at.exception
 

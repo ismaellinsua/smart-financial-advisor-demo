@@ -7,15 +7,15 @@ import streamlit as st
 
 from core import automation
 from ui.context import ctx
-from ui.pages_common import _require
-from ui.pages_products import _bump, _editor_key
+from ui.pages_common import require_role
+from ui.pages_products import bump_editor, editor_key
 from ui.styles import page_header
 
 
 # ----------------------------------------------------------------- customers
 def customers_page() -> None:
     c = ctx()
-    if not _require(c, "encargado"):
+    if not require_role(c, "encargado"):
         return
     page_header("Clientes", "Tu cartera, ordenada por valor. Edita en la tabla y guarda.", eyebrow="Gestión")
     if "customers_flash" in st.session_state:
@@ -53,12 +53,12 @@ def customers_page() -> None:
                     st.error(str(exc))
                 else:
                     st.session_state["customers_flash"] = f"Cliente «{data['name']}» guardado."
-                    _bump("customers_editor")
+                    bump_editor("customers_editor")
                     st.rerun()
 
     fields = ["name", "email", "phone", "tax_id", "address", "notes"]
     edited = st.data_editor(
-        ranking, key=_editor_key("customers_editor"), hide_index=True, width="stretch",
+        ranking, key=editor_key("customers_editor"), hide_index=True, width="stretch",
         disabled=["id", "purchases", "lifetime_value", "last_purchase", "created_at", "points"],
         column_order=["name", "email", "phone", "tax_id", "address", "purchases", "lifetime_value", "points",
                       "last_purchase", "notes"],
@@ -85,7 +85,7 @@ def customers_page() -> None:
             st.error(str(exc))
         else:
             st.session_state["customers_flash"] = f"{changed} cambio(s) guardado(s)."
-            _bump("customers_editor")
+            bump_editor("customers_editor")
             st.rerun()
 
     _customer_card(c, ranking)
@@ -180,5 +180,5 @@ def _privacy_section(c, customers: pd.DataFrame) -> None:
             if st.button("Borrar datos personales", disabled=not sure, key=f"forget_{cid}", icon=":material/delete:"):
                 c.store.forget_customer(cid, by=c.username)
                 st.session_state["customers_flash"] = "Datos personales borrados. Las facturas se conservan."
-                _bump("customers_editor")
+                bump_editor("customers_editor")
                 st.rerun()

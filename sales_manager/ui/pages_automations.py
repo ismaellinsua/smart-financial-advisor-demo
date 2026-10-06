@@ -7,14 +7,14 @@ import streamlit as st
 
 from core import automation, clock
 from ui.context import ctx, logged_download
-from ui.pages_common import _csv, _require
+from ui.pages_common import csv_bytes, require_role
 from ui.styles import page_header
 
 
 # --------------------------------------------------------------- automations
 def automations_page() -> None:
     c = ctx()
-    if not _require(c, "encargado"):
+    if not require_role(c, "encargado"):
         return
     page_header(
         "Automatizaciones",
@@ -52,7 +52,7 @@ def automations_page() -> None:
                 numbers = c.store.draft_purchases(sug, created_by=c.who)
                 c.store.audit(c.username, "pedidos_generados", ", ".join(numbers))
                 st.success(f"Pedidos en borrador: {', '.join(numbers)}. Revísalos y envíalos en Gestión → Compras.")
-            logged_download(b, "Descargar sugerencias (CSV)", _csv(sug), "orden_de_compra.csv", "text/csv",
+            logged_download(b, "Descargar sugerencias (CSV)", csv_bytes(sug), "orden_de_compra.csv", "text/csv",
                               icon=":material/download:", width="stretch")
 
     with t2:
@@ -101,7 +101,7 @@ def automations_page() -> None:
             )
             st.dataframe(summary, hide_index=True, width="stretch")
             a, b = st.columns(2)
-            logged_download(a, "Resumen por artículo (CSV)", _csv(summary), "resumen_articulos.csv", "text/csv",
+            logged_download(a, "Resumen por artículo (CSV)", csv_bytes(summary), "resumen_articulos.csv", "text/csv",
                               icon=":material/download:", width="stretch")
-            logged_download(b, "Detalle de ventas (CSV)", lambda: _csv(c.store.sales(start, end)), "ventas_detalle.csv",
+            logged_download(b, "Detalle de ventas (CSV)", lambda: csv_bytes(c.store.sales(start, end)), "ventas_detalle.csv",
                               "text/csv", icon=":material/download:", width="stretch")

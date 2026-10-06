@@ -129,7 +129,7 @@ def test_orders_go_to_the_chosen_location(shop):
     main = shop.locations()[0]["id"]
     p = product(shop, "ACC-003")
     shop.transfer_stock(int(p["id"]), 5, main, web)
-    data = "pedido,fecha,sku,cantidad,precio\nW-1,2026-10-03,ACC-003,2,15.90\n".encode()
+    data = b"pedido,fecha,sku,cantidad,precio\nW-1,2026-10-03,ACC-003,2,15.90\n"
     shop.import_shop_orders(data, location_id=web, now=NOW)
     assert shop.stock_at(web)[int(p["id"])] == 3
     assert len(shop.sales(location_id=web)) == 1

@@ -37,11 +37,11 @@ jobs:
       - uses: actions/setup-python@v5
         if: env.NOTIFY_DATABASES != '' && env.SMTP_HOST != ''
         with:
-          python-version: "3.12"
+          python-version-file: .python-version
 
       - name: Dependencias
         if: env.NOTIFY_DATABASES != '' && env.SMTP_HOST != ''
-        run: pip install --quiet -r requirements.txt
+        run: pip install --quiet --require-hashes -r requirements.lock
 
       - name: Enviar
         if: env.NOTIFY_DATABASES != '' && env.SMTP_HOST != ''

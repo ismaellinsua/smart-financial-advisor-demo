@@ -37,7 +37,7 @@ jobs:
       - uses: actions/setup-python@v5
         if: env.UPTIME_URLS != ''
         with:
-          python-version: "3.12"
+          python-version-file: .python-version
 
       - name: Comprobar
         if: env.UPTIME_URLS != ''

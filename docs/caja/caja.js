@@ -33,12 +33,15 @@
   const uuid = () => (crypto.randomUUID ? crypto.randomUUID()
     : ([1e7] + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, (c) => (c ^ (crypto.getRandomValues(new Uint8Array(1))[0] & (15 >> (c / 4)))).toString(16)));
 
-  // VAT included in the price: per rate, base = total / (1 + rate), rounded once (as the app does).
+  // VAT included in the price: per rate, base = total / (1 + rate), rounded half up once, as the app does
+  // (core/pricing.py). In whole cents and hundredths of a percent, so no floating-point error can move a cent;
+  // tests/test_offline_till.py checks both give the same figures.
   function breakdown(lines) {
     const byRate = new Map();
     for (const l of lines) byRate.set(l.vat, (byRate.get(l.vat) || 0) + l.price * l.qty);
     return [...byRate.entries()].sort((a, b) => b[0] - a[0]).map(([rate, gross]) => {
-      const base = Math.round(gross / (1 + rate / 100));
+      const denominator = Math.round((100 + rate) * 100); // e.g. 12100 for 21 %
+      const base = Math.floor((2 * gross * 10000 + denominator) / (2 * denominator));
       return { rate, base, tax: gross - base, gross };
     });
   }

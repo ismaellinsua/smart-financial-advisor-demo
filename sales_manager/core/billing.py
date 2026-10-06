@@ -17,17 +17,20 @@ Stripe is called over HTTPS with the standard library: no extra dependency, and 
 import hashlib
 import hmac
 import json
-import os
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
 import uuid
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, UTC
+
+from . import config, logs
+
+log = logs.get("billing")
 
 # STRIPE_API_BASE points at a local fake (stripe-mock, the test suite) instead of Stripe.
-API = os.environ.get("STRIPE_API_BASE", "https://api.stripe.com/v1").rstrip("/")
+API = config.value("stripe_api_base").rstrip("/")
 TRIAL_DAYS = 30
 GRACE_DAYS = 7
 WEBHOOK_TOLERANCE = 300  # seconds a signed webhook stays valid (Stripe's own default)
@@ -50,7 +53,7 @@ STATUS_LABELS = {
 
 def utc_now() -> datetime:
     """Billing dates are kept in UTC (Stripe's), naive, whatever the business's time zone."""
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 class BillingError(Exception):
@@ -157,7 +160,9 @@ class Stripe:
             headers["Idempotency-Key"] = idempotency_key or str(uuid.uuid4())
         try:
             status, body = self._transport(method, url, data, headers)
-        except (OSError, urllib.error.URLError):
+        except (OSError, urllib.error.URLError) as exc:
+            log.warning("stripe_unreachable method=%s path=%s error=%s", method, path.split("?")[0],
+                        type(exc).__name__)
             raise BillingError("No hemos podido conectar con Stripe. Inténtalo en unos minutos.") from None
         try:
             payload = json.loads(body or b"{}")
@@ -165,6 +170,7 @@ class Stripe:
             payload = {}
         if status >= 400:
             message = (payload.get("error") or {}).get("message") or f"error {status}"
+            log.warning("stripe_refused method=%s path=%s status=%s", method, path.split("?")[0], status)
             raise BillingError(f"Stripe no ha aceptado la operación: {message}")
         return payload
 
@@ -216,7 +222,7 @@ def subscription_fields(subscription: dict) -> dict:
         "stripe_customer": customer["id"] if isinstance(customer, dict) else customer,
         "stripe_subscription": subscription.get("id") or "",
         "billing_status": subscription.get("status") or "incomplete",
-        "period_end": datetime.fromtimestamp(int(end), timezone.utc).replace(tzinfo=None).isoformat(timespec="seconds")
+        "period_end": datetime.fromtimestamp(int(end), UTC).replace(tzinfo=None).isoformat(timespec="seconds")
         if end else "",
         "cancel_at_period_end": 1 if subscription.get("cancel_at_period_end") else 0,
     }

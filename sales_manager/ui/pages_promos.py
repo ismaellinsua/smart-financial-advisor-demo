@@ -101,7 +101,7 @@ def _promotions(c) -> None:
 
 def _loyalty(c) -> None:
     s = c.settings
-    loyalty = c.store._loyalty_settings(s)
+    loyalty = c.store.loyalty_settings(s)
     left, right = st.columns([2, 3], gap="large")
     with left, st.container(border=True):
         st.markdown("**Reglas de los puntos**")

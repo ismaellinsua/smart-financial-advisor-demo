@@ -15,14 +15,14 @@ from core import billing
 from core.security import new_totp_secret, totp_uri, verify_totp
 from core.tenants import CODE_RE, STATUSES, normalize_code
 from ui.auth import client_blocked_minutes, client_failed, client_key, client_succeeded
-from ui.context import _secret, get_directory, multi_tenant, stripe_client, trial_days
+from ui.context import get_directory, multi_tenant, setting, stripe_client, trial_days
 from ui.styles import page_header
 
 OPERATOR_SESSION_HOURS = 2
 
 
 @st.cache_data(ttl=30, show_spinner=False)
-def _tenant(code: str) -> dict | None:
+def tenant_info(code: str) -> dict | None:
     """Looked up at most every 30 s: a suspension takes effect within half a minute."""
     return get_directory().get(code)
 
@@ -44,7 +44,7 @@ def gate() -> bool:
         # Another business in the same browser tab: nothing of the previous one may carry over (user, ticket…).
         for key in list(st.session_state.keys()):
             del st.session_state[key]
-    tenant = _tenant(code)
+    tenant = tenant_info(code)
     if tenant is None:
         st.session_state.pop("tenant", None)
         _choose_business(error="No encontramos ese negocio. Revisa la dirección o el código que te dimos.")
@@ -76,7 +76,7 @@ def _billing_access(tenant: dict) -> billing.Access:
     if message:
         st.session_state["billing_flash"] = message
     if refreshed:
-        _tenant.clear()  # the cached copy of the business is out of date
+        tenant_info.clear()  # the cached copy of the business is out of date
     return access
 
 
@@ -120,7 +120,7 @@ def _operator_signed_in() -> bool:
 
 
 def operator_panel() -> None:
-    expected = _secret("operator_password")
+    expected = setting("operator_password")
     page_header("Panel de operador", "Alta de negocios, estado y actividad.", eyebrow="NirKanA")
     if not expected:
         st.error("El panel de operador está desactivado: define `operator_password` en los Secrets.")
@@ -149,7 +149,7 @@ def operator_panel() -> None:
                 st.error(str(exc))
             else:
                 st.session_state["operator_created"] = (normalize_code(code), setup)
-                _tenant.clear()
+                tenant_info.clear()
                 st.rerun()
     if created := st.session_state.pop("operator_created", None):
         _show_setup(*created, intro="Negocio creado.")
@@ -182,7 +182,7 @@ def operator_panel() -> None:
             if a.button("Suspender acceso" if target == "suspendido" else "Reactivar acceso", width="stretch",
                         icon=":material/pause_circle:" if target == "suspendido" else ":material/play_circle:"):
                 directory.set_status(chosen, target)
-                _tenant.clear()
+                tenant_info.clear()
                 st.rerun()
             if b.button("Nuevo código de instalación", width="stretch", icon=":material/key:",
                         help="Si el negocio perdió el suyo antes de crear su administrador."):
@@ -194,11 +194,11 @@ def operator_panel() -> None:
             if x.button("Quitar cortesía" if exempt else "Sin cargo (cortesía)", width="stretch",
                         icon=":material/redeem:", help="Negocios piloto o amigos: nunca se les pide pagar."):
                 directory.set_billing_exempt(chosen, not exempt)
-                _tenant.clear()
+                tenant_info.clear()
                 st.rerun()
             if y.button("Ampliar prueba 14 días", width="stretch", icon=":material/more_time:"):
                 directory.extend_trial(chosen, 14)
-                _tenant.clear()
+                tenant_info.clear()
                 st.rerun()
             stripe = stripe_client()
             if z.button("Comprobar en Stripe", width="stretch", icon=":material/sync:",
@@ -208,7 +208,7 @@ def operator_panel() -> None:
                 except billing.BillingError as exc:
                     st.error(str(exc))
                 else:
-                    _tenant.clear()
+                    tenant_info.clear()
                     st.rerun()
 
     with st.expander("Registro del operador"):
@@ -223,7 +223,7 @@ def _show_setup(code: str, setup: str, intro: str) -> None:
 def _operator_login(expected: str) -> None:
     key = "operador:" + client_key()
     directory = get_directory()
-    totp_secret = _secret("operator_totp_secret")
+    totp_secret = setting("operator_totp_secret")
     with st.form("operator_login"):
         secret = st.text_input("Contraseña de operador", type="password", max_chars=128)
         code = st.text_input("Código de tu app de autenticación", max_chars=8,
@@ -245,7 +245,7 @@ def _operator_login(expected: str) -> None:
 
 def _operator_2fa_notice() -> None:
     """Without `operator_totp_secret`, the panel that controls every business is guarded by a password alone."""
-    if _secret("operator_totp_secret"):
+    if setting("operator_totp_secret"):
         return
     proposal = st.session_state.setdefault("operator_totp_proposal", new_totp_secret())
     with st.container(border=True):

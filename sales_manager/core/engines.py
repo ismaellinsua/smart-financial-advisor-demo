@@ -3,7 +3,6 @@
 Every transaction goes through `tx()`; cursors take `?` placeholders and return rows as dicts on both engines.
 """
 
-import os
 import re
 import sqlite3
 import threading
@@ -12,6 +11,7 @@ from pathlib import Path
 from time import monotonic
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
+from . import config
 from .schema import APPEND_ONLY_MESSAGE, SCHEMA
 from .security import is_safe_identifier
 
@@ -44,7 +44,7 @@ class _ReadCache:
             self._generation += 1
 
 
-class _Cursor:
+class Cursor:
     """Uniform cursor: `?` placeholders and rows returned as dicts on both engines."""
 
     def __init__(self, cur, pyformat: bool):
@@ -104,7 +104,7 @@ class _Cursor:
         return self._cur.fetchall(), self.columns
 
 
-class _SQLite:
+class SQLiteEngine:
     label = "archivo local (SQLite)"
     persistent_in_cloud = False
 
@@ -125,7 +125,7 @@ class _SQLite:
     @contextmanager
     def tx(self):
         with self._lock:
-            cur = _Cursor(self._conn.cursor(), pyformat=False)
+            cur = Cursor(self._conn.cursor(), pyformat=False)
             try:
                 yield cur
                 self._conn.commit()
@@ -137,10 +137,10 @@ class _SQLite:
                 if cur.wrote:
                     self.reads.clear()
 
-    def columns(self, cur: _Cursor, table: str) -> set[str]:
+    def columns(self, cur: Cursor, table: str) -> set[str]:
         return {r["name"] for r in cur.execute(f"PRAGMA table_info({table})").fetchall()}
 
-    def drop_day_unique(self, cur: _Cursor) -> None:
+    def drop_day_unique(self, cur: Cursor) -> None:
         """Databases from before locations had `day UNIQUE` on cash closings; SQLite can only drop it by
         rebuilding the table (same columns and rows)."""
         sql = cur.execute("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'cash_closings'").fetchone()
@@ -153,25 +153,25 @@ class _SQLite:
         cur.execute(f"INSERT INTO cash_closings({', '.join(columns)}) SELECT {', '.join(columns)} FROM cash_closings_old")
         cur.execute("DROP TABLE cash_closings_old")
 
-    def make_append_only(self, cur: _Cursor, table: str) -> None:
+    def make_append_only(self, cur: Cursor, table: str) -> None:
         """Rows of `table` can be added but never changed or deleted, not even with direct SQL."""
         for event in ("UPDATE", "DELETE"):
             cur.execute(f"CREATE TRIGGER IF NOT EXISTS {table}_no_{event.lower()} BEFORE {event} ON {table} "
                         f"BEGIN SELECT RAISE(ABORT, '{APPEND_ONLY_MESSAGE}'); END")
 
-    def lock_migrations(self, cur: _Cursor) -> None:
+    def lock_migrations(self, cur: Cursor) -> None:
         pass  # one connection, already serialised by the store's lock
 
-    def float_columns(self, cur: _Cursor) -> list[tuple[str, str]]:
+    def float_columns(self, cur: Cursor) -> list[tuple[str, str]]:
         return []  # SQLite has no exact decimal type; amounts are rounded to cents before they are written
 
-    def before_reload(self, cur: _Cursor, tables: list[str]) -> None:
+    def before_reload(self, cur: Cursor, tables: list[str]) -> None:
         # Restart id counters; explicit ids inserted afterwards move them forward again.
         cur.execute(
             f"DELETE FROM sqlite_sequence WHERE name IN ({', '.join('?' * len(tables))})", tables
         )
 
-    def after_reload(self, cur: _Cursor, tables: list[str]) -> None:
+    def after_reload(self, cur: Cursor, tables: list[str]) -> None:
         pass
 
     def close(self) -> None:
@@ -180,10 +180,7 @@ class _SQLite:
 
 def pool_size() -> int:
     """Connections each server keeps per database (DB_POOL_SIZE, default 5). Free plans allow few connections."""
-    try:
-        return max(1, min(int(os.environ.get("DB_POOL_SIZE", "5")), 50))
-    except ValueError:
-        return 5
+    return config.integer("db_pool_size", low=1, high=50)
 
 
 # Every user of the same database (each business's Store, the operator directory) shares one small pool.
@@ -196,7 +193,7 @@ def acquire_pool(url: str):
     from psycopg.rows import dict_row
     from psycopg_pool import ConnectionPool
 
-    key = _secure_url(url)
+    key = secure_url(url)
     with _POOLS_LOCK:
         entry = _POOLS.get(key)
         if entry is None:
@@ -210,7 +207,7 @@ def acquire_pool(url: str):
                 open=True,
                 check=ConnectionPool.check_connection,
                 kwargs={"row_factory": dict_row, "prepare_threshold": None, "connect_timeout": 15},
-                configure=_load_numbers,
+                configure=load_numbers,
             )
             try:
                 pool.wait(timeout=30)
@@ -233,7 +230,7 @@ def release_pool(key: str) -> None:
             entry[0].close()
 
 
-class _Postgres:
+class PostgresEngine:
     label = "PostgreSQL en la nube"
     persistent_in_cloud = True
 
@@ -247,7 +244,7 @@ class _Postgres:
         self._key, self._pool = acquire_pool(url)
         self.integrity_errors = (psycopg.errors.IntegrityError,)
 
-    # Exact decimals for every amount, rate and cost. Read back as Python floats (see _load_numbers), as the
+    # Exact decimals for every amount, rate and cost. Read back as Python floats (see load_numbers), as the
     # app has always used them, so totals summed in the database are exact and the code sees no difference.
     real = "NUMERIC(14,4)"
 
@@ -263,13 +260,13 @@ class _Postgres:
                 if self._schema:
                     # Per transaction, so it also holds behind a transaction-pooling proxy (Neon's pooler, PgBouncer).
                     cur.execute(f'SET LOCAL search_path TO "{self._schema}"')
-                wrapped = _Cursor(cur, pyformat=True)
+                wrapped = Cursor(cur, pyformat=True)
                 yield wrapped
         finally:
             if wrapped is not None and wrapped.wrote:
                 self.reads.clear()  # after the commit, so nobody re-reads the old values in between
 
-    def columns(self, cur: _Cursor, table: str) -> set[str]:
+    def columns(self, cur: Cursor, table: str) -> set[str]:
         rows = cur.execute(
             "SELECT column_name AS name FROM information_schema.columns "
             "WHERE table_schema = current_schema() AND table_name = ?",
@@ -277,11 +274,11 @@ class _Postgres:
         ).fetchall()
         return {r["name"] for r in rows}
 
-    def drop_day_unique(self, cur: _Cursor) -> None:
+    def drop_day_unique(self, cur: Cursor) -> None:
         """Databases from before locations had `day UNIQUE` on cash closings."""
         cur.execute("ALTER TABLE cash_closings DROP CONSTRAINT IF EXISTS cash_closings_day_key")
 
-    def make_append_only(self, cur: _Cursor, table: str) -> None:
+    def make_append_only(self, cur: Cursor, table: str) -> None:
         """Rows of `table` can be added but never changed or deleted (nor truncated), not even with direct SQL."""
         if cur.execute("SELECT 1 FROM pg_trigger WHERE tgname = ? AND tgrelid = to_regclass(?)",
                        (f"{table}_no_truncate", table)).fetchone():
@@ -293,21 +290,21 @@ class _Postgres:
         cur.execute(f"CREATE OR REPLACE TRIGGER {table}_no_truncate BEFORE TRUNCATE ON {table} "
                     "FOR EACH STATEMENT EXECUTE FUNCTION append_only_guard()")
 
-    def lock_migrations(self, cur: _Cursor) -> None:
+    def lock_migrations(self, cur: Cursor) -> None:
         # Two servers starting at once: the second waits here and then sees the first one's work recorded.
         cur.execute("LOCK TABLE schema_migrations IN SHARE ROW EXCLUSIVE MODE")
 
-    def float_columns(self, cur: _Cursor) -> list[tuple[str, str]]:
+    def float_columns(self, cur: Cursor) -> list[tuple[str, str]]:
         rows = cur.execute(
             "SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = current_schema() "
             "AND data_type IN ('double precision', 'real') ORDER BY table_name, ordinal_position"
         ).fetchall()
         return [(r["table_name"], r["column_name"]) for r in rows]
 
-    def before_reload(self, cur: _Cursor, tables: list[str]) -> None:
+    def before_reload(self, cur: Cursor, tables: list[str]) -> None:
         pass
 
-    def after_reload(self, cur: _Cursor, tables: list[str]) -> None:
+    def after_reload(self, cur: Cursor, tables: list[str]) -> None:
         # Rows were inserted with explicit ids: move each identity past the highest one.
         for table in tables:
             if table != "settings":
@@ -320,7 +317,7 @@ class _Postgres:
         release_pool(self._key)
 
 
-def _load_numbers(conn) -> None:
+def load_numbers(conn) -> None:
     """NUMERIC values arrive as float (or int for whole-number aggregates such as SUM of quantities)."""
     from psycopg.adapt import Loader
 
@@ -335,7 +332,7 @@ def _load_numbers(conn) -> None:
 LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1", ""}
 
 
-def _secure_url(url: str) -> str:
+def secure_url(url: str) -> str:
     """Require TLS for any remote PostgreSQL server unless the URL already sets an sslmode."""
     parts = urlsplit(url)
     query = dict(parse_qsl(parts.query))
@@ -344,5 +341,5 @@ def _secure_url(url: str) -> str:
     return urlunsplit(parts._replace(query=urlencode(query)))
 
 
-def _is_postgres(target) -> bool:
+def is_postgres(target) -> bool:
     return str(target).startswith(("postgresql://", "postgres://"))
