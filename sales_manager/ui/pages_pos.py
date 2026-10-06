@@ -60,11 +60,15 @@ def _create_customer_from_pos() -> None:
     if not name:
         st.session_state["pos_flash"] = ("error", "Indica al menos el nombre del cliente.")
         return
-    cid = context.get_store().upsert_customer({
-        "name": name,
-        "email": st.session_state.get("pos_new_email", ""),
-        "phone": st.session_state.get("pos_new_phone", ""),
-    })
+    try:
+        cid = context.get_store().upsert_customer({
+            "name": name,
+            "email": st.session_state.get("pos_new_email", ""),
+            "phone": st.session_state.get("pos_new_phone", ""),
+        })
+    except ValueError as exc:
+        st.session_state["pos_flash"] = ("error", str(exc))
+        return
     st.session_state["pos_customer"] = cid
     st.session_state["pos_flash"] = ("success", f"Cliente «{name}» creado y seleccionado.")
 

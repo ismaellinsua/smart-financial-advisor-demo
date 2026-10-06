@@ -22,7 +22,8 @@ def automations_page() -> None:
         eyebrow="Inteligencia",
     )
     products = c.store.products()
-    lines = c.store.sale_lines(start=clock.now() - timedelta(days=120))
+    # Restocking compares stock with the last 30 days of demand (automation.reorder_suggestions): load only those.
+    lines = c.store.sale_lines(start=clock.now() - timedelta(days=31))
     totals = c.store.customer_totals()
     t1, t2, t3, t4 = st.tabs(["Reposición inteligente", "Alertas de stock", "Seguimiento de clientes", "Informes"])
 
@@ -93,12 +94,7 @@ def automations_page() -> None:
         if isinstance(rng, tuple) and len(rng) == 2:
             start = datetime.combine(rng[0], time.min)
             end = datetime.combine(rng[1] + timedelta(days=1), time.min)
-            period_lines = c.store.sale_lines(start, end)
-            summary = (
-                period_lines.groupby(["category", "name"])
-                .agg(unidades=("quantity", "sum"), ventas_netas=("revenue", "sum"), margen=("margin", "sum"))
-                .round(2).reset_index().sort_values("ventas_netas", ascending=False)
-            )
+            summary = c.store.product_summary(start, end)  # added up by the database, any period length
             st.dataframe(summary, hide_index=True, width="stretch")
             a, b = st.columns(2)
             logged_download(a, "Resumen por artículo (CSV)", csv_bytes(summary), "resumen_articulos.csv", "text/csv",

@@ -17,7 +17,7 @@ from .billing import TRIAL_DAYS, Access, BillingError, access, parse_when, subsc
 from .db import Store
 from .engines import secure_url, acquire_pool, release_pool
 from .throttle import after_failure, blocked_minutes, key_hash
-from .security import hash_secret, verify_secret
+from .security import hash_secret, is_safe_identifier, verify_secret
 
 DIRECTORY_SCHEMA = "nirkana_operador"
 log = logs.get("tenants")
@@ -177,21 +177,35 @@ class Directory:
             self._log(conn, f"negocio_{status}", normalize_code(code))
 
     def overview(self) -> list[dict]:
-        """Every business with its activity, for the operator panel."""
+        """Every business with its activity, for the operator panel: three round trips in all, whatever the number
+        of businesses (it used to be four queries per business)."""
+        since = (clock.now() - timedelta(days=7)).isoformat(timespec="seconds")
         with self._connect() as conn:
             tenants = conn.execute(f"SELECT {TENANT_FIELDS} FROM {DIRECTORY_SCHEMA}.tenants "
                                    "ORDER BY created_at").fetchall()
-            for t in tenants:
-                schema = t["schema_name"]
-                stats = conn.execute(
-                    f'SELECT COUNT(*) AS sales, MAX(created_at) AS last_sale FROM "{schema}".sales').fetchone()
-                users = conn.execute(f'SELECT COUNT(*) AS n FROM "{schema}".users WHERE active = 1').fetchone()
-                errors = 0
-                if conn.execute("SELECT to_regclass(%s) AS t", (f"{schema}.app_errors",)).fetchone()["t"]:
-                    since = (clock.now() - timedelta(days=7)).isoformat(timespec="seconds")
-                    errors = conn.execute(f'SELECT COUNT(*) AS n FROM "{schema}".app_errors WHERE happened_at >= %s',
-                                          (since,)).fetchone()["n"]
-                t.update(sales=stats["sales"], last_sale=stats["last_sale"] or "", users=users["n"], errors=errors)
+            if not tenants:
+                return tenants
+            schemas = [t["schema_name"] for t in tenants]
+            ready = {r["schema"]: set(r["tables"]) for r in conn.execute(
+                "SELECT table_schema AS schema, array_agg(table_name::text) AS tables FROM information_schema.tables "
+                "WHERE table_schema = ANY(%s) AND table_name IN ('sales', 'users', 'app_errors') "
+                "GROUP BY table_schema", (schemas,)).fetchall()}
+            parts, params = [], []
+            for schema in schemas:
+                tables = ready.get(schema, set())
+                if not is_safe_identifier(schema) or not {"sales", "users"} <= tables:
+                    continue  # never set up (or not yet): shown with zeros
+                errors = (f'(SELECT COUNT(*) FROM "{schema}".app_errors WHERE happened_at >= %s)'
+                          if "app_errors" in tables else "0")
+                parts.append(f'SELECT %s AS schema, (SELECT COUNT(*) FROM "{schema}".sales) AS sales, '
+                             f'(SELECT MAX(created_at) FROM "{schema}".sales) AS last_sale, '
+                             f'(SELECT COUNT(*) FROM "{schema}".users WHERE active = 1) AS users, {errors} AS errors')
+                params += [schema] + ([since] if "app_errors" in tables else [])
+            stats = {r["schema"]: r for r in conn.execute(" UNION ALL ".join(parts), params).fetchall()} if parts else {}
+        for t in tenants:
+            row = stats.get(t["schema_name"]) or {}
+            t.update(sales=int(row.get("sales") or 0), last_sale=row.get("last_sale") or "",
+                     users=int(row.get("users") or 0), errors=int(row.get("errors") or 0))
         return tenants
 
     # ------------------------------------------------------------------ billing

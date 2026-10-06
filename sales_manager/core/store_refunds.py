@@ -72,7 +72,8 @@ class RefundsMixin:
         raise AssertionError("unreachable")
 
     def _insert_refund(self, cur, sale_id, wanted, method, reason, user_name, when) -> int:
-        sale = cur.execute("SELECT * FROM sales WHERE id = ?", (sale_id,)).fetchone()
+        # Locked first: two returns of the same ticket at once would both see «nothing returned yet».
+        sale = cur.execute("SELECT * FROM sales WHERE id = ?" + self.db.for_update, (sale_id,)).fetchone()
         if sale is None or sale["status"] != "completada":
             raise self.SaleError("Solo se pueden devolver ventas completadas.")
         items = {i["id"]: i for i in cur.execute("SELECT * FROM sale_items WHERE sale_id = ?", (sale_id,)).fetchall()}

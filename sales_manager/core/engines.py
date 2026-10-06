@@ -117,6 +117,8 @@ class SQLiteEngine:
         self._lock = threading.RLock()  # Streamlit serves each visitor from its own thread
         self.integrity_errors = (sqlite3.IntegrityError,)
 
+    # Row locks: not needed (one connection, every transaction already runs alone).
+    for_update = ""
     real = "REAL"
 
     def schema(self) -> str:
@@ -243,6 +245,10 @@ class PostgresEngine:
         self.reads = _ReadCache()
         self._key, self._pool = acquire_pool(url)
         self.integrity_errors = (psycopg.errors.IntegrityError,)
+
+    # Locks the rows a transaction reads before deciding (a sale before refunding it…): a second transaction on the
+    # same row waits, then sees the first one's result instead of deciding on stale data.
+    for_update = " FOR UPDATE"
 
     # Exact decimals for every amount, rate and cost. Read back as Python floats (see load_numbers), as the
     # app has always used them, so totals summed in the database are exact and the code sees no difference.

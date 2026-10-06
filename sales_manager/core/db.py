@@ -16,6 +16,7 @@ from .pricing import apply_promotions, compute_totals, tax_breakdown
 from .engines import LOCAL_HOSTS, Cursor, PostgresEngine, SQLiteEngine, is_postgres, load_numbers, secure_url
 from .errors import AuthError, FiscalDataError, SaleError
 from .schema import (
+    ADDED_FOREIGN_KEYS, CHECKS,
     APPEND_ONLY_MESSAGE, DATA_TABLES, FISCAL_DATA_MESSAGE, FISCAL_TABLES, MIGRATIONS,
     VERSIONED_MIGRATIONS,
 )
@@ -75,10 +76,17 @@ class Store(UsersMixin, ThrottleMixin, DemoMixin, CatalogMixin, InvoicesMixin, A
         with self.db.tx() as cur:
             for statement in filter(str.strip, self.db.schema().split(";")):
                 cur.execute(statement)
+            # Same as the indexes their UNIQUE constraints already create: only extra work on every write.
+            for redundant in ("idx_invoices_sale", "idx_credit_notes_refund"):
+                cur.execute(f"DROP INDEX IF EXISTS {redundant}")
             for table, column, ddl in MIGRATIONS:
                 if column not in self.db.columns(cur, table):
                     cur.execute(f"ALTER TABLE {table} ADD COLUMN {column} {ddl.format(real=self.db.real)}")
             cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS sales_offline_id ON sales(offline_id) WHERE offline_id <> ''")
+            # Looked up on every visit to a public cancel link, and on every online booking (hourly limit).
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_appointments_cancel ON appointments(cancel_hash) "
+                        "WHERE cancel_hash <> ''")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_appointments_source ON appointments(source, created_at)")
             cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS sales_external_ref ON sales(external_ref) "
                         "WHERE external_ref <> ''")
             # Each fixed expense once a month, even if two devices post them at the same moment. Databases that
@@ -87,6 +95,14 @@ class Store(UsersMixin, ThrottleMixin, DemoMixin, CatalogMixin, InvoicesMixin, A
                                "substr(day, 1, 7) HAVING COUNT(*) > 1 LIMIT 1").fetchone():
                 cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS expenses_recurring_month "
                             "ON expenses(recurring_id, substr(day, 1, 7)) WHERE recurring_id IS NOT NULL")
+            # One customer per tax number and one location per name (ignoring case). Databases that already have
+            # duplicates keep working, and the app refuses new ones anyway (upsert_customer, save_location).
+            if not cur.execute("SELECT 1 FROM customers WHERE tax_id <> '' GROUP BY tax_id HAVING COUNT(*) > 1 "
+                               "LIMIT 1").fetchone():
+                cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS customers_tax_id ON customers(tax_id) "
+                            "WHERE tax_id <> ''")
+            if not cur.execute("SELECT 1 FROM locations GROUP BY lower(name) HAVING COUNT(*) > 1 LIMIT 1").fetchone():
+                cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS locations_name ON locations(lower(name))")
             # One cash closing per day and location (it used to be one per day).
             self.db.drop_day_unique(cur)
             cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS cash_closings_day_location "
@@ -137,6 +153,38 @@ class Store(UsersMixin, ThrottleMixin, DemoMixin, CatalogMixin, InvoicesMixin, A
             if is_safe_identifier(table) and is_safe_identifier(column):
                 cur.execute(f"ALTER TABLE {table} ALTER COLUMN {column} TYPE {self.db.real} "
                             f"USING round({column}::numeric, 4)")
+
+    def _add_foreign_keys(self, cur: Cursor) -> None:
+        """PostgreSQL databases created before these columns had foreign keys: add them. They are enforced for every
+        new or changed row at once (NOT VALID) and checked against existing rows only when those are all consistent,
+        so an old inconsistency never stops the app from starting. SQLite cannot add them to existing tables."""
+        if not self.db.for_update:
+            return
+        for table, column, parent, on_delete in ADDED_FOREIGN_KEYS:
+            name = f"fk_{table}_{column}"
+            if cur.execute("SELECT 1 FROM pg_constraint WHERE conrelid = to_regclass(?) AND contype = 'f' "
+                           "AND conkey = ARRAY[(SELECT attnum FROM pg_attribute WHERE attrelid = to_regclass(?) "
+                           "AND attname = ?)]::int2[]", (table, table, column)).fetchone():
+                continue  # created with the column (newer databases)
+            cur.execute(f"ALTER TABLE {table} ADD CONSTRAINT {name} FOREIGN KEY ({column}) "
+                        f"REFERENCES {parent}(id) {on_delete} NOT VALID")
+            orphans = cur.execute(f"SELECT 1 FROM {table} t WHERE t.{column} IS NOT NULL AND NOT EXISTS "
+                                  f"(SELECT 1 FROM {parent} p WHERE p.id = t.{column}) LIMIT 1").fetchone()
+            if not orphans:
+                cur.execute(f"ALTER TABLE {table} VALIDATE CONSTRAINT {name}")
+
+    def _add_checks(self, cur: Cursor) -> None:
+        """PostgreSQL databases from before only accept known values in status and role columns from now on (NOT
+        VALID); existing rows are checked too when they all comply. SQLite cannot add them to existing tables."""
+        if not self.db.for_update:
+            return
+        for name, (table, condition) in CHECKS.items():
+            if cur.execute("SELECT 1 FROM pg_constraint WHERE conname = ? AND conrelid = to_regclass(?)",
+                           (name, table)).fetchone():
+                continue
+            cur.execute(f"ALTER TABLE {table} ADD CONSTRAINT {name} CHECK ({condition}) NOT VALID")
+            if not cur.execute(f"SELECT 1 FROM {table} WHERE NOT ({condition}) LIMIT 1").fetchone():
+                cur.execute(f"ALTER TABLE {table} VALIDATE CONSTRAINT {name}")
 
     @staticmethod
     def _migrate_prices(cur: Cursor) -> None:
@@ -431,7 +479,8 @@ class Store(UsersMixin, ThrottleMixin, DemoMixin, CatalogMixin, InvoicesMixin, A
         sale_id = int(sale_id)
         stamp = (when or clock.now()).isoformat(timespec="seconds")
         with self.db.tx() as cur:
-            sale = cur.execute("SELECT status FROM sales WHERE id = ?", (sale_id,)).fetchone()
+            # Locked first: two voids (or a void and a return) of the same sale at once must not both go ahead.
+            sale = cur.execute("SELECT status FROM sales WHERE id = ?" + self.db.for_update, (sale_id,)).fetchone()
             if sale is None or sale["status"] == "anulada":
                 raise SaleError("La venta no existe o ya está anulada.")
             if cur.execute("SELECT id FROM refunds WHERE sale_id = ?", (sale_id,)).fetchone():
@@ -521,6 +570,27 @@ class Store(UsersMixin, ThrottleMixin, DemoMixin, CatalogMixin, InvoicesMixin, A
     def sale_lines(self, start: datetime | None = None, end: datetime | None = None) -> pd.DataFrame:
         """Line-level data of completed sales, with margin, for analytics. Returns appear as negative lines on
         the day they happened, so revenue, margins and demand are always net of returns."""
+        sql, params = self._lines_sql(start, end)
+        df = self._frame(sql, params)
+        df["created_at"] = pd.to_datetime(df["created_at"])
+        # An empty result comes back with object columns; keep numeric types so analytics work with no sales.
+        numeric = ["quantity", "unit_price", "unit_cost", "discount_pct", "revenue", "cost"]
+        df[numeric] = df[numeric].astype(float)
+        df["margin"] = df["revenue"] - df["cost"]
+        return df
+
+    def product_summary(self, start: datetime | None = None, end: datetime | None = None) -> pd.DataFrame:
+        """Units, net sales and margin per product for a period, added up by the database: one row per product
+        instead of one per line sold, whatever the length of the period."""
+        sql, params = self._lines_sql(start, end)
+        df = self._frame("SELECT category, name, SUM(quantity) AS unidades, SUM(revenue) AS ventas_netas, "
+                         f"SUM(revenue - cost) AS margen FROM ({sql}) lines GROUP BY category, name", params)
+        for column in ("unidades", "ventas_netas", "margen"):
+            df[column] = df[column].astype(float)
+        return df.round(2).sort_values("ventas_netas", ascending=False).reset_index(drop=True)
+
+    def _lines_sql(self, start: datetime | None, end: datetime | None) -> tuple[str, list]:
+        """Completed sales lines and returns (as negative lines) in a period, as one query; see sale_lines."""
         def window(column: str) -> tuple[str, list]:
             sql, params = "", []
             if start:
@@ -546,11 +616,5 @@ class Store(UsersMixin, ThrottleMixin, DemoMixin, CatalogMixin, InvoicesMixin, A
             "FROM refund_items ri JOIN refunds r ON r.id = ri.refund_id JOIN sales s ON s.id = r.sale_id "
             "JOIN products p ON p.id = ri.product_id WHERE 1 = 1" + back_where
         )
-        df = self._frame(sql, [*sold_params, *back_params])
-        df["created_at"] = pd.to_datetime(df["created_at"])
-        # An empty result comes back with object columns; keep numeric types so analytics work with no sales.
-        numeric = ["quantity", "unit_price", "unit_cost", "discount_pct", "revenue", "cost"]
-        df[numeric] = df[numeric].astype(float)
-        df["margin"] = df["revenue"] - df["cost"]
-        return df
+        return sql, [*sold_params, *back_params]
 

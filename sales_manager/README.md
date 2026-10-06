@@ -259,6 +259,12 @@ secret**:
 
 Después, en **Actions → Copias de seguridad → Run workflow**, lánzala una vez para comprobar que va.
 
+**Mejor con un usuario de solo lectura:** ejecuta una vez `ops/deploy/roles.sql` (las instrucciones están en su
+cabecera). Crea el usuario `nirkana_backup`, que puede leer todos los negocios (también los que se den de alta después)
+pero no cambiar nada, y pon su cadena de conexión en `BACKUP_DATABASES` en lugar de la del propietario. El mismo script
+limita lo que puede durar una consulta o una espera de bloqueo del usuario de la app (10 s esperando un bloqueo, 60 s
+por consulta), para que una operación atascada nunca deje la caja esperando.
+
 Cada negocio tiene dos archivos cifrados: `…dump.enc` (la base completa, con cuentas y registro de actividad) y
 `…db.enc` (la copia de la app, sin cuentas).
 

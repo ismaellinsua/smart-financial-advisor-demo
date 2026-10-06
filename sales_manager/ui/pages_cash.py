@@ -109,6 +109,15 @@ def cash_page() -> None:
                      })
         logged_download(st, "Exportar cierres a CSV", csv_bytes(history), "cierres_de_caja.csv", "text/csv",
                            icon=":material/download:")
+    reopened = c.store.cash_reopenings(c.location_id if c.multi_location else None)
+    if not reopened.empty:
+        with st.expander(f"Cierres reabiertos ({len(reopened)})", icon=":material/lock_open:"):
+            st.dataframe(reopened, hide_index=True, width="stretch", column_config={
+                "day": st.column_config.DateColumn("Día", format="DD/MM/YYYY"),
+                "reopened_by": "Reabierto por", "reopened_at": "Cuándo",
+                "counted_cash": st.column_config.NumberColumn("Contado entonces", format=f"%.2f {c.symbol}"),
+                "difference": st.column_config.NumberColumn("Diferencia entonces", format=f"%+.2f {c.symbol}"),
+                "closed_by": "Cerrado por"})
 
 
 def _difference_message(c, difference: float):
@@ -156,6 +165,6 @@ def _closed_cash_panel(c, day: date, closing: dict, summary: dict) -> None:
                        f"cierre-{day:%Y-%m-%d}.pdf", "application/pdf", type="primary",
                        width="stretch", icon=":material/picture_as_pdf:")
     if st.button("Reabrir caja", width="stretch", icon=":material/lock_open:"):
-        c.store.reopen_cash(day, c.location_id)
+        c.store.reopen_cash(day, c.location_id, by=c.who)
         c.store.audit(c.username, "caja_reabierta", f"{day:%d/%m/%Y}")
         st.rerun()

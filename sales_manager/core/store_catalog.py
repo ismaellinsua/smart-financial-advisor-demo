@@ -6,6 +6,7 @@ import pandas as pd
 
 from . import clock
 from .pricing import PROMO_KINDS, PROMO_SCOPES
+from .fiscal_id import normalize as normalize_tax_id
 from .security import clean_text
 
 
@@ -129,7 +130,13 @@ class CatalogMixin:
         if customer_id is not None:
             fields = [f for f in fields if f in data]  # an update only touches the fields it was given
         values = [clean_text(data.get(f), *limits[f]) for f in fields]
+        if "tax_id" in fields:  # one spelling per tax number (B-12345678 and b12345678 are the same company)
+            values[fields.index("tax_id")] = normalize_tax_id(values[fields.index("tax_id")])
         with self.db.tx() as cur:
+            tax_id = values[fields.index("tax_id")] if "tax_id" in fields else ""
+            if tax_id and cur.execute("SELECT 1 FROM customers WHERE tax_id = ? AND id <> ?",
+                                      (tax_id, int(customer_id or 0))).fetchone():
+                raise ValueError(f"Ya hay un cliente con el NIF {tax_id}. Búscalo en Clientes en lugar de crear otro.")
             if customer_id is None:
                 row = cur.execute(
                     f"INSERT INTO customers({', '.join(fields)}, created_at) "

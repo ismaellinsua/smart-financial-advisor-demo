@@ -114,7 +114,10 @@ class OrdersMixin:
                 "title": row["table_name"] or row["label"]}
 
     def _open_order_row(self, cur, order_id: int) -> dict:
-        row = cur.execute("SELECT status, table_id FROM orders WHERE id = ?", (int(order_id),)).fetchone()
+        """The open order, locked until the transaction ends: two waiters charging (or changing) the same table at
+        once take turns, and the second sees what the first did."""
+        row = cur.execute("SELECT status, table_id FROM orders WHERE id = ?" + self.db.for_update,
+                          (int(order_id),)).fetchone()
         if row is None or row["status"] != "abierta":
             raise ValueError("La comanda ya no está abierta.")
         return row
@@ -213,9 +216,12 @@ class OrdersMixin:
 
     def order_cart(self, order_id: int, selection: dict | None = None) -> list[dict]:
         """Cart for charging: all unpaid items, or `selection` {item_id: units} to split the bill by products."""
-        order = self.order(order_id)
+        return self._cart_of(self.order(order_id)["unpaid"], selection)
+
+    @staticmethod
+    def _cart_of(unpaid, selection: dict | None) -> list[dict]:
         cart: dict[int, int] = {}
-        for item in order["unpaid"]:
+        for item in unpaid:
             units = item["quantity"] if selection is None else min(int(selection.get(item["id"], 0)), item["quantity"])
             if units > 0:
                 cart[item["product_id"]] = cart.get(item["product_id"], 0) + units
@@ -231,6 +237,12 @@ class OrdersMixin:
             try:
                 with self.db.tx() as cur:
                     order_row = self._open_order_row(cur, order_id)
+                    # What is still unpaid now that the order is locked (another waiter may have just charged it).
+                    unpaid = cur.execute("SELECT * FROM order_items WHERE order_id = ? AND sale_id IS NULL ORDER BY id",
+                                         (int(order_id),)).fetchall()
+                    cart = self._cart_of(unpaid, selection)
+                    if not cart:
+                        raise self.SaleError("Esa comanda ya está cobrada.")
                     table = cur.execute("SELECT location_id FROM dining_tables WHERE id = ?",
                                         (order_row["table_id"],)).fetchone() if order_row["table_id"] else None
                     sale_id = self._insert_sale(

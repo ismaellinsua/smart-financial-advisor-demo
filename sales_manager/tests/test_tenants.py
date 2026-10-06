@@ -175,3 +175,20 @@ def test_an_operator_code_opens_the_panel_once_on_every_server(directory):
     assert not other.claim_operator_step(1000)  # the same code, again
     assert not other.claim_operator_step(999)  # an older one
     assert other.claim_operator_step(1001)
+
+
+def test_operator_overview_takes_three_queries_whatever_the_number_of_businesses(directory, monkeypatch):
+    import psycopg
+
+    for i in range(6):
+        directory.create(f"negocio-{i}", f"Negocio {i}")
+    _sell(directory.store("negocio-3"))
+    calls = []
+    original = psycopg.Connection.execute
+    monkeypatch.setattr(psycopg.Connection, "execute",
+                        lambda self, query, params=None, **kw: calls.append(query) or original(self, query, params, **kw))
+    overview = {t["code"]: t for t in directory.overview()}
+    calls = [q for q in calls if str(q).strip()]  # the pool's own connection check sends an empty query
+    assert len(calls) == 3, calls
+    assert overview["negocio-3"]["sales"] == 1 and overview["negocio-3"]["last_sale"]
+    assert overview["negocio-0"]["sales"] == 0 and overview["negocio-0"]["users"] == 0
