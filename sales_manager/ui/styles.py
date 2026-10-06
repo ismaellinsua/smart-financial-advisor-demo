@@ -30,21 +30,28 @@ html, body, [class*="css"], .stMarkdown, .stButton button, input, textarea {{
 }}
 #MainMenu, footer {{ visibility: hidden; }}
 .block-container {{ padding-top: 2rem; max-width: 1280px; }}
-@media (max-width: 640px) {{ .block-container, [data-testid="stMainBlockContainer"] {{ padding-top: 4.5rem !important; }} }}
+@media (max-width: 640px) {{ .block-container, [data-testid="stMainBlockContainer"] {{ padding-top: 3.6rem !important; }}
+  .st-key-demo_banner [data-testid="stAlert"] > div {{ padding: .45rem .7rem; }}
+  .st-key-demo_banner [data-testid="stAlert"] p {{ font-size: .85rem; }}
+  .st-key-demo_banner [data-testid="stHorizontalBlock"] {{ gap: .4rem; }} }}
 h1, h2, h3 {{ letter-spacing: -0.02em; font-weight: 700; }}
 
 /* Page header */
 .sm-header {{ display: flex; align-items: flex-end; justify-content: space-between;
               border-bottom: 1px solid rgba(128,128,128,.18); padding-bottom: .9rem; margin-bottom: 1.4rem; }}
 .sm-header h1 {{ margin: 0; padding: 0; font-size: 1.9rem; }}
-.sm-header p {{ margin: .25rem 0 0; opacity: .65; font-size: .95rem; }}
-.sm-eyebrow {{ text-transform: uppercase; letter-spacing: .12em; font-size: .72rem; font-weight: 600;
+.sm-header p {{ margin: .25rem 0 0; opacity: .75; font-size: .95rem; }}
+.sm-eyebrow {{ text-transform: uppercase; letter-spacing: .12em; font-size: .75rem; font-weight: 600;
                color: var(--accent); }}
 
 /* Metric cards */
 [data-testid="stMetric"] {{ background: var(--secondary-background-color, #F5F7FA); border-radius: 14px;
     padding: 1rem 1.2rem; border: 1px solid rgba(128,128,128,.12); }}
-[data-testid="stMetricLabel"] p {{ font-size: .8rem; text-transform: uppercase; letter-spacing: .06em; opacity: .7; }}
+[data-testid="stMetricLabel"] p {{ font-size: .8rem; text-transform: uppercase; letter-spacing: .06em; opacity: .75; }}
+/* Readable small print: captions and metric changes at 4.5:1 contrast or more (WCAG AA). */
+[data-testid="stCaptionContainer"], [data-testid="stCaptionContainer"] p {{ color: #5A6372 !important; opacity: 1 !important; }}
+[data-testid="stMetricDelta"]:has([data-testid="stMetricDeltaIcon-Down"]) {{ color: #A12A2E !important; }}
+[data-testid="stMetricDelta"]:has([data-testid="stMetricDeltaIcon-Up"]) {{ color: #0E6B2E !important; }}
 [data-testid="stMetricValue"] {{ font-weight: 700; font-variant-numeric: tabular-nums; font-size: 1.65rem; }}
 
 /* Bordered containers as cards */
@@ -59,7 +66,9 @@ button[kind="primary"]:hover, button[data-testid^="stBaseButton-primary"]:hover 
 button[kind="primary"]:disabled, button[data-testid^="stBaseButton-primary"]:disabled {{ opacity: .4; cursor: not-allowed; }}
 
 /* Product tiles in the point of sale */
-.sm-tile-cat {{ font-size: .7rem; text-transform: uppercase; letter-spacing: .08em; opacity: .55; }}
+.sm-tile-cat {{ font-size: .75rem; text-transform: uppercase; letter-spacing: .08em; opacity: .75; }}
+/* Categories wrap onto more lines instead of being cut off at the edge. */
+.st-key-pos_catalog [data-testid="stButtonGroup"] > div {{ flex-wrap: wrap; overflow-x: visible; }}
 .sm-tile-name {{ font-weight: 600; font-size: .98rem; line-height: 1.25; min-height: 2.5em; }}
 .sm-tile-price {{ font-weight: 700; font-size: 1.15rem; color: var(--accent); font-variant-numeric: tabular-nums; }}
 .sm-tile-stock {{ font-size: .78rem; opacity: .65; }}
@@ -77,16 +86,16 @@ button[kind="primary"]:disabled, button[data-testid^="stBaseButton-primary"]:dis
 .sm-table b {{ font-size: 1rem; }}
 .sm-table .amt {{ font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }}
 .sm-table.busy {{ border-left: 3px solid var(--accent); padding-left: .55rem; }}
-.sm-ready {{ margin-left: .4rem; font-size: .68rem; font-weight: 700; padding: .05rem .4rem; border-radius: 6px;
+.sm-ready {{ margin-left: .4rem; font-size: .75rem; font-weight: 700; padding: .05rem .4rem; border-radius: 6px;
              background: #D1FADF; color: #05603A; }}
 .sm-oline {{ font-size: .9rem; line-height: 1.35; }}
-.sm-oline .chip {{ font-size: .66rem; font-weight: 700; text-transform: uppercase; padding: .05rem .4rem;
+.sm-oline .chip {{ font-size: .75rem; font-weight: 700; text-transform: uppercase; padding: .05rem .4rem;
                    border-radius: 6px; background: #F2F4F7; color: #475467; margin-left: .3rem; }}
 .sm-oline.preparando .chip {{ background: #FEF0C7; color: #93370D; }}
 .sm-oline.listo .chip {{ background: #D1FADF; color: #05603A; }}
 .sm-oline.paid {{ opacity: .45; }}
 .sm-oline .note, .sm-kds .note {{ font-style: italic; color: #B54708; font-size: .85rem; }}
-.sm-oline .by {{ font-size: .72rem; opacity: .55; }}
+.sm-oline .by {{ font-size: .75rem; opacity: .72; }}
 .sm-kds {{ font-size: 1rem; line-height: 1.4; }}
 .sm-kds .place {{ font-size: .78rem; opacity: .7; }}
 .sm-kds.late .place {{ color: #B42318; opacity: 1; font-weight: 700; }}
@@ -102,7 +111,7 @@ button[kind="primary"]:disabled, button[data-testid^="stBaseButton-primary"]:dis
              background: var(--secondary-background-color, #F5F7FA); font-size: .9rem; }}
 .sm-alert.alta {{ border-left-color: #D92D20; }}
 .sm-alert.media {{ border-left-color: #F79009; }}
-.sm-alert .lvl {{ font-size: .66rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+.sm-alert .lvl {{ font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
                   padding: .12rem .42rem; border-radius: 6px; white-space: nowrap; margin-top: .12rem;
                   background: #EAECF0; color: #344054; }}
 .sm-alert.alta .lvl {{ background: #FEE4E2; color: #B42318; }}
@@ -115,14 +124,14 @@ button[kind="primary"]:disabled, button[data-testid^="stBaseButton-primary"]:dis
 /* Insight list */
 .sm-insight {{ display: flex; gap: .7rem; align-items: flex-start; padding: .7rem .9rem; border-radius: 10px;
                margin-bottom: .5rem; background: var(--secondary-background-color, #F5F7FA); font-size: .93rem; }}
-.sm-insight .tag {{ font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+.sm-insight .tag {{ font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
                     padding: .15rem .45rem; border-radius: 6px; white-space: nowrap; margin-top: .1rem; }}
 .sm-insight.good .tag {{ background: #D1FADF; color: #05603A; }}
 .sm-insight.warning .tag {{ background: #FEF0C7; color: #93370D; }}
 .sm-insight.info .tag {{ background: #D1E9FF; color: #194185; }}
 
 /* Top bar: one quiet line with today's pulse */
-.sm-topbar {{ display: flex; align-items: center; gap: .75rem; padding: .45rem .9rem; margin: -1rem 0 1.2rem;
+.sm-topbar {{ display: flex; flex-wrap: wrap; align-items: center; gap: .3rem .75rem; padding: .45rem .9rem; margin: -1rem 0 1.2rem;
              border: 1px solid rgba(128,128,128,.16); border-radius: 999px; font-size: .84rem;
              background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 7%, transparent), transparent 70%); }}
 .sm-topbar .dot {{ width: .5rem; height: .5rem; border-radius: 50%; background: var(--accent); flex: none;
@@ -143,6 +152,9 @@ button[kind="primary"]:disabled, button[data-testid^="stBaseButton-primary"]:dis
                      border-radius: 999px; background: #FEE4E2; color: #B42318; }}
 .sm-topbar .alerts.calm {{ background: #FEF0C7; color: #93370D; }}
 @media (max-width: 640px) {{ .sm-topbar .next, .sm-topbar .sep.n, .sm-topbar .biz {{ display: none; }} }}
+@media (max-width: 1100px) {{ .sm-topbar {{ border-radius: 16px; }} }}
+/* Touch screens: menu entries a thumb can hit (44 px). */
+@media (pointer: coarse) {{ [data-testid="stSidebarNavLink"] {{ min-height: 44px; }} }}
 /* Phones: every button big enough for a thumb (44 px), on every page. */
 @media (max-width: 640px) {{
   .stButton button, .stDownloadButton button, .stFormSubmitButton button, [data-testid="stPopover"] button,
@@ -154,7 +166,8 @@ button[kind="primary"]:disabled, button[data-testid^="stBaseButton-primary"]:dis
   .st-key-floor_stats [data-testid="stColumn"] {{ min-width: 0 !important; flex: 1 1 0 !important; }}
   .st-key-floor_stats [data-testid="stMetric"] {{ padding: .45rem .55rem !important; }}
   .st-key-floor_stats [data-testid="stMetricValue"] {{ font-size: 1.1rem !important; }}
-  .st-key-floor_stats [data-testid="stMetricLabel"] p {{ font-size: .6rem !important; white-space: normal; }}
+  .st-key-floor_stats [data-testid="stMetricLabel"] p {{ font-size: .75rem !important; white-space: normal;
+                                                       letter-spacing: .02em !important; }}
   .st-key-floor [data-testid="stHorizontalBlock"] {{ flex-wrap: wrap !important; gap: .5rem !important; }}
   .st-key-floor [data-testid="stColumn"] {{ flex: 1 1 calc(50% - .25rem) !important;
                                             min-width: calc(50% - .25rem) !important; }}
@@ -165,10 +178,10 @@ button[kind="primary"]:disabled, button[data-testid^="stBaseButton-primary"]:dis
 /* Agenda cards */
 .sm-appt {{ display: flex; align-items: center; gap: .9rem; }}
 .sm-appt .when {{ font-weight: 700; font-size: 1.05rem; font-variant-numeric: tabular-nums; min-width: 3.4rem; }}
-.sm-appt .when span {{ display: block; font-weight: 400; font-size: .78rem; opacity: .55; }}
+.sm-appt .when span {{ display: block; font-weight: 400; font-size: .78rem; opacity: .72; }}
 .sm-appt .who {{ flex: 1; font-weight: 600; min-width: 0; }}
 .sm-appt .what {{ font-weight: 400; font-size: .85rem; opacity: .7; }}
-.sm-appt .chip {{ font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+.sm-appt .chip {{ font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
                  padding: .15rem .5rem; border-radius: 6px; background: #D1E9FF; color: #194185; }}
 .sm-appt.completada .chip {{ background: #D1FADF; color: #05603A; }}
 .sm-appt.cancelada .chip, .sm-appt.no_presentado .chip {{ background: #F2F4F7; color: #475467; }}

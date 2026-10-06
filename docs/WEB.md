@@ -7,6 +7,8 @@ frecuentes y contacto. Está en esta carpeta `docs/`:
 |---|---|
 | `index.html` | La página principal |
 | `privacidad.html` | Aviso de privacidad (RGPD) |
+| `tpv-restaurantes/`, `tpv-tiendas/`, `programa-facturacion-autonomos/`, `tpv-tienda-online/` | Una página por sector, para buscadores (están en `sitemap.xml`) |
+| `404.html` | Lo que ve quien abre una dirección que no existe |
 | `assets/site.css` | Diseño (claro y oscuro, efectos 3D) |
 | `assets/site.js` | Contacto, formulario y efectos 3D |
 | `assets/img/` | Capturas de la app optimizadas (`shots/`: `*-c.webp` recortadas para tarjetas, `*.webp` completas para ampliar) |

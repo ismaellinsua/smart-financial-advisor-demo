@@ -164,7 +164,7 @@ def identity_confirmed(c, key: str) -> bool:
 
 def demo_banner(c) -> None:
     """Demonstration data is disposable: say so on every page and let the administrator start for real."""
-    text, action = st.columns([5, 2], vertical_alignment="center")
+    text, action = st.container(key="demo_banner").columns([5, 2], vertical_alignment="center")
     text.warning("**Modo demostración.** Los datos son de ejemplo y todo lo que vendas aquí se borrará al empezar "
                  "de verdad.", icon=":material/science:")
     if c.can("admin") and action.button("Empezar a vender de verdad", type="primary", width="stretch",

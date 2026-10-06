@@ -12,13 +12,29 @@ from ui.styles import insight, page_header, style_figure
 
 
 # ----------------------------------------------------------------- dashboard
+def _first_steps(c) -> None:
+    """A business with no sales yet: what to do first, instead of empty charts and a report with nothing in it."""
+    with st.container(border=True):
+        st.markdown("**Primeros pasos**")
+        st.markdown("1. Revisa tus productos, precios e IVA.  \n2. Haz tu primera venta.  \n"
+                    "3. Da acceso a tu equipo, cada uno con su PIN.")
+        links = [("products", ""), ("pos", "Vender")] + ([("team", "Equipo")] if c.can("admin") else [])
+        for col, (key, label) in zip(st.columns(3), links):
+            if key in PAGES:
+                col.page_link(PAGES[key], label=label if key != "products" else PAGES[key].title,
+                              icon=":material/arrow_forward:")
+
+
 def dashboard() -> None:
     c = ctx()
     if not require_role(c, "encargado"):
         return
     page_header("Panel de ventas", f"Así va {c.settings['business_name']}", eyebrow=today_label())
 
-    pages_intel.report_card(c)
+    if c.store.has_fiscal_records():
+        pages_intel.report_card(c)
+    else:
+        _first_steps(c)
     period = st.segmented_control(
         "Periodo", [7, 30, 90], default=30, format_func=lambda d: f"Últimos {d} días",
         label_visibility="collapsed", key="dash_period",
@@ -62,7 +78,10 @@ def dashboard() -> None:
             hovertemplate="%{x|%d/%m/%Y}<br><b>%{y:,.2f} " + c.symbol + "</b><extra></extra>",
         ))
         fig.update_xaxes(tickformat="%d/%m")
-        st.plotly_chart(style_figure(fig), width="stretch", config={"displayModeBar": False})
+        if daily.abs().sum() == 0:
+            st.caption("Sin ventas en el periodo.")
+        else:
+            st.plotly_chart(style_figure(fig), width="stretch", config={"displayModeBar": False})
     with right, st.container(border=True):
         st.markdown("**Lo más vendido** · ventas netas")
         top = cur_lines.groupby("name")["revenue"].sum().nlargest(6).sort_values()
