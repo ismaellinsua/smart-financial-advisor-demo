@@ -38,7 +38,7 @@ def _close_view() -> None:
 def tables_page() -> None:
     c = ctx()
     if "last_sale" in st.session_state:
-        from ui.pages import _sale_dialog
+        from ui.pages_pos import _sale_dialog
         _sale_dialog(st.session_state.pop("last_sale"))
     if "tables_flash" in st.session_state:
         kind, msg = st.session_state.pop("tables_flash")

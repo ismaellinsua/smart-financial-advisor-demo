@@ -93,7 +93,7 @@ def read_only(url: str, schema: str | None = None):
     import psycopg
     from psycopg.rows import dict_row
 
-    from core.db import _load_numbers, _secure_url
+    from core.engines import _load_numbers, _secure_url
 
     conn = psycopg.connect(_secure_url(url), row_factory=dict_row, options="-c default_transaction_read_only=on",
                            connect_timeout=30)
@@ -124,7 +124,8 @@ def counts_pg(conn) -> dict[str, int]:
 
 def app_copy(conn, target: Path) -> None:
     """The app's backup format, built from a read-only connection (no migrations run on production)."""
-    from core.db import ALL_TABLES, Store
+    from core.db import Store
+    from core.schema import ALL_TABLES
 
     existing = {r["table_name"] for r in conn.execute(
         "SELECT table_name FROM information_schema.tables WHERE table_schema = current_schema()").fetchall()}
