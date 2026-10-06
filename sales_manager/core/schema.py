@@ -43,7 +43,7 @@ CREATE TABLE IF NOT EXISTS sales (
     discount {real} NOT NULL,
     tax {real} NOT NULL,
     total {real} NOT NULL,
-    status TEXT NOT NULL DEFAULT 'completada'
+    status TEXT NOT NULL DEFAULT 'completada' CONSTRAINT ck_sales_status CHECK (status IN ('completada', 'anulada'))
 );
 CREATE TABLE IF NOT EXISTS sale_items (
     id {pk},
@@ -72,7 +72,8 @@ CREATE TABLE IF NOT EXISTS appointments (
     customer_name TEXT NOT NULL DEFAULT '',
     product_id INTEGER REFERENCES products(id),
     notes TEXT NOT NULL DEFAULT '',
-    status TEXT NOT NULL DEFAULT 'pendiente',
+    status TEXT NOT NULL DEFAULT 'pendiente' CONSTRAINT ck_appointments_status
+        CHECK (status IN ('pendiente', 'completada', 'cancelada', 'no_presentado')),
     sale_id INTEGER REFERENCES sales(id),
     created_at TEXT NOT NULL
 );
@@ -163,7 +164,8 @@ CREATE TABLE IF NOT EXISTS orders (
     id {pk},
     table_id INTEGER REFERENCES dining_tables(id),
     label TEXT NOT NULL DEFAULT '',
-    status TEXT NOT NULL DEFAULT 'abierta',
+    status TEXT NOT NULL DEFAULT 'abierta' CONSTRAINT ck_orders_status
+        CHECK (status IN ('abierta', 'cobrada', 'cancelada')),
     opened_at TEXT NOT NULL,
     opened_by TEXT NOT NULL DEFAULT '',
     guests INTEGER NOT NULL DEFAULT 0,
@@ -178,7 +180,8 @@ CREATE TABLE IF NOT EXISTS order_items (
     notes TEXT NOT NULL DEFAULT '',
     added_by TEXT NOT NULL DEFAULT '',
     added_at TEXT NOT NULL,
-    kitchen TEXT NOT NULL DEFAULT 'pendiente',
+    kitchen TEXT NOT NULL DEFAULT 'pendiente' CONSTRAINT ck_order_items_kitchen
+        CHECK (kitchen IN ('pendiente', 'preparando', 'listo', 'servido')),
     sale_id INTEGER REFERENCES sales(id)
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_one_open_per_table ON orders(table_id) WHERE status = 'abierta';
@@ -205,7 +208,8 @@ CREATE TABLE IF NOT EXISTS purchase_orders (
     id {pk},
     number TEXT UNIQUE NOT NULL,
     supplier_id INTEGER REFERENCES suppliers(id),
-    status TEXT NOT NULL DEFAULT 'borrador',
+    status TEXT NOT NULL DEFAULT 'borrador' CONSTRAINT ck_purchase_orders_status
+        CHECK (status IN ('borrador', 'enviado', 'recibido', 'cancelado')),
     created_at TEXT NOT NULL,
     created_by TEXT NOT NULL DEFAULT '',
     received_at TEXT NOT NULL DEFAULT '',
@@ -240,7 +244,7 @@ CREATE TABLE IF NOT EXISTS users (
     id {pk},
     username TEXT UNIQUE NOT NULL,
     name TEXT NOT NULL,
-    role TEXT NOT NULL,
+    role TEXT NOT NULL CONSTRAINT ck_users_role CHECK (role IN ('admin', 'encargado', 'empleado')),
     secret_hash TEXT NOT NULL,
     active INTEGER NOT NULL DEFAULT 1,
     failed_attempts INTEGER NOT NULL DEFAULT 0,
@@ -324,6 +328,7 @@ CREATE TABLE IF NOT EXISTS app_errors (
     where_ TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS idx_app_errors_happened ON app_errors(happened_at);
+-- The ticket being rung up: a convenience, deliberately without a foreign key, so it can never stop the till.
 CREATE TABLE IF NOT EXISTS pos_carts (
     user_id INTEGER PRIMARY KEY,
     cart TEXT NOT NULL DEFAULT '{{}}',
@@ -355,12 +360,26 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
     applied_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_sales_customer ON sales(customer_id);
-CREATE INDEX IF NOT EXISTS idx_invoices_sale ON invoices(sale_id);
 CREATE INDEX IF NOT EXISTS idx_refunds_created ON refunds(created_at);
 CREATE INDEX IF NOT EXISTS idx_refund_items_refund ON refund_items(refund_id);
-CREATE INDEX IF NOT EXISTS idx_credit_notes_refund ON credit_notes(refund_id);
 CREATE INDEX IF NOT EXISTS idx_billing_source ON billing_records(source, source_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
+-- Sales of one product (analytics), points of one sale (voids, returns), voided sales by period (accounting).
+CREATE INDEX IF NOT EXISTS idx_items_product ON sale_items(product_id);
+CREATE INDEX IF NOT EXISTS idx_loyalty_sale ON loyalty_moves(sale_id);
+CREATE INDEX IF NOT EXISTS idx_sales_status ON sales(status, created_at);
+CREATE INDEX IF NOT EXISTS idx_stock_moves_created ON stock_moves(created_at);
+CREATE INDEX IF NOT EXISTS idx_password_resets_user ON password_resets(user_id);
+CREATE INDEX IF NOT EXISTS idx_recovery_codes_user ON recovery_codes(user_id);
+-- A cash closing that was reopened: kept whole, so the count, the difference and who closed it are never lost.
+CREATE TABLE IF NOT EXISTS cash_reopenings (
+    id {pk},
+    day TEXT NOT NULL,
+    location_id INTEGER,
+    closing TEXT NOT NULL,
+    reopened_by TEXT NOT NULL DEFAULT '',
+    reopened_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS login_throttle (
     key TEXT PRIMARY KEY,
     fails TEXT NOT NULL DEFAULT '[]',
@@ -386,7 +405,7 @@ MIGRATIONS = [
     ("sales", "loyalty_discount", "{real} NOT NULL DEFAULT 0"),
     ("sales", "points_redeemed", "INTEGER NOT NULL DEFAULT 0"),
     ("sales", "points_earned", "INTEGER NOT NULL DEFAULT 0"),
-    ("products", "supplier_id", "INTEGER"),
+    ("products", "supplier_id", "INTEGER REFERENCES suppliers(id)"),
     ("sales", "voided_by", "TEXT NOT NULL DEFAULT ''"),
     ("sales", "voided_at", "TEXT"),
     # Two-step verification secret (TOTP) of administrators who turn it on.
@@ -423,12 +442,13 @@ MIGRATIONS = [
     # Sales made on the offline till: its own id, so importing the same file twice never duplicates a sale.
     ("sales", "offline_id", "TEXT NOT NULL DEFAULT ''"),
     # Several locations (locales): where each sale, closing, table, stock move, order and person belongs.
-    ("sales", "location_id", "INTEGER"),
-    ("cash_closings", "location_id", "INTEGER"),
-    ("dining_tables", "location_id", "INTEGER"),
-    ("stock_moves", "location_id", "INTEGER"),
-    ("purchase_orders", "location_id", "INTEGER"),
-    ("users", "location_id", "INTEGER"),
+    ("sales", "location_id", "INTEGER REFERENCES locations(id)"),
+    ("cash_closings", "location_id", "INTEGER REFERENCES locations(id)"),
+    ("dining_tables", "location_id", "INTEGER REFERENCES locations(id)"),
+    ("stock_moves", "location_id", "INTEGER REFERENCES locations(id)"),
+    ("purchase_orders", "location_id", "INTEGER REFERENCES locations(id)"),
+    # A person pinned to a location that a restored copy no longer has is simply unpinned.
+    ("users", "location_id", "INTEGER REFERENCES locations(id) ON DELETE SET NULL"),
     # The time step of the last two-step code accepted: the same code is never accepted twice.
     ("users", "totp_last_step", "INTEGER NOT NULL DEFAULT 0"),
     # Orders imported from an online shop («shopify:1001»): importing the same file twice never duplicates them.
@@ -439,12 +459,36 @@ MIGRATIONS = [
 # `schema_migrations`. Add new ones at the end with the next number; never renumber or edit an applied one.
 VERSIONED_MIGRATIONS = [
     (1, "importes exactos (NUMERIC) en PostgreSQL", "_money_to_numeric"),
+    (2, "claves foráneas de locales y proveedores", "_add_foreign_keys"),
+    (3, "valores permitidos en estados y roles", "_add_checks"),
+]
+
+# Allowed values of status-like columns (databases created since then have them in their tables already).
+CHECKS = {
+    "ck_sales_status": ("sales", "status IN ('completada', 'anulada')"),
+    "ck_appointments_status": ("appointments", "status IN ('pendiente', 'completada', 'cancelada', 'no_presentado')"),
+    "ck_orders_status": ("orders", "status IN ('abierta', 'cobrada', 'cancelada')"),
+    "ck_order_items_kitchen": ("order_items", "kitchen IN ('pendiente', 'preparando', 'listo', 'servido')"),
+    "ck_purchase_orders_status": ("purchase_orders", "status IN ('borrador', 'enviado', 'recibido', 'cancelado')"),
+    "ck_users_role": ("users", "role IN ('admin', 'encargado', 'empleado')"),
+}
+
+# Foreign keys of columns added after the first release (databases created since then have them already).
+# (table, column, referenced table, ON DELETE action)
+ADDED_FOREIGN_KEYS = [
+    ("products", "supplier_id", "suppliers", ""),
+    ("sales", "location_id", "locations", ""),
+    ("cash_closings", "location_id", "locations", ""),
+    ("dining_tables", "location_id", "locations", ""),
+    ("stock_moves", "location_id", "locations", ""),
+    ("purchase_orders", "location_id", "locations", ""),
+    ("users", "location_id", "locations", "ON DELETE SET NULL"),
 ]
 
 # Insertion order respects foreign keys; deletion goes in reverse.
-DATA_TABLES = ["locations", "products", "location_stock", "stock_moves", "customers", "sales", "sale_items", "invoices", "appointments", "cash_closings",
+DATA_TABLES = ["locations", "suppliers", "products", "location_stock", "stock_moves", "customers", "sales", "sale_items", "invoices", "appointments", "cash_closings", "cash_reopenings",
                "sale_payments", "promotions", "loyalty_moves", "refunds", "refund_items", "credit_notes",
-               "dining_tables", "orders", "order_items", "suppliers", "recurring_expenses", "purchase_orders",
+               "dining_tables", "orders", "order_items", "recurring_expenses", "purchase_orders",
                "purchase_items", "expenses", "billing_records"]
 ALL_TABLES = ["settings", *DATA_TABLES]
 # Tables any backup must have; newer ones are created when an older backup is opened.

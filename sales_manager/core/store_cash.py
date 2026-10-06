@@ -1,6 +1,7 @@
 """Day summary and cash closing per location. Mixed into `Store`."""
 
 import json
+from decimal import Decimal
 from datetime import date, datetime, time, timedelta
 
 import pandas as pd
@@ -89,10 +90,33 @@ class CashMixin:
             row = {**row, "breakdown": json.loads(row["breakdown"] or "{}")}
         return row
 
-    def reopen_cash(self, day: date, location_id: int | None = None) -> None:
+    def reopen_cash(self, day: date, location_id: int | None = None, by: str = "") -> None:
+        """Reopen a closed day. The closing is copied whole to `cash_reopenings` first: what was counted, the
+        difference and who closed it stay on record, and closing again later adds a new one."""
         with self.db.tx() as cur:
             where, args = self._closing_where(self._location_or_main(cur, location_id))
-            cur.execute(f"DELETE FROM cash_closings WHERE day = ? AND {where}", (day.isoformat(), *args))
+            row = cur.execute(f"SELECT * FROM cash_closings WHERE day = ? AND {where}" + self.db.for_update,
+                              (day.isoformat(), *args)).fetchone()
+            if row is None:
+                return
+            cur.execute("INSERT INTO cash_reopenings(day, location_id, closing, reopened_by, reopened_at) "
+                        "VALUES (?, ?, ?, ?, ?)",
+                        (row["day"], row["location_id"], json.dumps({k: (float(v) if isinstance(v, Decimal) else v)
+                                                                     for k, v in row.items()}, ensure_ascii=False),
+                         str(by)[:60], clock.now().isoformat(timespec="seconds")))
+            cur.execute("DELETE FROM cash_closings WHERE id = ?", (row["id"],))
+
+    def cash_reopenings(self, location_id: int | None = None) -> pd.DataFrame:
+        """Closings that were reopened, newest first, with what had been counted."""
+        where, args = ("", ()) if location_id is None else (" WHERE location_id = ?", (int(location_id),))
+        df = self._frame(f"SELECT day, closing, reopened_by, reopened_at FROM cash_reopenings{where} "
+                         "ORDER BY id DESC", args)
+        if not df.empty:
+            closing = df["closing"].map(json.loads)
+            df["counted_cash"] = closing.map(lambda c: float(c.get("counted_cash") or 0))
+            df["difference"] = closing.map(lambda c: float(c.get("difference") or 0))
+            df["closed_by"] = closing.map(lambda c: c.get("closed_by", ""))
+        return df.drop(columns=["closing"])
 
     def cash_closings(self, location_id: int | None = None) -> pd.DataFrame:
         where, args = ("", ()) if location_id is None else (" WHERE location_id = ?", (int(location_id),))

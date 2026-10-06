@@ -322,10 +322,14 @@ def test_cash_closing(store):
         store.close_cash(today, 100, 100)
     with pytest.raises(ValueError):
         store.close_cash(today - timedelta(days=1), -1, 0)
-    store.reopen_cash(today)
+    store.reopen_cash(today, by="Marta")
     assert store.cash_closing(today) is None
+    kept = store.cash_reopenings()  # the reopened closing is not lost
+    assert len(kept) == 1 and kept.iloc[0]["reopened_by"] == "Marta"
+    assert kept.iloc[0]["difference"] == pytest.approx(-5, abs=0.01)
     store.close_cash(today, 0, 0)
     assert len(store.cash_closings()) == 1
+    assert "cash_reopenings" in store._export(["cash_reopenings"])  # part of backups
 
 
 # ------------------------------------------------------- upgrades & backups

@@ -271,7 +271,7 @@ class BookingMixin:
             row = cur.execute(
                 "SELECT a.id, a.starts_at, a.duration_min, a.customer_name, a.people, a.status, a.email, "
                 "p.name AS service FROM appointments a LEFT JOIN products p ON p.id = a.product_id "
-                "WHERE a.cancel_hash = ?", (_hash(token),),
+                "WHERE a.cancel_hash = ? AND a.cancel_hash <> ''", (_hash(token),),
             ).fetchone()
         return dict(row) if row else None
 

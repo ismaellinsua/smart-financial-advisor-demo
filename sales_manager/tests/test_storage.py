@@ -58,12 +58,13 @@ def test_old_postgres_database_becomes_exact_once(make_store):
 
     reopened = Store(s.db._key)
     try:
-        assert float_columns(reopened) == [] and reopened.schema_version() == 1
+        latest = max(v for v, *_ in VERSIONED_MIGRATIONS)
+        assert float_columns(reopened) == [] and reopened.schema_version() == latest
         after = reopened.sales()[["number", "total", "tax"]].sort_values("number").reset_index(drop=True)
         assert after.equals(before)
         assert reopened.products()[["sku", "price", "cost"]].sort_values("sku").reset_index(drop=True).equals(prices)
         Store(s.db._key).close()  # a second start does nothing more
-        assert reopened.schema_version() == 1
+        assert reopened.schema_version() == latest
     finally:
         reopened.close()
 
@@ -138,3 +139,141 @@ def test_remote_database_certificate_is_checked():
     checked = url.replace("pg.example.invalid", "127.0.0.1")
     with pytest.raises(psycopg.OperationalError, match="certificate|SSL|ssl"):
         psycopg.connect(checked, connect_timeout=5).close()
+
+
+def test_hot_lookups_use_an_index(make_store):
+    """The public cancel link, the hourly booking limit and per-product sales are found through an index, not by
+    reading the whole table (checked with the database's own query plan)."""
+    shop = make_store()
+    with shop.db.tx() as cur:
+        if shop.db.for_update:  # PostgreSQL: forbid sequential scans to see whether an index can be used at all
+            cur.execute("SET LOCAL enable_seqscan = off")
+            plan = lambda q, p=(): " ".join(r["QUERY PLAN"] for r in cur.execute("EXPLAIN " + q, p).fetchall())  # noqa: E731
+        else:
+            plan = lambda q, p=(): " ".join(r["detail"] for r in cur.execute("EXPLAIN QUERY PLAN " + q, p).fetchall())  # noqa: E731
+        for query, index in [
+            ("SELECT * FROM appointments WHERE cancel_hash = ? AND cancel_hash <> ''", "idx_appointments_cancel"),
+            ("SELECT COUNT(*) FROM appointments WHERE source = 'online' AND created_at >= ?", "idx_appointments_source"),
+            ("SELECT * FROM sale_items WHERE product_id = ?", "idx_items_product"),
+            ("SELECT * FROM loyalty_moves WHERE sale_id = ?", "idx_loyalty_sale"),
+        ]:
+            params = ("x",) if "?" in query and "product_id" not in query and "sale_id" not in query else (1,)
+            assert index in plan(query, params), (query, plan(query, params))
+        names = {r["name"] for r in cur.execute(
+            "SELECT indexname AS name FROM pg_indexes WHERE schemaname = current_schema()" if shop.db.for_update
+            else "SELECT name FROM sqlite_master WHERE type = 'index'").fetchall()}
+    assert not {"idx_invoices_sale", "idx_credit_notes_refund"} & names  # redundant with UNIQUE
+
+
+def test_locations_and_suppliers_are_real_foreign_keys(make_store):
+    """A stock move or a product cannot point to a location or a supplier that does not exist."""
+    shop = make_store()
+    shop.load_preset("retail", with_demo_sales=False)
+    for sql in ("INSERT INTO stock_moves(product_id, delta, stock_after, created_at, location_id) "
+                "VALUES ((SELECT MIN(id) FROM products), 1, 1, '2026-01-01', 999999)",
+                "UPDATE products SET supplier_id = 999999",
+                "UPDATE users SET location_id = 999999"):
+        if sql.startswith("UPDATE users"):
+            shop.create_user("Ana", "ana", "empleado", "482619")
+        with pytest.raises(shop.db.integrity_errors):
+            with shop.db.tx() as cur:
+                cur.execute(sql)
+
+
+def test_old_databases_get_the_foreign_keys_once(make_store):
+    """A PostgreSQL database from before keeps working and gains the keys at its next start (migration 2)."""
+    target = make_store.targets.new()
+    shop = make_store(target)
+    if not shop.db.for_update:
+        pytest.skip("SQLite cannot add foreign keys to existing tables")
+    with shop.db.tx() as cur:  # make it look like a database from before
+        for name in [r["conname"] for r in cur.execute(
+                "SELECT conname FROM pg_constraint WHERE conrelid = to_regclass('sales') AND contype = 'f' "
+                "AND pg_get_constraintdef(oid) LIKE '%locations%'").fetchall()]:
+            cur.execute(f"ALTER TABLE sales DROP CONSTRAINT {name}")
+        cur.execute("DELETE FROM schema_migrations WHERE version = 2")
+        cur.execute("DROP TABLE schema_state")
+    again = make_store(target)  # the next start
+    with again.db.tx() as cur:
+        rows = cur.execute("SELECT conname, convalidated, pg_get_constraintdef(oid) AS d FROM pg_constraint "
+                           "WHERE conrelid = to_regclass('sales') AND contype = 'f'").fetchall()
+    added = [r for r in rows if "locations" in r["d"]]
+    assert added and added[0]["conname"] == "fk_sales_location_id" and added[0]["convalidated"]
+    assert again.schema_version() == max(v for v, *_ in VERSIONED_MIGRATIONS)
+
+
+def test_only_known_states_and_roles_are_stored(make_store):
+    """A typo in a status or a role can never be saved, even by hand, so reports never miss rows."""
+    shop = make_store()
+    shop.load_preset("retail", with_demo_sales=False)
+    pid = int(shop.products().iloc[0]["id"])
+    sale = shop.create_sale([{"product_id": pid, "quantity": 1}], "Tarjeta")
+    shop.create_user("Ana", "ana", "empleado", "482619")
+    for sql in (f"UPDATE sales SET status = 'Anulada' WHERE id = {sale['id']}",
+                "UPDATE users SET role = 'superadmin'"):
+        with pytest.raises(shop.db.integrity_errors):
+            with shop.db.tx() as cur:
+                cur.execute(sql)
+
+
+def test_old_databases_get_the_checks_once(make_store):
+    target = make_store.targets.new()
+    shop = make_store(target)
+    if not shop.db.for_update:
+        pytest.skip("SQLite cannot add checks to existing tables")
+    with shop.db.tx() as cur:  # a database from before: no checks, and one odd old row
+        for name in ("ck_sales_status", "ck_users_role"):
+            cur.execute(f"ALTER TABLE {'sales' if 'sales' in name else 'users'} DROP CONSTRAINT {name}")
+        cur.execute("INSERT INTO users(username, name, role, secret_hash, created_at) "
+                    "VALUES ('raro', 'Raro', 'otro', 'x', '2026-01-01')")
+        cur.execute("DELETE FROM schema_migrations WHERE version = 3")
+        cur.execute("DROP TABLE schema_state")
+    again = make_store(target)  # starts fine despite the odd row
+    with again.db.tx() as cur:
+        checks = {r["conname"]: r["convalidated"] for r in cur.execute(
+            "SELECT conname, convalidated FROM pg_constraint WHERE conname IN ('ck_sales_status', 'ck_users_role') "
+            "AND connamespace = (SELECT oid FROM pg_namespace WHERE nspname = current_schema())").fetchall()}
+    assert checks == {"ck_sales_status": True, "ck_users_role": False}  # enforced; the old row is left alone
+    with pytest.raises(again.db.integrity_errors):
+        with again.db.tx() as cur:
+            cur.execute("UPDATE users SET role = 'superadmin' WHERE username = 'raro'")
+
+
+def test_one_customer_per_tax_number_and_one_location_per_name(make_store):
+    shop = make_store()
+    shop.load_preset("retail", with_demo_sales=False)
+    first = shop.upsert_customer({"name": "Cafés Sol SL", "tax_id": "b-1234567-4"})
+    assert shop.customers().set_index("id").loc[first, "tax_id"] == "B12345674"  # one spelling
+    with pytest.raises(ValueError, match="Ya hay un cliente con el NIF B12345674"):
+        shop.upsert_customer({"name": "Otro", "tax_id": "B 1234567 4"})
+    shop.upsert_customer({"name": "Cafés Sol, S.L."}, first)  # editing the same customer is fine
+    shop.upsert_customer({"name": "Sin NIF"})
+    shop.upsert_customer({"name": "Sin NIF tampoco"})  # empty tax numbers never clash
+    with pytest.raises(shop.db.integrity_errors):  # the database refuses it too
+        with shop.db.tx() as cur:
+            cur.execute("INSERT INTO customers(name, tax_id, created_at) VALUES ('X', 'B12345674', '2026-01-01')")
+    shop.add_location("Centro")
+    with pytest.raises(shop.db.integrity_errors):
+        with shop.db.tx() as cur:
+            cur.execute("INSERT INTO locations(name, created_at) VALUES ('CENTRO', '2026-01-01')")
+
+
+def test_product_summary_matches_the_line_by_line_figures(make_store):
+    """The period report is added up by the database; it must equal adding up every line (returns included)."""
+    from datetime import datetime
+
+    shop = make_store()
+    shop.load_preset("retail")  # demo sales
+    products = shop.products()
+    pid = int(products.sort_values("stock", ascending=False).iloc[0]["id"])  # one with stock to spare
+    sale = shop.create_sale([{"product_id": pid, "quantity": 3}], "Tarjeta")
+    shop.create_refund(sale["id"], {shop.sale(sale["id"])["items"][0]["id"]: 1}, "Tarjeta", "devolución")
+    start, end = datetime(2000, 1, 1), datetime(2100, 1, 1)
+    lines = shop.sale_lines(start, end)
+    by_hand = (lines.groupby(["category", "name"])
+               .agg(unidades=("quantity", "sum"), ventas_netas=("revenue", "sum"), margen=("margin", "sum"))
+               .round(2).reset_index().sort_values(["category", "name"]).reset_index(drop=True))
+    summary = shop.product_summary(start, end).sort_values(["category", "name"]).reset_index(drop=True)
+    assert len(summary) == len(by_hand) > 3
+    for column in ("unidades", "ventas_netas", "margen"):
+        assert (summary[column] - by_hand[column]).abs().max() < 0.011, column
