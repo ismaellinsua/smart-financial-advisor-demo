@@ -32,6 +32,14 @@ jobs:
         options: >-
           --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 12
     steps:
+      # With the repository variable PRODUCTION = true (Settings → Secrets and variables → Actions → Variables), a
+      # missing secret turns the run red: in production las copias de seguridad must never be silently off.
+      - name: Producción sin configurar
+        if: vars.PRODUCTION == 'true' && env.BACKUP_DATABASES == ''
+        run: |
+          echo "::error::PRODUCTION=true pero faltan los secretos de las copias de seguridad."
+          exit 1
+
       - name: Sin configurar todavía
         if: env.BACKUP_DATABASES == ''
         run: echo "::notice::Copias desactivadas hasta definir los secretos BACKUP_DATABASES y BACKUP_PASSPHRASE."

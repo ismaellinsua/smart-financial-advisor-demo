@@ -364,6 +364,24 @@ una app aparece el botón para despertarla, se resuelve pulsándolo.
 
 **Lo que no depende de la app:** la seguridad de la cuenta de Streamlit y de GitHub (activa la verificación en dos pasos en ambas), la de Neon y la custodia de los *Secrets*. En la versión gratuita de Streamlit sin base de datos externa, un reinicio borra datos **y cuentas**: para un equipo real usa Neon.
 
+### Repositorio y despliegue (ajustes que solo puede hacer el dueño)
+
+1. **Proteger `main`** (Settings → Rules → Rulesets → New branch ruleset, objetivo `main`): exigir pull request,
+   exigir que pase la comprobación **Tests**, y bloquear *force push* y borrado. Así nada llega a producción sin
+   pasar los tests.
+2. **Secretos** (Settings → Code security): activar *Secret scanning* y *Push protection* (GitHub rechaza un push que
+   contenga una clave) y *Dependabot alerts*. El CI ya revisa todo el historial con gitleaks y las dependencias con
+   pip-audit.
+3. **Producción declarada:** variable de Actions `PRODUCTION = true` (Settings → Secrets and variables → Actions →
+   Variables). Desde entonces, si faltan los secretos de copias o de vigilancia, esas ejecuciones salen en **rojo**
+   en vez de «sin configurar».
+4. **Volver atrás un despliegue:** en Render, *Events* → el despliegue anterior → *Rollback*. Los cambios de base de
+   datos solo añaden (tablas, columnas, índices), así que la versión anterior sigue funcionando con la base ya
+   migrada. Si un cambio rompiera datos, se restaura la copia cifrada de la noche (`python ops/backup.py --decrypt` y
+   `pg_restore`, ver «Copias de seguridad automáticas»).
+5. **Autoría de los commits:** en GitHub → Settings → Emails, «Keep my email addresses private» y «Block command line
+   pushes that expose my email», para que los commits nuevos usen la dirección `noreply` de GitHub.
+
 ## Estructura
 
 ```

@@ -301,7 +301,9 @@ def test_every_call_is_valid_for_stripe(caplog):
     assert "client_reference_id" in stripe.checkout_session("cs_test_123")
     assert subscription_fields(stripe.subscriptions("cus_123")[0])["stripe_subscription"].startswith("sub_")
     assert stripe.create_customer(tenant(name="Café"), "hola@cafe.es").startswith("cus_")
-    assert stripe.charge_customer("ch_123") is not None
+    payer = stripe.charge_customer("ch_123")
+    assert payer == "" or payer.startswith("cus_")  # Stripe's sample charge may have no customer
+    assert stripe.charge_customer("ch_1/../../customers") == ""  # never sent to Stripe
     with pytest.raises(BillingError, match="no ha aceptado"):  # the simulator does reject what Stripe would
         stripe._call("POST", "/checkout/sessions", {"mode": "subscription", "parametro_inventado": "x"})
     assert "validation" in caplog.text  # Stripe's reason, for us, in the log

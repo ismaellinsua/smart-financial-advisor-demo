@@ -27,6 +27,14 @@ jobs:
       SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
       SMTP_FROM: ${{ secrets.SMTP_FROM }}
     steps:
+      # With the repository variable PRODUCTION = true (Settings → Secrets and variables → Actions → Variables), a
+      # missing secret turns the run red: in production la vigilancia de disponibilidad must never be silently off.
+      - name: Producción sin configurar
+        if: vars.PRODUCTION == 'true' && env.UPTIME_URLS == ''
+        run: |
+          echo "::error::PRODUCTION=true pero faltan los secretos de la vigilancia de disponibilidad."
+          exit 1
+
       - name: Sin configurar todavía
         if: env.UPTIME_URLS == ''
         run: echo "::notice::Vigilancia desactivada hasta definir el secreto UPTIME_URLS."
