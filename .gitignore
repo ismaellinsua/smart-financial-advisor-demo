@@ -9,3 +9,4 @@ NirKanA-negocio.pdf
 
 # Local settings with real values (see .env.example)
 .env
+.coverage
