@@ -30,6 +30,8 @@ services:
         sync: false
       - key: OPERATOR_PASSWORD
         sync: false
+      - key: OPERATOR_TOTP_SECRET
+        sync: false
       - key: STRIPE_SECRET_KEY
         sync: false
       - key: STRIPE_PRICE_ID

@@ -64,7 +64,7 @@ class Access:
     days_left: int | None = None
 
 
-def _when(text: str | None) -> datetime | None:
+def parse_when(text: str | None) -> datetime | None:
     try:
         return datetime.fromisoformat(text) if text else None
     except ValueError:
@@ -76,8 +76,8 @@ def access(tenant: dict, now: datetime) -> Access:
     if tenant.get("billing_exempt"):
         return Access("full")
     status = tenant.get("billing_status") or "prueba"
-    period_end = _when(tenant.get("period_end"))
-    trial_end = _when(tenant.get("trial_ends"))
+    period_end = parse_when(tenant.get("period_end"))
+    trial_end = parse_when(tenant.get("trial_ends"))
     if status in PAID:
         if tenant.get("cancel_at_period_end") and period_end:
             return Access("warn", f"Tu suscripción termina el {period_end:%d/%m/%Y}. Puedes reactivarla en "

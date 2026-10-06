@@ -9,6 +9,7 @@ from collections import deque
 
 import streamlit as st
 
+from core import throttle
 from core.db import AuthError, Store
 from core.security import check_secret_strength
 from ui.styles import page_header
@@ -24,12 +25,11 @@ _COOKIE_SET, _COOKIE_CLEAR = "cookie_to_set", "cookie_to_clear"
 MUST_CHANGE = "must_change_secret"
 NEW_CODES = "new_recovery_codes"
 
-# Guessing is slowed per device (browser address), not per account: whoever keeps failing waits longer and longer,
-# while the owner, from their own device, can still sign in. Best effort: kept in this server's memory.
-CLIENT_MAX_FAILURES, CLIENT_WINDOW_SECONDS = 8, 15 * 60
-CLIENT_FIRST_BLOCK_MINUTES, CLIENT_MAX_BLOCK_MINUTES = 15, 24 * 60
-_CLIENTS: dict[str, dict] = {}
-_CLIENTS_LOCK = threading.Lock()
+# Guessing is slowed per device (browser address), not per account (see core/throttle.py). With a database the
+# counters live there, so every server shares them and a restart does not reset them.
+CLIENT_MAX_FAILURES, CLIENT_WINDOW_SECONDS = throttle.MAX_FAILURES, throttle.WINDOW_SECONDS
+CLIENT_FIRST_BLOCK_MINUTES, CLIENT_MAX_BLOCK_MINUTES = throttle.FIRST_BLOCK_MINUTES, throttle.MAX_BLOCK_MINUTES
+_MEMORY = throttle.MemoryThrottle()
 
 # Setup-password attempts are throttled across every visitor, not per browser tab.
 _SETUP_FAILURES: deque = deque()
@@ -58,35 +58,23 @@ def client_key() -> str:
         return "local"
 
 
-def client_blocked_minutes(key: str, now: float | None = None) -> int:
-    now = _time.time() if now is None else now
-    with _CLIENTS_LOCK:
-        entry = _CLIENTS.get(key)
-        if entry and entry["until"] > now:
-            return max(1, round((entry["until"] - now) / 60))
-    return 0
+def client_blocked_minutes(key: str, now: float | None = None, store=None) -> int:
+    """`store`: a Store or the operator Directory that keeps the counters; None keeps them in memory."""
+    return store.throttle_blocked_minutes(key, now) if store is not None else _MEMORY.blocked_minutes(key, now)
 
 
-def client_failed(key: str, now: float | None = None) -> None:
-    now = _time.time() if now is None else now
-    with _CLIENTS_LOCK:
-        if len(_CLIENTS) > 10_000:  # forget old visitors so memory stays bounded
-            for k in [k for k, e in _CLIENTS.items() if e["until"] < now and not e["fails"]]:
-                del _CLIENTS[k]
-        entry = _CLIENTS.setdefault(key, {"fails": deque(), "until": 0.0, "level": 0})
-        fails = entry["fails"]
-        fails.append(now)
-        while fails and fails[0] < now - CLIENT_WINDOW_SECONDS:
-            fails.popleft()
-        if len(fails) >= CLIENT_MAX_FAILURES:
-            minutes = min(CLIENT_FIRST_BLOCK_MINUTES * 2 ** entry["level"], CLIENT_MAX_BLOCK_MINUTES)
-            entry.update(until=now + minutes * 60, level=entry["level"] + 1)
-            fails.clear()
+def client_failed(key: str, now: float | None = None, store=None) -> None:
+    if store is not None:
+        store.throttle_failed(key, now)
+    else:
+        _MEMORY.failed(key, now)
 
 
-def client_succeeded(key: str) -> None:
-    with _CLIENTS_LOCK:
-        _CLIENTS.pop(key, None)
+def client_succeeded(key: str, store=None) -> None:
+    if store is not None:
+        store.throttle_succeeded(key)
+    else:
+        _MEMORY.succeeded(key)
 
 
 def current_user() -> dict | None:
@@ -257,17 +245,17 @@ def _login(store: Store, business_name: str) -> None:
                                 help="Solo si tienes activada la verificación en dos pasos: el código de 6 cifras de "
                                      "tu app de autenticación.")
             if st.form_submit_button("Entrar", type="primary", width="stretch"):
-                if minutes := client_blocked_minutes(key):
+                if minutes := client_blocked_minutes(key, store=store):
                     st.error(f"Demasiados intentos desde este dispositivo. Espera {minutes} min.")
                     return
                 try:
                     user = store.authenticate(username, secret, otp=otp)
                 except AuthError as exc:
-                    client_failed(key)
+                    client_failed(key, store=store)
                     _time.sleep(0.8)  # slows down scripted guessing from a single session
                     st.error(str(exc))
                 else:
-                    client_succeeded(key)
+                    client_succeeded(key, store=store)
                     _sign_in(store, user, secret)
         with st.expander("¿Eres el administrador y no puedes entrar?"):
             _recover(store, key)
@@ -295,7 +283,7 @@ def _email_reset(store: Store, key: str) -> None:
     with st.form("email_reset_start", border=False):
         username = st.text_input("Usuario del administrador", max_chars=30, key="reset_user")
         if st.form_submit_button("Enviarme el código", width="stretch"):
-            if minutes := client_blocked_minutes(key):
+            if minutes := client_blocked_minutes(key, store=store):
                 st.error(f"Demasiados intentos desde este dispositivo. Espera {minutes} min.")
                 return
             started = store.start_password_reset(username)
@@ -325,11 +313,11 @@ def _email_reset(store: Store, key: str) -> None:
                 st.error(str(exc))
                 return
             if not changed:
-                client_failed(key)
+                client_failed(key, store=store)
                 _time.sleep(0.8)
                 st.error("El código no es correcto o ha caducado. Pide otro.")
                 return
-            client_succeeded(key)
+            client_succeeded(key, store=store)
             st.success("Contraseña cambiada. Ya puedes entrar con ella.")
 
 
@@ -344,7 +332,7 @@ def _recover(store: Store, key: str) -> None:
                             help="Al menos 8 caracteres, con letras y números o símbolos.")
         repeat = st.text_input("Repite la nueva contraseña", type="password", max_chars=128)
         if st.form_submit_button("Cambiar contraseña y entrar", width="stretch"):
-            if minutes := client_blocked_minutes(key):
+            if minutes := client_blocked_minutes(key, store=store):
                 st.error(f"Demasiados intentos desde este dispositivo. Espera {minutes} min.")
                 return
             if new != repeat:
@@ -353,13 +341,13 @@ def _recover(store: Store, key: str) -> None:
             try:
                 user = store.recover_with_code(username, code, new)
             except AuthError as exc:
-                client_failed(key)
+                client_failed(key, store=store)
                 _time.sleep(0.8)
                 st.error(str(exc))
             except ValueError as exc:
                 st.error(str(exc))
             else:
-                client_succeeded(key)
+                client_succeeded(key, store=store)
                 remaining = store.recovery_codes_left(user["id"])
                 st.session_state["recovery_flash"] = (
                     f"Contraseña cambiada. Te quedan {remaining} códigos de recuperación"

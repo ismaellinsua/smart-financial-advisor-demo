@@ -44,7 +44,7 @@ marketing (consentimiento revocable con fecha). Cada exportación o supresión q
 | Medida | Detalle |
 |---|---|
 | Aislamiento entre negocios | Un esquema de PostgreSQL por negocio; cada consulta usa solo el suyo (`core/tenants.py`) |
-| Acceso | Cuentas individuales con roles; bloqueo tras intentos fallidos; 2FA para administradores; códigos de recuperación; re-confirmar la contraseña antes de borrar o restaurar datos |
+| Acceso | Cuentas individuales con roles; bloqueo tras intentos fallidos; 2FA para administradores y para el panel de operador; intentos fallidos contados en la base de datos; códigos de recuperación; re-confirmar la contraseña antes de borrar o restaurar datos |
 | Cifrado en tránsito | HTTPS (HSTS en el contenedor); PostgreSQL remoto solo con TLS (`sslmode=require`) |
 | Cifrado de copias | Copias diarias cifradas con frase de paso (`ops/backup.py`), una por negocio |
 | Cabeceras | Protección contra incrustar la app en otras webs, `nosniff`, `Referrer-Policy`, `Permissions-Policy` |
@@ -70,7 +70,7 @@ Rellena la columna «En uso» con lo que esté contratado de verdad antes de fir
 ## Si hay una brecha de seguridad
 
 1. **Contener:** suspender el negocio afectado en `?operador`, rotar las claves expuestas (Neon, Stripe, SMTP,
-   `operator_password`) y cerrar las sesiones.
+   `operator_password`, `operator_totp_secret`) y cerrar las sesiones.
 2. **Evaluar** con el registro de actividad y el de errores: qué datos, de cuántas personas, desde cuándo.
 3. **Avisar al negocio sin demora** (es el responsable): qué pasó, qué datos, qué se ha hecho. Él notifica a la AEPD
    en **72 horas** si hay riesgo para las personas, y a las personas si el riesgo es alto.

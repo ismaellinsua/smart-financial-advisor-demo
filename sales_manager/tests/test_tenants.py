@@ -118,3 +118,28 @@ def test_scheduled_jobs_walk_every_active_business(directory):
     env = {"PATH": "/usr/bin:/bin", "NOTIFY_DATABASES": f"nube={url}"}
     dry = subprocess.run([sys.executable, str(script)], capture_output=True, text=True, env=env)
     assert dry.returncode == 0 and "sin configurar" in dry.stdout  # no SMTP: nothing is sent, nothing fails
+
+
+def test_operator_sign_in_throttle_is_shared_and_hashed(directory):
+    from core import throttle
+    from core.tenants import DIRECTORY_SCHEMA, Directory
+
+    other = Directory(directory._url)  # another server
+    t0 = 1_800_000_000
+    for i in range(throttle.MAX_FAILURES):
+        (directory if i % 2 else other).throttle_failed("operador:1.2.3.4", now=t0 + i)
+    assert directory.throttle_blocked_minutes("operador:1.2.3.4", now=t0 + 5) == throttle.FIRST_BLOCK_MINUTES
+    assert other.throttle_blocked_minutes("operador:5.6.7.8", now=t0 + 5) == 0
+    with directory._connect() as conn:
+        keys = [r["key"] for r in conn.execute(f"SELECT key FROM {DIRECTORY_SCHEMA}.login_throttle").fetchall()]
+    assert keys == [throttle.key_hash("operador:1.2.3.4")]
+    other.throttle_succeeded("operador:1.2.3.4")
+    assert directory.throttle_blocked_minutes("operador:1.2.3.4", now=t0 + 5) == 0
+
+
+def test_directory_and_businesses_share_one_pool(directory):
+    from core import engines
+
+    directory.create("cafe-aurora", "Café Aurora")
+    store = directory.store("cafe-aurora")
+    assert store.db._pool is engines._POOLS[directory._pool_key][0]

@@ -105,7 +105,7 @@ def _book(store, settings: dict) -> None:
         st.error("Para reservar tienes que aceptar el uso de tus datos para esta reserva.")
         return
     key = "reserva:" + client_key()
-    if minutes := client_blocked_minutes(key):
+    if minutes := client_blocked_minutes(key, store=store):
         st.error(f"Has hecho varias reservas seguidas. Vuelve a probar en {minutes} min o llama al negocio.")
         return
     try:
@@ -114,7 +114,7 @@ def _book(store, settings: dict) -> None:
     except ValueError as exc:
         st.error(str(exc))
         return
-    client_failed(key)  # counts bookings from this visitor, so nobody can fill the diary in a loop
+    client_failed(key, store=store)  # counts bookings from this visitor, so nobody can fill the diary in a loop
     booking["emailed"] = _send_emails(store, settings, booking)
     st.session_state["booking_done"] = booking
     st.rerun()

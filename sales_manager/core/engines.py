@@ -3,6 +3,7 @@
 Every transaction goes through `tx()`; cursors take `?` placeholders and return rows as dicts on both engines.
 """
 
+import os
 import re
 import sqlite3
 import threading
@@ -177,47 +178,73 @@ class _SQLite:
         self._conn.close()
 
 
+def pool_size() -> int:
+    """Connections each server keeps per database (DB_POOL_SIZE, default 5). Free plans allow few connections."""
+    try:
+        return max(1, min(int(os.environ.get("DB_POOL_SIZE", "5")), 50))
+    except ValueError:
+        return 5
+
+
+# Every user of the same database (each business's Store, the operator directory) shares one small pool.
+_POOLS: dict = {}
+_POOLS_LOCK = threading.Lock()
+
+
+def acquire_pool(url: str):
+    """(key, pool) for a PostgreSQL URL; call release_pool(key) when done with it."""
+    from psycopg.rows import dict_row
+    from psycopg_pool import ConnectionPool
+
+    key = _secure_url(url)
+    with _POOLS_LOCK:
+        entry = _POOLS.get(key)
+        if entry is None:
+            # Re-checks connections before use: free cloud databases (Neon) close idle connections when they
+            # suspend, and the app must reconnect transparently.
+            # prepare_threshold=None keeps it compatible with connection poolers (PgBouncer).
+            pool = ConnectionPool(
+                key,
+                min_size=1,
+                max_size=pool_size(),
+                open=True,
+                check=ConnectionPool.check_connection,
+                kwargs={"row_factory": dict_row, "prepare_threshold": None, "connect_timeout": 15},
+                configure=_load_numbers,
+            )
+            try:
+                pool.wait(timeout=30)
+            except Exception:
+                pool.close()
+                raise
+            entry = _POOLS[key] = [pool, 0]
+        entry[1] += 1
+        return key, entry[0]
+
+
+def release_pool(key: str) -> None:
+    with _POOLS_LOCK:
+        entry = _POOLS.get(key)
+        if entry is None:
+            return
+        entry[1] -= 1
+        if entry[1] <= 0:
+            del _POOLS[key]
+            entry[0].close()
+
+
 class _Postgres:
     label = "PostgreSQL en la nube"
     persistent_in_cloud = True
 
-    # Businesses served from the same database share one small pool instead of opening one each.
-    _pools: dict = {}
-    _pools_lock = threading.Lock()
-
     def __init__(self, url: str, schema: str | None = None):
         import psycopg
-        from psycopg.rows import dict_row
-        from psycopg_pool import ConnectionPool
 
         if schema is not None and not is_safe_identifier(schema):
             raise ValueError("Nombre de esquema no válido.")
         self._schema = schema
         self.reads = _ReadCache()
-        self._key = _secure_url(url)
-        with self._pools_lock:
-            entry = self._pools.get(self._key)
-            if entry is None:
-                # A small pool that re-checks connections before use: free cloud databases (Neon) close idle
-                # connections when they suspend, and the app must reconnect transparently.
-                # prepare_threshold=None keeps it compatible with connection poolers (PgBouncer).
-                pool = ConnectionPool(
-                    self._key,
-                    min_size=1,
-                    max_size=5,
-                    open=True,
-                    check=ConnectionPool.check_connection,
-                    kwargs={"row_factory": dict_row, "prepare_threshold": None, "connect_timeout": 15},
-                    configure=_load_numbers,
-                )
-                try:
-                    pool.wait(timeout=30)
-                except Exception:
-                    pool.close()
-                    raise
-                entry = self._pools[self._key] = [pool, 0]
-            entry[1] += 1
-            self._pool = entry[0]
+        self._key, self._pool = acquire_pool(url)
         self.integrity_errors = (psycopg.errors.IntegrityError,)
 
     # Exact decimals for every amount, rate and cost. Read back as Python floats (see _load_numbers), as the
@@ -290,14 +317,7 @@ class _Postgres:
                 )
 
     def close(self) -> None:
-        with self._pools_lock:
-            entry = self._pools.get(self._key)
-            if entry is None:
-                return
-            entry[1] -= 1
-            if entry[1] <= 0:
-                del self._pools[self._key]
-                entry[0].close()
+        release_pool(self._key)
 
 
 def _load_numbers(conn) -> None:

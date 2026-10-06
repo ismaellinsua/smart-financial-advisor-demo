@@ -184,8 +184,10 @@ no se mezclan con los de ningún otro, y nada de un negocio puede leer o cambiar
    database_url = "postgresql://…"
    multi_tenant = true
    operator_password = "una-contraseña-larga-solo-para-ti"
+   operator_totp_secret = "…"   # verificación en dos pasos: el propio panel te propone una clave
    ```
-2. Abre `https://tu-app.streamlit.app/?operador`, entra con `operator_password` y **da de alta el negocio**: código
+2. Abre `https://tu-app.streamlit.app/?operador`, entra con `operator_password` (y el código de 6 cifras de tu app de
+   autenticación, en cuanto pongas `operator_totp_secret`) y **da de alta el negocio**: código
    (va en la dirección, p. ej. `cafe-aurora`), nombre y contacto. Se muestra **una sola vez** su código de instalación.
 3. Envía al negocio su dirección (`…/?negocio=cafe-aurora`) y el código. Con él crea su administrador; después el
    asistente de primera configuración deja el negocio listo.
@@ -195,6 +197,10 @@ no se mezclan con los de ningún otro, y nada de un negocio puede leer o cambiar
 Quien entra sin código ve «Entra en tu negocio»: la lista de negocios no se muestra nunca. Si en la misma pestaña se
 abre otro negocio, la sesión anterior se borra entera. Las copias automáticas detectan este modo y guardan **una copia
 cifrada por negocio** (más el directorio), cada una restaurable por separado.
+
+Los intentos fallidos de acceso (equipo y operador) se cuentan en la base de datos, por dirección y cifrados, así
+que valen para todos los servidores y sobreviven a un reinicio. Todos los negocios y el directorio comparten un único
+grupo de conexiones por base de datos (`DB_POOL_SIZE`, 5 por defecto).
 
 Sin `multi_tenant`, la app funciona como siempre: un negocio por app.
 

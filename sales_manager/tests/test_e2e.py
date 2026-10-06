@@ -117,7 +117,7 @@ def multi_server(tmp_path_factory):
     url = urlunsplit(urlsplit(PG_URL)._replace(path=f"/{name}"))
     port = _free_port()
     env = {**os.environ, "DATABASE_URL": url, "TZ": "UTC", "MULTI_TENANT": "true",
-           "OPERATOR_PASSWORD": "operador-de-prueba-2026"}
+           "OPERATOR_PASSWORD": "operador-de-prueba-2026", "OPERATOR_TOTP_SECRET": OPERATOR_TOTP}
     proc = subprocess.Popen([sys.executable, "-m", "streamlit", "run", str(APP), "--server.port", str(port),
                              "--server.headless", "true", "--browser.gatherUsageStats", "false"],
                             env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -135,13 +135,22 @@ def multi_server(tmp_path_factory):
         admin.execute(f'DROP DATABASE "{name}" WITH (FORCE)')
 
 
-def _operator(page, base):
+OPERATOR_TOTP = "JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP"
+
+
+def _operator(page, base, code=None):
     """Open the operator panel, signing in when needed (visiting a business in the same tab ends that session)."""
+    from core.security import totp_code
+
     page.goto(f"{base}/?operador", wait_until="networkidle")
     if page.get_by_role("textbox", name="Contraseña de operador").count():
         page.get_by_role("textbox", name="Contraseña de operador").fill("operador-de-prueba-2026")
+        second_step = page.get_by_role("textbox", name="Código de tu app de autenticación")
+        if second_step.count():  # only when the server has OPERATOR_TOTP_SECRET
+            second_step.fill(code or totp_code(OPERATOR_TOTP))
         page.get_by_role("button", name="Entrar").click()
-    page.get_by_text("Dar de alta un negocio").wait_for()
+    if code is None:
+        page.get_by_text("Dar de alta un negocio").wait_for()
 
 
 def _create_business(page, base, code, name):
@@ -175,6 +184,9 @@ def test_operator_creates_businesses_that_stay_apart(multi_server):
 
         page.goto(multi_server, wait_until="networkidle")
         page.get_by_text("Entra en tu negocio").wait_for()  # no business is listed to visitors
+
+        _operator(page, multi_server, code="000000")  # the right password alone is not enough
+        page.get_by_text("Contraseña o código incorrectos.").wait_for()
 
         aurora = _create_business(page, multi_server, "cafe-aurora", "Café Aurora")
         sol = _create_business(page, multi_server, "tienda-sol", "Tienda Sol")
