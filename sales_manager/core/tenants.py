@@ -13,7 +13,8 @@ import time
 from datetime import datetime, timedelta
 
 from . import clock, logs
-from .billing import TRIAL_DAYS, Access, BillingError, access, parse_when, subscription_fields, utc_now
+from .billing import (LIVE, PAID, TRIAL_DAYS, Access, BillingError, access, best_subscription, parse_when,
+                      subscription_fields, utc_now)
 from .db import Store
 from .engines import secure_url, acquire_pool, release_pool
 from .throttle import after_failure, blocked_minutes, key_hash
@@ -25,7 +26,7 @@ CODE_RE = re.compile(r"[a-z0-9](?:[a-z0-9-]{1,38}[a-z0-9])")
 STATUSES = {"activo": "Activo", "suspendido": "Suspendido"}
 TENANT_FIELDS = ("code, name, schema_name, status, contact, created_at, setup_used_at, billing_status, trial_ends, "
                  "period_end, cancel_at_period_end, stripe_customer, stripe_subscription, billing_exempt, "
-                 "billing_synced_at")
+                 "billing_synced_at, billing_event_at")
 RESERVED = {"operador", "admin", "www", "app", "api", "nirkana"}
 
 DIRECTORY_SQL = f"""
@@ -48,6 +49,7 @@ ALTER TABLE {DIRECTORY_SCHEMA}.tenants ADD COLUMN IF NOT EXISTS stripe_customer 
 ALTER TABLE {DIRECTORY_SCHEMA}.tenants ADD COLUMN IF NOT EXISTS stripe_subscription TEXT NOT NULL DEFAULT '';
 ALTER TABLE {DIRECTORY_SCHEMA}.tenants ADD COLUMN IF NOT EXISTS billing_exempt INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE {DIRECTORY_SCHEMA}.tenants ADD COLUMN IF NOT EXISTS billing_synced_at TEXT NOT NULL DEFAULT '';
+ALTER TABLE {DIRECTORY_SCHEMA}.tenants ADD COLUMN IF NOT EXISTS billing_event_at BIGINT NOT NULL DEFAULT 0;
 CREATE TABLE IF NOT EXISTS {DIRECTORY_SCHEMA}.stripe_events (
     id TEXT PRIMARY KEY,
     type TEXT NOT NULL,
@@ -73,6 +75,19 @@ CREATE TABLE IF NOT EXISTS {DIRECTORY_SCHEMA}.login_throttle (
 """
 # Billing is re-checked with Stripe this often, in case a webhook was lost.
 SYNC_EVERY = timedelta(hours=6)
+EVENTS_KEPT_DAYS = 90
+# Payments that went back to the customer: Stripe does not end the subscription for them, so the operator is told.
+MONEY_BACK = {"charge.refunded": "reembolso", "charge.dispute.created": "contracargo_abierto",
+              "charge.dispute.closed": "contracargo_cerrado"}
+
+
+class AlreadySubscribed(BillingError):
+    """The business already has a subscription in Stripe: it is managed in the portal, not bought again."""
+
+
+def _stripe_id(value) -> str:
+    """Stripe sends a related object either as its id or, expanded, as the object itself."""
+    return str((value.get("id") if isinstance(value, dict) else value) or "")
 
 
 def normalize_code(value: str) -> str:
@@ -97,6 +112,9 @@ class Directory:
             # Businesses from before billing: their free trial starts the day billing arrives, not at their sign-up.
             conn.execute(f"UPDATE {DIRECTORY_SCHEMA}.tenants SET trial_ends = %s WHERE trial_ends = ''",
                          ((utc_now() + timedelta(days=TRIAL_DAYS)).isoformat(timespec="seconds"),))
+            # Stripe stops retrying an event after three days: ids older than that are never needed again.
+            conn.execute(f"DELETE FROM {DIRECTORY_SCHEMA}.stripe_events WHERE received_at < %s",
+                         ((utc_now() - timedelta(days=EVENTS_KEPT_DAYS)).isoformat(timespec="seconds"),))
 
     def _log(self, conn, action: str, detail: str = "") -> None:
         conn.execute(f"INSERT INTO {DIRECTORY_SCHEMA}.operator_log(happened_at, action, detail) VALUES (%s, %s, %s)",
@@ -211,7 +229,7 @@ class Directory:
     # ------------------------------------------------------------------ billing
     def _billing_update(self, conn, code: str, fields: dict, action: str) -> bool:
         allowed = {"billing_status", "trial_ends", "period_end", "cancel_at_period_end", "stripe_customer",
-                   "stripe_subscription", "billing_exempt"}
+                   "stripe_subscription", "billing_exempt", "billing_event_at"}
         fields = {k: v for k, v in fields.items() if k in allowed}
         fields["billing_synced_at"] = utc_now().isoformat(timespec="seconds")
         sets = ", ".join(f"{k} = %s" for k in fields)
@@ -221,10 +239,55 @@ class Directory:
             self._log(conn, action, f"{normalize_code(code)} · {fields.get('billing_status', '')}".strip(" ·"))
         return bool(updated)
 
+    def _locked(self, conn, code: str) -> dict | None:
+        """The business's row, locked until the transaction ends: two notices about it are applied one after the
+        other, never interleaved."""
+        code = normalize_code(code)
+        if not CODE_RE.fullmatch(code):
+            return None
+        return conn.execute(f"SELECT {TENANT_FIELDS} FROM {DIRECTORY_SCHEMA}.tenants WHERE code = %s FOR UPDATE",
+                            (code,)).fetchone()
+
+    def _record(self, conn, tenant: dict, subscription: dict, action: str, event_at: int = 0) -> bool:
+        """Keep one subscription as a notice reports it. A notice only shows that subscription, so it may not replace
+        a paid one by one that is not (an older attempt, or a duplicate being cancelled)."""
+        current, new_id = tenant["stripe_subscription"], subscription.get("id")
+        if current and new_id != current and tenant["billing_status"] in PAID:
+            if subscription.get("status") not in PAID:
+                return False
+            self._duplicate(conn, tenant["code"], [current, new_id], action)
+        fields = subscription_fields(subscription)
+        if event_at:
+            fields["billing_event_at"] = max(int(event_at), int(tenant["billing_event_at"] or 0))
+        return self._billing_update(conn, tenant["code"], fields, action)
+
+    def _record_live(self, conn, tenant: dict, subscriptions: list[dict], action: str) -> bool:
+        """Keep what Stripe has now for the business's customer: all its subscriptions, so the one that decides
+        access is chosen knowing every other (see best_subscription)."""
+        paid = [s.get("id") for s in subscriptions if s.get("status") in PAID]
+        if len(paid) > 1:
+            self._duplicate(conn, tenant["code"], paid, action)
+        best = best_subscription(subscriptions)
+        return self._billing_update(conn, tenant["code"], subscription_fields(best) if best else {}, action)
+
+    def _duplicate(self, conn, code: str, ids: list, action: str) -> None:
+        """Two subscriptions charging one business: the operator cancels and refunds one in Stripe."""
+        log.warning("billing_duplicate_subscription tenant=%s subscriptions=%s", code, ",".join(map(str, ids)))
+        if action:
+            self._log(conn, "suscripcion_duplicada", f"{code} · " + ", ".join(map(str, ids)))
+
+    def _code_for_customer(self, conn, customer: str) -> str | None:
+        if not customer:
+            return None
+        row = conn.execute(f"SELECT code FROM {DIRECTORY_SCHEMA}.tenants WHERE stripe_customer = %s",
+                           (customer,)).fetchone()
+        return row["code"] if row else None
+
     def record_subscription(self, code: str, subscription: dict, action: str = "suscripcion_actualizada") -> bool:
         """Keep a business's subscription as Stripe reports it."""
         with self._connect() as conn:
-            return self._billing_update(conn, code, subscription_fields(subscription), action)
+            tenant = self._locked(conn, code)
+            return bool(tenant) and self._record(conn, tenant, subscription, action)
 
     def set_billing_exempt(self, code: str, exempt: bool) -> None:
         """Businesses that use the service free of charge (pilots, friends): never asked to pay."""
@@ -245,59 +308,98 @@ class Directory:
                 timespec="seconds")}, "")
             self._log(conn, "prueba_ampliada", f"{normalize_code(code)} · {int(days)} días")
 
-    def tenant_for_customer(self, customer: str) -> str | None:
-        with self._connect() as conn:
-            row = conn.execute(f"SELECT code FROM {DIRECTORY_SCHEMA}.tenants WHERE stripe_customer = %s",
-                               (customer,)).fetchone()
-        return row["code"] if row else None
+    def process_event(self, event: dict, stripe=None) -> str:
+        """Apply a (signature-checked) Stripe event once. Returns what was done, for the log and tests.
 
-    def process_event(self, event: dict) -> str:
-        """Apply a (signature-checked) Stripe event once. Returns what was done, for the log and tests."""
+        The event is marked as received in the same transaction that applies it: if applying fails, nothing is
+        kept, the webhook answers with an error and Stripe's retry is applied instead of being taken for a repeat.
+        With `stripe`, subscription notices are a cue to ask Stripe for the customer's subscriptions as they are now,
+        so notices arriving late or out of order cannot bring back an old state."""
         with self._connect() as conn:
             fresh = conn.execute(f"INSERT INTO {DIRECTORY_SCHEMA}.stripe_events(id, type, received_at) "
                                  "VALUES (%s, %s, %s) ON CONFLICT (id) DO NOTHING",
                                  (event["id"], str(event.get("type", ""))[:80],
                                   utc_now().isoformat(timespec="seconds"))).rowcount
-        if not fresh:
-            return "repetido"
+            if not fresh:
+                return "repetido"
+            return self._apply_event(conn, event, stripe)
+
+    def _apply_event(self, conn, event: dict, stripe) -> str:
         kind = event.get("type", "")
         obj = (event.get("data") or {}).get("object") or {}
+        customer = _stripe_id(obj.get("customer"))
         if kind == "checkout.session.completed":
             code = obj.get("client_reference_id") or (obj.get("metadata") or {}).get("tenant")
-            if not code or not self.get(code):
-                return "ignorado"
-            subscription = obj.get("subscription")
-            if isinstance(subscription, dict):
-                self.record_subscription(code, subscription, "suscripcion_contratada")
-            else:  # not expanded: link the customer now; the subscription's own event (any order) brings its state
-                with self._connect() as conn:
-                    self._billing_update(conn, code, {"stripe_customer": obj.get("customer") or "",
-                                                      "stripe_subscription": subscription or ""},
-                                         "suscripcion_contratada")
-            return "vinculado"
-        if kind.startswith("customer.subscription."):
-            code = (obj.get("metadata") or {}).get("tenant") or self.tenant_for_customer(
-                obj["customer"]["id"] if isinstance(obj.get("customer"), dict) else obj.get("customer") or "")
-            tenant = self.get(code) if code else None
+            tenant = self._locked(conn, code) if code else None
             if tenant is None:
                 return "ignorado"
-            if tenant["stripe_subscription"] and obj.get("id") != tenant["stripe_subscription"] \
-                    and tenant["billing_status"] in ("active", "trialing") and obj.get("status") not in ("active",
-                                                                                                         "trialing"):
-                return "ignorado"  # an old or abandoned subscription must not override the one that is paid
-            self.record_subscription(code, obj, "suscripcion_" + kind.rsplit(".", 1)[-1])
+            subscription = obj.get("subscription")
+            if stripe is not None and customer:
+                self._billing_update(conn, tenant["code"], {"stripe_customer": customer}, "")
+                self._record_live(conn, tenant, stripe.subscriptions(customer), "suscripcion_contratada")
+            elif isinstance(subscription, dict):
+                self._record(conn, tenant, subscription, "suscripcion_contratada")
+            else:  # not expanded: link the customer now; the subscription's own event (any order) brings its state
+                self._billing_update(conn, tenant["code"], {"stripe_customer": customer,
+                                                            "stripe_subscription": subscription or ""},
+                                     "suscripcion_contratada")
+            return "vinculado"
+        if kind.startswith("customer.subscription."):
+            code = (obj.get("metadata") or {}).get("tenant") or self._code_for_customer(conn, customer)
+            tenant = self._locked(conn, code) if code else None
+            if tenant is None:
+                return "ignorado"
+            action = "suscripcion_" + kind.rsplit(".", 1)[-1]
+            if stripe is not None and customer:
+                self._record_live(conn, tenant, stripe.subscriptions(customer), action)
+                return "actualizado"
+            created = int(event.get("created") or 0)
+            if created and created < int(tenant["billing_event_at"] or 0):
+                return "antiguo"  # Stripe does not deliver in order: a later state was already applied
+            self._record(conn, tenant, obj, action, event_at=created)
             return "actualizado"
+        if kind in MONEY_BACK:
+            if not customer and stripe is not None and obj.get("charge"):
+                customer = stripe.charge_customer(_stripe_id(obj["charge"]))
+            code = self._code_for_customer(conn, customer) or "?"
+            cents = obj.get("amount_refunded") if kind == "charge.refunded" else obj.get("amount")
+            detail = " · ".join(str(x) for x in (
+                code, _stripe_id(obj.get("charge")) or obj.get("id", ""),
+                f"{int(cents or 0) / 100:.2f} {str(obj.get('currency', '')).upper()}".strip(),
+                obj.get("reason") or "", obj.get("status") if kind != "charge.refunded" else "") if x)
+            self._log(conn, MONEY_BACK[kind], detail)
+            log.warning("billing_money_back type=%s tenant=%s", kind, code)
+            return "registrado"
         return "ignorado"
 
     def sync_subscription(self, code: str, stripe) -> dict | None:
-        """Ask Stripe for a business's latest subscription (safety net for lost webhooks)."""
+        """Ask Stripe for a business's subscriptions (safety net for lost webhooks)."""
         tenant = self.get(code)
         if tenant is None or not tenant["stripe_customer"]:
             return tenant
-        subscription = stripe.latest_subscription(tenant["stripe_customer"])
-        if subscription:
-            self.record_subscription(code, subscription, "")
+        subscriptions = stripe.subscriptions(tenant["stripe_customer"])
+        with self._connect() as conn:
+            tenant = self._locked(conn, code)
+            if tenant is not None:
+                self._record_live(conn, tenant, subscriptions, "")
         return self.get(code)
+
+    def checkout_url(self, code: str, stripe, email: str, success_url: str, cancel_url: str) -> str:
+        """Stripe Checkout for a business that has no subscription. Asks Stripe first, not a copy that may be
+        minutes old, so a business that already pays (another tab, another administrator) is sent to the portal
+        instead of paying twice."""
+        tenant = self.sync_subscription(code, stripe)
+        if tenant is None:
+            raise ValueError("Negocio no encontrado.")
+        if tenant["stripe_subscription"] and tenant["billing_status"] in LIVE:
+            raise AlreadySubscribed("Ya tienes una suscripción. Gestiónala (tarjeta, facturas o baja) desde el portal "
+                                    "de Stripe.")
+        if not tenant["stripe_customer"]:
+            customer = stripe.create_customer(tenant, email)
+            with self._connect() as conn:
+                self._billing_update(conn, code, {"stripe_customer": customer}, "")
+            tenant = self.get(code)
+        return stripe.checkout_url(tenant, email, success_url, cancel_url)
 
     def log(self, limit: int = 100) -> list[dict]:
         with self._connect() as conn:

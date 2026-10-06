@@ -37,6 +37,14 @@ WEBHOOK_TOLERANCE = 300  # seconds a signed webhook stays valid (Stripe's own de
 
 # Stripe subscription states that mean «paid up».
 PAID = {"active", "trialing"}
+# A subscription in one of these is still the business's own (Stripe retries, the portal can fix it): never open a
+# second Checkout over it.
+LIVE = PAID | {"past_due", "unpaid", "paused"}
+# Same Checkout for repeated clicks (two tabs, two administrators) within this window: Stripe returns the session it
+# already made, so a business cannot end up paying two subscriptions.
+CHECKOUT_WINDOW = 15 * 60
+# Stripe will not start a trial that ends sooner than this.
+MIN_TRIAL_LEFT = timedelta(days=2)
 STATUS_LABELS = {
     "prueba": "Periodo de prueba",
     "trialing": "Periodo de prueba",
@@ -169,13 +177,25 @@ class Stripe:
         except ValueError:
             payload = {}
         if status >= 400:
-            message = (payload.get("error") or {}).get("message") or f"error {status}"
-            log.warning("stripe_refused method=%s path=%s status=%s", method, path.split("?")[0], status)
-            raise BillingError(f"Stripe no ha aceptado la operación: {message}")
+            # Stripe's own message can name our price, account or parameters: it goes to the log, not to the business.
+            error = payload.get("error") or {}
+            log.warning("stripe_refused method=%s path=%s status=%s code=%s message=%s", method, path.split("?")[0],
+                        status, error.get("code", ""), str(error.get("message", ""))[:300])
+            raise BillingError("Stripe no ha aceptado la operación. Inténtalo de nuevo en unos minutos y, si sigue "
+                               "fallando, escríbenos a nirkana.oficial@gmail.com.")
         return payload
 
-    def checkout_url(self, tenant: dict, email: str, success_url: str, cancel_url: str) -> str:
-        """A Stripe-hosted page where the business enters its card and tax details and subscribes."""
+    def create_customer(self, tenant: dict, email: str) -> str:
+        """The business's customer in Stripe, made before its first Checkout so every later one reuses it."""
+        params = {"name": tenant.get("name") or tenant["code"], "email": email or None,
+                  "metadata": {"tenant": tenant["code"]}}
+        return self._call("POST", "/customers", params, idempotency_key=f"nk-customer-{tenant['code']}")["id"]
+
+    def checkout_url(self, tenant: dict, email: str, success_url: str, cancel_url: str,
+                     now: datetime | None = None) -> str:
+        """A Stripe-hosted page where the business enters its card and tax details and subscribes. Days left of the
+        free trial stay free: Stripe charges first when they end."""
+        now = now or utc_now()
         params = {
             "mode": "subscription",
             "line_items": [{"price": self.price_id, "quantity": 1}],
@@ -194,7 +214,13 @@ class Stripe:
             params["customer_update"] = {"address": "auto", "name": "auto"}
         elif email:
             params["customer_email"] = email
-        session = self._call("POST", "/checkout/sessions", params)
+        trial_end = parse_when(tenant.get("trial_ends"))
+        if (tenant.get("billing_status") or "prueba") == "prueba" and trial_end and trial_end - now > MIN_TRIAL_LEFT:
+            params["subscription_data"]["trial_end"] = int(trial_end.replace(tzinfo=UTC).timestamp())
+        encoded = urllib.parse.urlencode(_flatten(params))
+        window = int(now.replace(tzinfo=UTC).timestamp()) // CHECKOUT_WINDOW
+        key = hashlib.sha256(f"{tenant['code']}|{window}|{encoded}".encode()).hexdigest()[:40]
+        session = self._call("POST", "/checkout/sessions", params, idempotency_key=f"nk-checkout-{key}")
         return session["url"]
 
     def portal_url(self, customer: str, return_url: str) -> str:
@@ -206,24 +232,55 @@ class Stripe:
             raise BillingError("Referencia de pago no válida.")
         return self._call("GET", f"/checkout/sessions/{session_id}", {"expand": ["subscription"]})
 
-    def latest_subscription(self, customer: str) -> dict | None:
-        found = self._call("GET", "/subscriptions", {"customer": customer, "status": "all", "limit": 1})
-        return (found.get("data") or [None])[0]
+    def subscriptions(self, customer: str) -> list[dict]:
+        """The customer's subscriptions as Stripe has them now, newest first."""
+        return self._call("GET", "/subscriptions", {"customer": customer, "status": "all", "limit": 20}).get(
+            "data") or []
+
+    def charge_customer(self, charge: str) -> str:
+        """Who paid a charge (disputes only name the charge)."""
+        if not charge.startswith(("ch_", "py_")) or not charge.replace("_", "").isalnum():
+            return ""
+        customer = self._call("GET", f"/charges/{charge}").get("customer")
+        return str((customer.get("id") if isinstance(customer, dict) else customer) or "")
+
+
+def best_subscription(subscriptions: list[dict]) -> dict | None:
+    """Stripe lists the newest first, but a newer abandoned or cancelled attempt must not hide one that is paid."""
+    rank = {"active": 0, "trialing": 0, "past_due": 1, "unpaid": 2, "paused": 2}
+    ordered = sorted(enumerate(subscriptions), key=lambda pair: (rank.get(pair[1].get("status"), 3), pair[0]))
+    return ordered[0][1] if ordered else None
+
+
+def _period(subscription: dict, field: str):
+    value = subscription.get(field)
+    if value is None:  # newer API versions keep the period on each item
+        items = (subscription.get("items") or {}).get("data") or [{}]
+        value = items[0].get(field)
+    return value
+
+
+def _iso(timestamp) -> str:
+    return datetime.fromtimestamp(int(timestamp), UTC).replace(tzinfo=None).isoformat(timespec="seconds") \
+        if timestamp else ""
 
 
 def subscription_fields(subscription: dict) -> dict:
-    """What the directory keeps of a Stripe subscription."""
-    end = subscription.get("current_period_end")
-    if end is None:  # newer API versions keep the period on each item
-        items = (subscription.get("items") or {}).get("data") or [{}]
-        end = items[0].get("current_period_end")
+    """What the directory keeps of a Stripe subscription. `period_end` is when paid-for access ends: the end of the
+    period while it runs; the day it actually ended once cancelled; and the start of the unpaid period when Stripe gave
+    up charging it (that period was never paid, so the days of grace count from its start)."""
+    status = subscription.get("status") or "incomplete"
+    end = _period(subscription, "current_period_end")
+    if status in ("canceled", "incomplete_expired"):
+        end = subscription.get("ended_at") or subscription.get("canceled_at") or end
+    elif status == "unpaid":
+        end = _period(subscription, "current_period_start") or end
     customer = subscription.get("customer")
     return {
         "stripe_customer": customer["id"] if isinstance(customer, dict) else customer,
         "stripe_subscription": subscription.get("id") or "",
-        "billing_status": subscription.get("status") or "incomplete",
-        "period_end": datetime.fromtimestamp(int(end), UTC).replace(tzinfo=None).isoformat(timespec="seconds")
-        if end else "",
+        "billing_status": status,
+        "period_end": _iso(end),
         "cancel_at_period_end": 1 if subscription.get("cancel_at_period_end") else 0,
     }
 

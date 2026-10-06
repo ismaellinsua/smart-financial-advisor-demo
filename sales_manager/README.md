@@ -225,21 +225,38 @@ Mientras no haya claves de Stripe, nadie paga y todo funciona como siempre. Con 
 Configuración (primero en **modo de prueba** de Stripe, con la tarjeta 4242 4242 4242 4242):
 
 1. En Stripe, **Catálogo de productos → Añadir producto**: «NirKanA», precio **recurrente mensual**. Copia el ID del
-   precio (`price_…`).
+   precio (`price_…`). Decide si el precio lleva el IVA incluido o se suma (*Comportamiento fiscal*) y configura el
+   IVA (Stripe Tax o un tipo del 21 %): las facturas que Stripe envía son tus facturas emitidas, revísalas con tu
+   gestor (NIF, domicilio, numeración).
 2. **Desarrolladores → Claves de API**: crea una **clave restringida** (`rk_…`) con permiso de escritura en
-   *Checkout Sessions* y *Customer portal*, y de lectura en *Customers* y *Subscriptions*. Mejor que la clave secreta completa.
-3. **Configuración → Facturación → Portal de clientes**: actívalo (cambiar tarjeta, ver facturas, cancelar).
+   *Checkout Sessions*, *Customer portal* y *Customers*, y de lectura en *Subscriptions* y *Charges*. Mejor que la
+   clave secreta completa.
+3. **Configuración → Facturación → Portal de clientes**: actívalo (cambiar tarjeta, ver facturas, cancelar). **No**
+   permitas cambiar de plan: la app da acceso a cualquier suscripción activa, sea del precio que sea. Por lo mismo,
+   no crees códigos promocionales del 100 % «para siempre» salvo que quieras regalar el servicio (para eso está
+   «Sin cargo (cortesía)» en el panel de operador).
 4. **Desarrolladores → Webhooks → Añadir destino**: `https://app.nirkana.es/stripe/webhook`, con los eventos
-   `checkout.session.completed` y `customer.subscription.created`, `.updated` y `.deleted`. Copia el secreto
-   (`whsec_…`). Los avisos solo llegan con el contenedor (`Dockerfile`, Render); en Streamlit Cloud la app consulta a
-   Stripe al volver del pago y cada 6 horas, sin webhook.
+   `checkout.session.completed`, `customer.subscription.created`, `.updated` y `.deleted`, y `charge.refunded`,
+   `charge.dispute.created` y `.closed` (reembolsos y contracargos: Stripe no cancela la suscripción por ellos, así
+   que quedan en el registro del operador para que decidas). Copia el secreto (`whsec_…`). Los avisos solo llegan con
+   el contenedor (`Dockerfile`, Render); en Streamlit Cloud la app consulta a Stripe al volver del pago y cada 6
+   horas, sin webhook.
 5. Secrets (o variables de entorno en Render, en mayúsculas):
    ```toml
    stripe_secret_key = "rk_test_…"
    stripe_price_id = "price_…"
    app_url = "https://app.nirkana.es"
    ```
-   En el contenedor, además, `STRIPE_WEBHOOK_SECRET` con el `whsec_…` del paso 4.
+   En el contenedor, además, `STRIPE_WEBHOOK_SECRET` con el `whsec_…` del paso 4. Con `STRIPE_SECRET_KEY` también
+   allí, cada aviso hace que el servidor pregunte a Stripe el estado real: los avisos que llegan tarde o
+   desordenados no devuelven un estado antiguo.
+
+Qué protege la app: el precio y la cantidad los pone el servidor; quien está en su prueba gratuita no paga hasta que
+termina (Stripe recibe la fecha); antes de abrir un pago pregunta a Stripe si el negocio ya tiene suscripción (y los
+clics repetidos durante 15 minutos reciben la misma página de pago), así que nadie paga dos veces; si aun así hay dos
+suscripciones cobrando, el registro del operador lo avisa (`suscripcion_duplicada`) para que canceles y reembolses
+una en Stripe. Cuando Stripe deja de cobrar por impago, los días de gracia se cuentan desde que terminó la
+suscripción, no desde el final del mes que no se pagó.
 Cuando todo funcione en modo de prueba, repite los pasos 1-4 en **modo real** y cambia las claves.
 
 ## Copias de seguridad automáticas
