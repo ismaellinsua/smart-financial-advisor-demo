@@ -13,7 +13,7 @@ import streamlit as st
 
 from core import billing
 from core.security import new_totp_secret, totp_step, totp_uri
-from core.tenants import CODE_RE, STATUSES, normalize_code
+from core.tenants import BILLING_ALERTS, CODE_RE, STATUSES, normalize_code
 from ui.auth import client_blocked_minutes, client_failed, client_key, client_succeeded
 from ui.context import get_directory, multi_tenant, setting, stripe_client, trial_days
 from ui.styles import page_header
@@ -137,6 +137,7 @@ def operator_panel() -> None:
         return
     directory = get_directory()
     _operator_2fa_notice()
+    _billing_alerts(directory)
     if st.button("Salir del panel", icon=":material/logout:"):
         st.session_state.pop("operator_since", None)
         st.rerun()
@@ -251,6 +252,15 @@ def _operator_login(expected: str) -> None:
             client_failed(key, store=directory)
             _time.sleep(1)
             st.error("Contraseña o código incorrectos." if totp_secret else "Contraseña incorrecta.")
+
+
+def _billing_alerts(directory) -> None:
+    """What needs doing in Stripe, at the top of the panel instead of somewhere in the log (last 30 days)."""
+    for alert in directory.billing_alerts():
+        times = f" ({alert['times']} avisos)" if alert["times"] > 1 else ""
+        text = f"{BILLING_ALERTS[alert['action']]}: {alert['detail']}{times} · {alert['last'][:16].replace('T', ' ')}"
+        (st.info if alert["action"] in ("reembolso", "contracargo_cerrado") else st.error)(
+            text, icon=":material/payments:")
 
 
 def _operator_2fa_notice() -> None:

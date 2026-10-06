@@ -250,6 +250,7 @@ class _FakeStripe:
         from urllib.parse import parse_qs, urlsplit
 
         sessions, fake = {}, self
+        self.paid = set()
 
         class Handler(BaseHTTPRequestHandler):
             def _json(self, body):
@@ -269,12 +270,15 @@ class _FakeStripe:
                     return self._json({"id": sid, "url": f"{fake.base}/pay/{sid}"})
                 if self.path == "/v1/billing_portal/sessions":
                     return self._json({"url": f"{fake.base}/portal"})
+                if self.path == "/v1/customers":
+                    return self._json({"id": "cus_1", "metadata": {"tenant": form.get("metadata[tenant]")}})
                 self.send_error(404)
 
             def do_GET(self):  # noqa: N802
                 path = urlsplit(self.path).path
                 if path.startswith("/pay/"):  # the customer «pays» and Stripe sends them back
                     sid = path.rsplit("/", 1)[1]
+                    fake.paid.add(sessions[sid]["client_reference_id"])
                     self.send_response(303)
                     self.send_header("Location", sessions[sid]["success_url"].replace("{CHECKOUT_SESSION_ID}", sid))
                     return self.end_headers()
@@ -283,7 +287,7 @@ class _FakeStripe:
                     code = sessions[sid]["client_reference_id"]
                     return self._json({"id": sid, "client_reference_id": code, "subscription": fake.sub(code)})
                 if path == "/v1/subscriptions":
-                    return self._json({"data": [fake.sub("cafe-pago")]})
+                    return self._json({"data": [fake.sub(code) for code in sorted(fake.paid)]})
                 self.send_error(404)
 
             def log_message(self, *args):
@@ -376,4 +380,7 @@ def test_unpaid_business_can_only_look_up_until_it_subscribes(billing_server):
         tenant = directory.get("cafe-pago")
         assert (tenant["billing_status"], tenant["stripe_customer"]) == ("active", "cus_1")
         back.get_by_test_id("stSidebarNav").get_by_text("Vender").wait_for()
+        back.get_by_test_id("stSidebarNav").get_by_text("Suscripción").click()  # paid: the portal, not a second purchase
+        back.get_by_role("button", name="Gestionar tarjeta, facturas o baja").wait_for()
+        assert not back.get_by_role("button", name="Suscribirme").count()
         browser.close()

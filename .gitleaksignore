@@ -1,0 +1,4 @@
+# Findings reviewed and accepted (gitleaks git scan, CI step «Secretos en el historial»). Never add a real secret here:
+# a real one must be rotated and removed instead.
+# Made-up session token used by the cookie test.
+e983127984f0fdb6e9aaa9b184e8fa1b4f29ef1e:sales_manager/tests/test_session_cookie.py:generic-api-key:37

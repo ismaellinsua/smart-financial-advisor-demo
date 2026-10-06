@@ -3,6 +3,7 @@
 Every transaction goes through `tx()`; cursors take `?` placeholders and return rows as dicts on both engines.
 """
 
+import hashlib
 import re
 import sqlite3
 import threading
@@ -112,6 +113,7 @@ class SQLiteEngine:
         if path != ":memory:":
             Path(path).parent.mkdir(parents=True, exist_ok=True)
         self.reads = _ReadCache()
+        self.identity = "sqlite:" + (path if path == ":memory:" else str(Path(path).resolve()))
         self._conn = sqlite3.connect(path, check_same_thread=False)
         self._conn.execute("PRAGMA foreign_keys = ON")
         self._lock = threading.RLock()  # Streamlit serves each visitor from its own thread
@@ -244,6 +246,8 @@ class PostgresEngine:
         self._schema = schema
         self.reads = _ReadCache()
         self._key, self._pool = acquire_pool(url)
+        # Which database and schema this is, without the URL's password.
+        self.identity = "pg:" + hashlib.sha256(self._key.encode()).hexdigest()[:16] + "/" + (schema or "")
         self.integrity_errors = (psycopg.errors.IntegrityError,)
 
     # Locks the rows a transaction reads before deciding (a sale before refunding it…): a second transaction on the

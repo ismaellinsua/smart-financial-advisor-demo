@@ -5,7 +5,8 @@ from urllib.parse import urlencode, urlsplit
 import streamlit as st
 
 from core import billing, clock
-from ui.context import ctx, logged_download, setting, stripe_client, tenant_code
+from core.tenants import AlreadySubscribed
+from ui.context import ctx, get_directory, logged_download, setting, stripe_client, tenant_code
 from ui.styles import page_header
 
 
@@ -43,7 +44,7 @@ def billing_page() -> None:
     a.metric("Estado", billing.STATUS_LABELS.get(status, status))
     if status == "prueba":
         b.metric("Prueba gratuita hasta", _date(tenant["trial_ends"]))
-    elif tenant["period_end"]:
+    elif tenant["period_end"] and status in billing.LIVE - {"unpaid"} | {"canceled"}:
         b.metric("Termina" if tenant["cancel_at_period_end"] or status == "canceled" else "Próxima renovación",
                  _date(tenant["period_end"]))
     if access.message:
@@ -59,17 +60,29 @@ def billing_page() -> None:
 
     # Back to the business's main address: Streamlit cannot open an inner page before the session is restored.
     back = f"{_base_url()}/?{urlencode({'negocio': code})}"
-    paid = tenant["billing_status"] in billing.PAID or tenant["billing_status"] == "past_due"
+    live = bool(tenant["stripe_subscription"]) and tenant["billing_status"] in billing.LIVE
     try:
-        if paid and tenant["stripe_customer"]:
+        if live and tenant["stripe_customer"]:
             if st.button("Gestionar tarjeta, facturas o baja", type="primary", icon=":material/credit_card:"):
                 st.link_button("Abrir el portal de Stripe", stripe.portal_url(tenant["stripe_customer"], back),
                                type="primary", icon=":material/open_in_new:")
-        elif st.button("Suscribirme", type="primary", icon=":material/workspace_premium:"):
-            url = stripe.checkout_url(tenant, c.settings.get("email", ""),
-                                      f"{back}&pago=ok&session_id={{CHECKOUT_SESSION_ID}}", back)
-            c.store.audit(c.username, "suscripcion_iniciada")
-            st.link_button("Ir al pago seguro de Stripe", url, type="primary", icon=":material/open_in_new:")
+        else:
+            trial_end = billing.parse_when(tenant["trial_ends"])
+            if status == "prueba" and trial_end and trial_end - billing.utc_now() > billing.MIN_TRIAL_LEFT:
+                st.caption(f"Si te suscribes ahora, el primer cobro será el {trial_end:%d/%m/%Y}, cuando termine tu "
+                           "prueba gratuita.")
+            if st.button("Suscribirme", type="primary", icon=":material/workspace_premium:"):
+                try:
+                    url = get_directory().checkout_url(code, stripe, c.settings.get("email", ""),
+                                                       f"{back}&pago=ok&session_id={{CHECKOUT_SESSION_ID}}", back)
+                except AlreadySubscribed as exc:
+                    # Shown again with what Stripe has: the button to the portal instead of a second purchase.
+                    tenant_info.clear()
+                    st.session_state["billing_flash"] = str(exc)
+                    st.rerun()
+                else:
+                    c.store.audit(c.username, "suscripcion_iniciada")
+                    st.link_button("Ir al pago seguro de Stripe", url, type="primary", icon=":material/open_in_new:")
     except billing.BillingError as exc:
         st.error(str(exc))
     st.caption("El pago lo gestiona Stripe: NirKanA nunca ve ni guarda los datos de tu tarjeta. Recibirás las "

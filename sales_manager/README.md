@@ -225,21 +225,38 @@ Mientras no haya claves de Stripe, nadie paga y todo funciona como siempre. Con 
 Configuración (primero en **modo de prueba** de Stripe, con la tarjeta 4242 4242 4242 4242):
 
 1. En Stripe, **Catálogo de productos → Añadir producto**: «NirKanA», precio **recurrente mensual**. Copia el ID del
-   precio (`price_…`).
+   precio (`price_…`). Decide si el precio lleva el IVA incluido o se suma (*Comportamiento fiscal*) y configura el
+   IVA (Stripe Tax o un tipo del 21 %): las facturas que Stripe envía son tus facturas emitidas, revísalas con tu
+   gestor (NIF, domicilio, numeración).
 2. **Desarrolladores → Claves de API**: crea una **clave restringida** (`rk_…`) con permiso de escritura en
-   *Checkout Sessions* y *Customer portal*, y de lectura en *Customers* y *Subscriptions*. Mejor que la clave secreta completa.
-3. **Configuración → Facturación → Portal de clientes**: actívalo (cambiar tarjeta, ver facturas, cancelar).
+   *Checkout Sessions*, *Customer portal* y *Customers*, y de lectura en *Subscriptions* y *Charges*. Mejor que la
+   clave secreta completa.
+3. **Configuración → Facturación → Portal de clientes**: actívalo (cambiar tarjeta, ver facturas, cancelar). **No**
+   permitas cambiar de plan: la app da acceso a cualquier suscripción activa, sea del precio que sea. Por lo mismo,
+   no crees códigos promocionales del 100 % «para siempre» salvo que quieras regalar el servicio (para eso está
+   «Sin cargo (cortesía)» en el panel de operador).
 4. **Desarrolladores → Webhooks → Añadir destino**: `https://app.nirkana.es/stripe/webhook`, con los eventos
-   `checkout.session.completed` y `customer.subscription.created`, `.updated` y `.deleted`. Copia el secreto
-   (`whsec_…`). Los avisos solo llegan con el contenedor (`Dockerfile`, Render); en Streamlit Cloud la app consulta a
-   Stripe al volver del pago y cada 6 horas, sin webhook.
+   `checkout.session.completed`, `customer.subscription.created`, `.updated` y `.deleted`, y `charge.refunded`,
+   `charge.dispute.created` y `.closed` (reembolsos y contracargos: Stripe no cancela la suscripción por ellos, así
+   que quedan en el registro del operador para que decidas). Copia el secreto (`whsec_…`). Los avisos solo llegan con
+   el contenedor (`Dockerfile`, Render); en Streamlit Cloud la app consulta a Stripe al volver del pago y cada 6
+   horas, sin webhook.
 5. Secrets (o variables de entorno en Render, en mayúsculas):
    ```toml
    stripe_secret_key = "rk_test_…"
    stripe_price_id = "price_…"
    app_url = "https://app.nirkana.es"
    ```
-   En el contenedor, además, `STRIPE_WEBHOOK_SECRET` con el `whsec_…` del paso 4.
+   En el contenedor, además, `STRIPE_WEBHOOK_SECRET` con el `whsec_…` del paso 4. Con `STRIPE_SECRET_KEY` también
+   allí, cada aviso hace que el servidor pregunte a Stripe el estado real: los avisos que llegan tarde o
+   desordenados no devuelven un estado antiguo.
+
+Qué protege la app: el precio y la cantidad los pone el servidor; quien está en su prueba gratuita no paga hasta que
+termina (Stripe recibe la fecha); antes de abrir un pago pregunta a Stripe si el negocio ya tiene suscripción (y los
+clics repetidos durante 15 minutos reciben la misma página de pago), así que nadie paga dos veces; si aun así hay dos
+suscripciones cobrando, el registro del operador lo avisa (`suscripcion_duplicada`) para que canceles y reembolses
+una en Stripe. Cuando Stripe deja de cobrar por impago, los días de gracia se cuentan desde que terminó la
+suscripción, no desde el final del mes que no se pagó.
 Cuando todo funcione en modo de prueba, repite los pasos 1-4 en **modo real** y cambia las claves.
 
 ## Copias de seguridad automáticas
@@ -346,6 +363,24 @@ una app aparece el botón para despertarla, se resuelve pulsándolo.
 | Servidor | Subidas limitadas a 20 MB, protección XSRF activa y errores sin detalles internos para el usuario. En el contenedor (`Dockerfile`), Caddy añade HSTS, protección contra incrustar la app en otras webs (*clickjacking*), `nosniff`, `Referrer-Policy` y `Permissions-Policy`. |
 
 **Lo que no depende de la app:** la seguridad de la cuenta de Streamlit y de GitHub (activa la verificación en dos pasos en ambas), la de Neon y la custodia de los *Secrets*. En la versión gratuita de Streamlit sin base de datos externa, un reinicio borra datos **y cuentas**: para un equipo real usa Neon.
+
+### Repositorio y despliegue (ajustes que solo puede hacer el dueño)
+
+1. **Proteger `main`** (Settings → Rules → Rulesets → New branch ruleset, objetivo `main`): exigir pull request,
+   exigir que pase la comprobación **Tests**, y bloquear *force push* y borrado. Así nada llega a producción sin
+   pasar los tests.
+2. **Secretos** (Settings → Code security): activar *Secret scanning* y *Push protection* (GitHub rechaza un push que
+   contenga una clave) y *Dependabot alerts*. El CI ya revisa todo el historial con gitleaks y las dependencias con
+   pip-audit.
+3. **Producción declarada:** variable de Actions `PRODUCTION = true` (Settings → Secrets and variables → Actions →
+   Variables). Desde entonces, si faltan los secretos de copias o de vigilancia, esas ejecuciones salen en **rojo**
+   en vez de «sin configurar».
+4. **Volver atrás un despliegue:** en Render, *Events* → el despliegue anterior → *Rollback*. Los cambios de base de
+   datos solo añaden (tablas, columnas, índices), así que la versión anterior sigue funcionando con la base ya
+   migrada. Si un cambio rompiera datos, se restaura la copia cifrada de la noche (`python ops/backup.py --decrypt` y
+   `pg_restore`, ver «Copias de seguridad automáticas»).
+5. **Autoría de los commits:** en GitHub → Settings → Emails, «Keep my email addresses private» y «Block command line
+   pushes that expose my email», para que los commits nuevos usen la dirección `noreply` de GitHub.
 
 ## Estructura
 

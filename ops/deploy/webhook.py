@@ -1,7 +1,9 @@
 """Receives Stripe's webhooks (POST /stripe/webhook) and applies them to the business directory.
 
 Runs next to Streamlit inside the container, behind Caddy, only when STRIPE_WEBHOOK_SECRET is set. Every request
-must carry Stripe's signature; each event is applied once (Stripe may deliver the same one more than once).
+must carry Stripe's signature; each event is applied once (Stripe may deliver the same one more than once). With
+STRIPE_SECRET_KEY too, a subscription notice is a cue to read the subscriptions from Stripe as they are now, so late or
+out-of-order notices cannot bring back an old state.
 """
 
 import os
@@ -12,7 +14,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "sales_manager"))
 
 from core import logs  # noqa: E402
-from core.billing import BillingError, verify_webhook  # noqa: E402
+from core.billing import BillingError, Stripe, verify_webhook  # noqa: E402
 
 log = logs.get("webhook")
 
@@ -20,7 +22,7 @@ PATH = "/stripe/webhook"
 MAX_BODY = 512 * 1024
 
 
-def make_handler(secret: str, directory_factory):
+def make_handler(secret: str, directory_factory, stripe=None):
     directory = {}
 
     class Handler(BaseHTTPRequestHandler):
@@ -49,7 +51,7 @@ def make_handler(secret: str, directory_factory):
             try:
                 if "d" not in directory:
                     directory["d"] = directory_factory()
-                outcome = directory["d"].process_event(event)
+                outcome = directory["d"].process_event(event, stripe)
             except Exception as exc:  # noqa: BLE001 - Stripe retries any non-2xx answer later
                 log.error("webhook_failed id=%s error=%s", event.get("id"), type(exc).__name__)
                 return self._reply(500, "retry later")
@@ -74,8 +76,10 @@ def main() -> None:
 
         return Directory(url)
 
+    key = os.environ.get("STRIPE_SECRET_KEY", "")
+    stripe = Stripe(key, os.environ.get("STRIPE_PRICE_ID", "")) if key else None
     port = int(os.environ.get("WEBHOOK_PORT", "8502"))
-    ThreadingHTTPServer(("127.0.0.1", port), make_handler(secret, directory)).serve_forever()
+    ThreadingHTTPServer(("127.0.0.1", port), make_handler(secret, directory, stripe)).serve_forever()
 
 
 if __name__ == "__main__":

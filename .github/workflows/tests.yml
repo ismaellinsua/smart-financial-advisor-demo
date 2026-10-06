@@ -40,6 +40,8 @@ jobs:
           --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 12
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 0  # the whole history, for the secrets check
 
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
         with:
@@ -62,6 +64,22 @@ jobs:
         run: |
           python -m pyflakes sales_manager ops
           ruff check sales_manager ops
+
+      # Every pinned package checked against the public vulnerability databases (PyPI/OSV).
+      - name: Dependencias sin vulnerabilidades conocidas
+        run: |
+          pip install --quiet pip-audit==2.9.0
+          pip-audit -r requirements.lock --require-hashes --disable-pip --progress-spinner off
+
+      # The whole history, not only this change: a secret removed later is still in Git. Reviewed findings that are not
+      # secrets go in .gitleaksignore; a real one must be rotated.
+      - name: Secretos en el historial
+        run: |
+          curl -sSfL -o /tmp/gitleaks.tgz \
+            https://github.com/gitleaks/gitleaks/releases/download/v8.21.2/gitleaks_8.21.2_linux_x64.tar.gz
+          echo "5bc41815076e6ed6ef8fbecc9d9b75bcae31f39029ceb55da08086315316e3ba  /tmp/gitleaks.tgz" | sha256sum -c -
+          tar -xzf /tmp/gitleaks.tgz -C /tmp gitleaks
+          /tmp/gitleaks git --redact --no-banner .
 
       - name: Tests (SQLite y PostgreSQL)
         working-directory: sales_manager

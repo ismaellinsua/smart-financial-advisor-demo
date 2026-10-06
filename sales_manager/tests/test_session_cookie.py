@@ -34,7 +34,7 @@ def post(url, body, site="same-origin", path="/_nk/sesion"):
         return exc.code, exc.headers.get_all("Set-Cookie") or []
 
 
-TOKEN = "Abc_def-123456789012345678901234567890123"
+TOKEN = "Abc_def-123456789012345678901234567890123"  # gitleaks:allow (a made-up token for the test)
 
 
 def test_our_page_gets_an_httponly_cookie(service):

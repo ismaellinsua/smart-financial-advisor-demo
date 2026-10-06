@@ -10,3 +10,16 @@ NirKanA-negocio.pdf
 # Local settings with real values (see .env.example)
 .env
 .coverage
+
+# Never commit data, copies or keys
+backups/
+*.enc
+*.db
+*.sqlite
+*.sqlite3
+*.dump
+*.pem
+*.key
+*.p12
+.env.*
+!.env.example

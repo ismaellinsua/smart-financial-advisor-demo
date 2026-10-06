@@ -20,13 +20,13 @@ ALERTS_TTL = 90  # seconds a computed alert list is reused within one session
 
 
 @st.cache_data(ttl=ALERTS_TTL, max_entries=20, show_spinner=False)
-def _shared_alerts(store_key: int, version: tuple, _store) -> list[dict]:
+def _shared_alerts(store_key: str, version: tuple, _store) -> list[dict]:
     """Shared by every session of the same business until the data changes or ALERTS_TTL passes."""
     return _store.alerts()
 
 
 @st.cache_data(ttl=600, max_entries=40, show_spinner=False)
-def _shared_report(store_key: int, version: tuple, start, _store, _alerts) -> dict:
+def _shared_report(store_key: str, version: tuple, start, _store, _alerts) -> dict:
     return _store.weekly_report(start, alerts=_alerts)
 
 
@@ -35,11 +35,11 @@ def cached_alerts(c, refresh: bool = False) -> list[dict]:
     adjustment, cash closing or expense changes them (or ALERTS_TTL seconds pass)."""
     if refresh:
         _shared_alerts.clear()
-    return _shared_alerts(id(c.store), c.store.data_version(), c.store)
+    return _shared_alerts(c.store.cache_key, c.store.data_version(), c.store)
 
 
 def cached_report(c, start) -> dict:
-    return _shared_report(id(c.store), c.store.data_version(), start, c.store, cached_alerts(c))
+    return _shared_report(c.store.cache_key, c.store.data_version(), start, c.store, cached_alerts(c))
 
 
 def alert_counts(c) -> tuple[int, int]:

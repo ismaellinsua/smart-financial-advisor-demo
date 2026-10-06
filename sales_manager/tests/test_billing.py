@@ -89,14 +89,15 @@ def test_checkout_asks_stripe_for_a_subscription_of_this_business():
 def test_stripe_errors_are_readable_and_keys_checked():
     with pytest.raises(BillingError, match="sk_"):
         Stripe("pk_test_123", "price_1")
-    stripe = Stripe("sk_test_1", "price_1", FakeTransport([(402, {"error": {"message": "Tarjeta rechazada"}})]))
-    with pytest.raises(BillingError, match="Tarjeta rechazada"):
+    stripe = Stripe("sk_test_1", "price_1", FakeTransport([(400, {"error": {"message": "No such price: price_1"}})]))
+    with pytest.raises(BillingError, match="no ha aceptado") as refused:
         stripe.portal_url("cus_1", "https://app")
+    assert "price_1" not in str(refused.value)  # Stripe's own detail stays in the server log
 
     def offline(*_):
         raise OSError("sin red")
     with pytest.raises(BillingError, match="conectar"):
-        Stripe("sk_test_1", "price_1", offline).latest_subscription("cus_1")
+        Stripe("sk_test_1", "price_1", offline).subscriptions("cus_1")
     with pytest.raises(BillingError, match="no válida"):
         Stripe("sk_test_1", "price_1", offline).checkout_session("cs_test_1/../../charges")
 
@@ -216,9 +217,9 @@ def test_operator_courtesy_trial_and_sync(directory):
         directory.extend_trial("cafe", 0)
 
     class FakeStripe:
-        def latest_subscription(self, customer):
+        def subscriptions(self, customer):
             assert customer == "cus_1"
-            return subscription("active")
+            return [subscription("active")]
 
     assert directory.sync_subscription("cafe", FakeStripe())["billing_status"] == "prueba"  # no customer yet
     directory.process_event(event("checkout.session.completed", {"client_reference_id": "cafe", "customer": "cus_1",
@@ -251,7 +252,7 @@ def webhook_url():
     received = []
 
     class FakeDirectory:
-        def process_event(self, evt):
+        def process_event(self, evt, stripe=None):
             received.append(evt["id"])
             return "actualizado"
 
@@ -289,16 +290,23 @@ STRIPE_MOCK = os.environ.get("STRIPE_MOCK_URL")  # stripe-mock checks every para
 
 
 @pytest.mark.skipif(not STRIPE_MOCK, reason="STRIPE_MOCK_URL not set (run stripe/stripe-mock)")
-def test_every_call_is_valid_for_stripe():
+def test_every_call_is_valid_for_stripe(caplog):
     stripe = Stripe("sk_test_123", "price_123", api_base=STRIPE_MOCK)
     back = "https://app.nirkana.es/?negocio=cafe"
     assert stripe.checkout_url(tenant(), "hola@cafe.es", back + "&pago=ok&session_id={CHECKOUT_SESSION_ID}", back)
     assert stripe.checkout_url(tenant(stripe_customer="cus_123"), "", back, back)
+    in_trial = tenant(stripe_customer="cus_123", trial_ends=(billing.utc_now() + timedelta(days=20)).isoformat())
+    assert stripe.checkout_url(in_trial, "", back, back)
     assert stripe.portal_url("cus_123", back)
     assert "client_reference_id" in stripe.checkout_session("cs_test_123")
-    assert subscription_fields(stripe.latest_subscription("cus_123"))["stripe_subscription"].startswith("sub_")
-    with pytest.raises(BillingError, match="validation"):  # the simulator does reject what Stripe would
+    assert subscription_fields(stripe.subscriptions("cus_123")[0])["stripe_subscription"].startswith("sub_")
+    assert stripe.create_customer(tenant(name="Café"), "hola@cafe.es").startswith("cus_")
+    payer = stripe.charge_customer("ch_123")
+    assert payer == "" or payer.startswith("cus_")  # Stripe's sample charge may have no customer
+    assert stripe.charge_customer("ch_1/../../customers") == ""  # never sent to Stripe
+    with pytest.raises(BillingError, match="no ha aceptado"):  # the simulator does reject what Stripe would
         stripe._call("POST", "/checkout/sessions", {"mode": "subscription", "parametro_inventado": "x"})
+    assert "validation" in caplog.text  # Stripe's reason, for us, in the log
 
 
 @needs_pg
@@ -313,9 +321,9 @@ def test_access_for_records_a_purchase_and_rechecks_stale_billing(directory):
             assert session_id == "cs_1"
             return {"client_reference_id": "cafe", "subscription": subscription("active")}
 
-        def latest_subscription(self, customer):
+        def subscriptions(self, customer):
             self.synced += 1
-            return subscription("active")
+            return [subscription("active")]
 
     assert directory.access_for(directory.get("cafe"), None) == (billing.Access("full"), "", False)
     stripe = FakeStripe()
@@ -337,3 +345,170 @@ def test_access_for_ignores_a_session_of_another_business(directory):
 
     _, message, _ = directory.access_for(directory.get("cafe"), OtherBusiness(), "cs_x")
     assert message == "" and directory.get("cafe")["billing_status"] == "prueba"
+
+
+# ------------------------------------------------------------------ payments audit
+def test_checkout_keeps_the_trial_and_repeated_clicks_get_the_same_session():
+    transport = FakeTransport([(200, {"url": "https://checkout.stripe.com/a"})] * 3)
+    stripe = Stripe("sk_test_1", "price_1", transport)
+    now = datetime(2026, 10, 5, 12, 0)
+    trial = tenant(trial_ends=(now + timedelta(days=20)).isoformat(), stripe_customer="cus_1")
+    stripe.checkout_url(trial, "", "https://app/ok", "https://app/back", now=now)
+    stripe.checkout_url(trial, "", "https://app/ok", "https://app/back", now=now + timedelta(minutes=1))
+    first, second = transport.calls[0], transport.calls[1]
+    assert first[2]["subscription_data[trial_end]"] == [str(int((now + timedelta(days=20)).timestamp()))]
+    assert first[3]["Idempotency-Key"] == second[3]["Idempotency-Key"]  # two tabs: one session, one subscription
+    # A trial about to end (Stripe needs two days) or a business that already paid once: charged from today.
+    stripe.checkout_url(tenant(billing_status="canceled", trial_ends=(now + timedelta(days=20)).isoformat()), "",
+                        "https://app/ok", "https://app/back", now=now)
+    assert "subscription_data[trial_end]" not in transport.calls[2][2]
+
+
+def test_access_ends_when_the_subscription_did_not_at_the_end_of_an_unpaid_month():
+    now = billing.utc_now()
+    ts = lambda days: int((now + timedelta(days=days)).timestamp())  # noqa: E731
+    # Stripe gave up after its retries: the period it could not charge is still «current», three weeks ahead.
+    dropped = {"id": "sub_1", "customer": "cus_1", "status": "canceled", "current_period_end": ts(21),
+               "current_period_start": ts(-9), "ended_at": ts(-8)}
+    assert access(tenant(**subscription_fields(dropped), trial_ends=iso(-60)), now).level == "readonly"
+    unpaid = {**dropped, "status": "unpaid", "ended_at": None}
+    assert access(tenant(**subscription_fields(unpaid), trial_ends=iso(-60)), now).level == "readonly"
+    # Cancelled in the portal today: the usual days of grace, from today.
+    today = {**dropped, "ended_at": ts(0)}
+    assert access(tenant(**subscription_fields(today), trial_ends=iso(-60)), now).level == "warn"
+
+
+def test_the_paid_subscription_decides_whatever_stripe_lists_first():
+    assert billing.best_subscription([]) is None
+    newest_abandoned = [{"id": "sub_2", "status": "incomplete_expired"}, {"id": "sub_1", "status": "active"}]
+    assert billing.best_subscription(newest_abandoned)["id"] == "sub_1"
+    assert billing.best_subscription([{"id": "sub_3", "status": "canceled"},
+                                      {"id": "sub_2", "status": "canceled"}])["id"] == "sub_3"
+
+
+class StripeNow:
+    """What Stripe has for the customer when the directory asks."""
+
+    def __init__(self, *subs):
+        self.subs, self.customers, self.checkouts = list(subs), [], []
+
+    def subscriptions(self, customer):
+        return list(self.subs)
+
+    def create_customer(self, tenant, email):
+        self.customers.append((tenant["code"], email))
+        return "cus_nuevo"
+
+    def checkout_url(self, tenant, email, success_url, cancel_url):
+        self.checkouts.append(tenant["stripe_customer"])
+        return "https://checkout.stripe.com/x"
+
+    def charge_customer(self, charge):
+        return "cus_1"
+
+
+@needs_pg
+def test_a_notice_that_fails_is_applied_when_stripe_retries_it(directory, monkeypatch):
+    directory.create("cafe", "Café")
+    notice = event(obj=subscription("active"), event_id="evt_reintento")
+    real = directory._record
+
+    def broken(*args, **kwargs):
+        raise RuntimeError("se cayó la base de datos")
+    monkeypatch.setattr(directory, "_record", broken)
+    with pytest.raises(RuntimeError):
+        directory.process_event(notice)
+    monkeypatch.setattr(directory, "_record", real)
+    assert directory.process_event(notice) == "actualizado"  # not «repetido»: nothing was kept from the failure
+    assert directory.get("cafe")["billing_status"] == "active"
+
+
+@needs_pg
+def test_late_notices_do_not_bring_back_an_old_state(directory):
+    directory.create("cafe", "Café")
+    deleted = event("customer.subscription.deleted", subscription("canceled", days=-1))
+    deleted["created"] = 2_000
+    late = event(obj=subscription("active"))
+    late["created"] = 1_000  # sent before the cancellation, delivered after it
+    assert directory.process_event(deleted) == "actualizado"
+    assert directory.process_event(late) == "antiguo"
+    assert directory.get("cafe")["billing_status"] == "canceled"
+    # With the Stripe key, a notice is only a cue: the state comes from Stripe as it is now.
+    directory.process_event(event(obj=subscription("past_due")), StripeNow(subscription("active")))
+    assert directory.get("cafe")["billing_status"] == "active"
+
+
+@needs_pg
+def test_two_paid_subscriptions_are_reported_and_cancelling_one_keeps_access(directory):
+    directory.create("cafe", "Café")
+    directory.process_event(event("customer.subscription.created", subscription("active", sub_id="sub_1")))
+    directory.process_event(event("customer.subscription.created", subscription("active", sub_id="sub_2")))
+    assert any(r["action"] == "suscripcion_duplicada" for r in directory.log())
+    # The operator cancels the duplicate: the business keeps paying the other one and keeps its access.
+    directory.process_event(event("customer.subscription.deleted", subscription("canceled", sub_id="sub_2", days=-1)),
+                            StripeNow(subscription("canceled", sub_id="sub_2", days=-1),
+                                      subscription("active", sub_id="sub_1")))
+    t = directory.get("cafe")
+    assert (t["billing_status"], t["stripe_subscription"]) == ("active", "sub_1")
+
+
+@needs_pg
+def test_checkout_is_never_offered_to_a_business_that_already_pays(directory):
+    from core.tenants import AlreadySubscribed
+
+    directory.create("cafe", "Café")
+    stripe = StripeNow()
+    assert directory.checkout_url("cafe", stripe, "hola@cafe.es", "ok", "back")
+    # Its own customer in Stripe from the first click, so the next Checkout (and the check above) find it.
+    assert stripe.customers == [("cafe", "hola@cafe.es")] and stripe.checkouts == ["cus_nuevo"]
+    assert directory.get("cafe")["stripe_customer"] == "cus_nuevo"
+    # Paid from another tab meanwhile: Stripe says so, even though no notice has arrived yet.
+    stripe.subs = [subscription("active", customer="cus_nuevo")]
+    with pytest.raises(AlreadySubscribed):
+        directory.checkout_url("cafe", stripe, "hola@cafe.es", "ok", "back")
+    assert stripe.checkouts == ["cus_nuevo"] and directory.get("cafe")["billing_status"] == "active"
+
+
+@needs_pg
+def test_refunds_and_disputes_reach_the_operator_log(directory):
+    directory.create("cafe", "Café")
+    directory.record_subscription("cafe", subscription("active"))
+    assert directory.process_event(event("charge.refunded", {"id": "ch_1", "customer": "cus_1",
+                                                             "amount_refunded": 2420, "currency": "eur"})) == "registrado"
+    assert directory.process_event(event("charge.dispute.created", {"id": "dp_1", "charge": "ch_1", "amount": 2420,
+                                                                    "currency": "eur", "reason": "fraudulent",
+                                                                    "status": "needs_response"}),
+                                   StripeNow()) == "registrado"
+    log = {r["action"]: r["detail"] for r in directory.log()}
+    assert log["reembolso"].startswith("cafe · ch_1 · 24,20 EUR")
+    assert log["contracargo_abierto"].startswith("cafe · ch_1 · 24,20 EUR · fraudulent")
+
+
+class LiveStripe(StripeNow):
+    live = True
+
+
+@needs_pg
+def test_notices_from_the_other_stripe_mode_and_late_checkouts_change_nothing(directory):
+    directory.create("cafe", "Café")
+    directory.record_subscription("cafe", subscription("active"))
+    test_notice = event(obj=subscription("canceled", days=-1))
+    test_notice["livemode"] = False
+    assert directory.process_event(test_notice, LiveStripe()) == "otro_modo"
+    # A checkout's notice without the subscription in it does not hide the one already paid.
+    directory.process_event(event("checkout.session.completed", {"client_reference_id": "cafe", "customer": "cus_1",
+                                                                 "subscription": "sub_9"}))
+    t = directory.get("cafe")
+    assert (t["billing_status"], t["stripe_subscription"]) == ("active", "sub_1")
+
+
+@needs_pg
+def test_the_operator_sees_what_to_do_in_stripe(directory):
+    directory.create("cafe", "Café")
+    for sub_id in ("sub_1", "sub_2", "sub_2"):
+        directory.process_event(event("customer.subscription.updated", subscription("active", sub_id=sub_id)))
+    directory.process_event(event("charge.refunded", {"id": "ch_1", "customer": "cus_1", "amount_refunded": 2000,
+                                                      "currency": "eur"}))
+    alerts = {a["action"]: a for a in directory.billing_alerts()}
+    assert set(alerts) == {"suscripcion_duplicada", "reembolso"}
+    assert alerts["suscripcion_duplicada"]["detail"] == "cafe · sub_1, sub_2"

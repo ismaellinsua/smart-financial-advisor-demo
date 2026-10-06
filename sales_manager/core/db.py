@@ -68,6 +68,14 @@ class Store(UsersMixin, ThrottleMixin, DemoMixin, CatalogMixin, InvoicesMixin, A
             PrivacyMixin, ErrorsMixin, AccountingMixin, BookingMixin, OfflineMixin, LocationsMixin,
             EcommerceMixin):
     SaleError = SaleError
+
+    @property
+    def cache_key(self) -> str:
+        """Names this business's data for anything the server shares between sessions (st.cache_data): one key per
+        business, never an object's memory address, which Python hands to another business's store once it is
+        dropped."""
+        return self.db.identity
+
     def __init__(self, path=DEFAULT_DB_PATH, schema: str | None = None):
         """`schema`: on PostgreSQL, the business's own schema when one database serves several businesses."""
         self.db = PostgresEngine(str(path), schema) if is_postgres(path) else SQLiteEngine(str(path))
