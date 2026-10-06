@@ -32,6 +32,11 @@ Con solo el email, el formulario abre el programa de correo del visitante con el
   2. Crea un formulario (**New form**) y copia el código que aparece en la dirección `https://formspree.io/f/XXXXXXX`.
   3. Pega solo `XXXXXXX` en `formspreeId`.
 
+### Enlace «Entrar» para tus clientes
+
+Cuando la app esté publicada (p. ej. en `https://app.nirkana.es`), pon su dirección en `assets/site.js`:
+`const APP_URL = "https://app.nirkana.es";`. Aparece «Entrar» en el menú; vacío, no se muestra.
+
 ### Contar visitas sin cookies (GoatCounter)
 
 La web puede contar visitas, páginas vistas y formularios enviados **sin cookies ni datos personales**, así que no
