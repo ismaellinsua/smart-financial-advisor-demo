@@ -23,11 +23,12 @@ class InvoicesMixin:
     IRPF_RATES = (0.0, 7.0, 15.0, 19.0)
 
     def create_invoice(self, sale_id: int, customer: dict, when: datetime | None = None, issued_by: str = "",
-                       irpf_rate: float = 0.0) -> dict:
+                       irpf_rate: float = 0.0, as_role: str | None = None) -> dict:
         """Issue a full invoice for a completed sale. Invoices have their own correlative series per year.
 
         `irpf_rate` is the income tax a company withholds from a professional's invoice (7 % or 15 % usually);
         it is applied to the taxable base and shown as «Retención IRPF», lowering what the customer pays."""
+        self._require(as_role, "encargado")
         settings = self.settings()
         if not settings.get("tax_id", "").strip() or not settings.get("address", "").strip():
             raise ValueError("Para emitir facturas, completa primero tu NIF y tu dirección en Configuración: "

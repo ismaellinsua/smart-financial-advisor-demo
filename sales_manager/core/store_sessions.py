@@ -3,8 +3,9 @@ signs staff out nor loses the sale being rung up. Mixed into `Store`.
 
 The browser keeps only a random token; the database keeps its SHA-256, so a copy of the database cannot be used to
 sign in. A session ends after the business's idle time, after SESSION_MAX_AGE whatever the use, on logout, and when
-the person's PIN changes or their account is deactivated. Streamlit can only write the cookie from the page, so it
-cannot be HttpOnly: a token copied out of the browser is also refused on another kind of browser.
+the person's PIN changes or their account is deactivated. Inside the container the cookie is HttpOnly (written by
+ops/deploy/sessions.py); elsewhere the page writes it. Either way, a token copied out of the browser is refused on
+another kind of browser.
 """
 
 import hashlib
@@ -143,8 +144,8 @@ class SessionsMixin:
                 cur.execute("UPDATE password_resets SET attempts = attempts + 1 WHERE id = ?", (row["id"],))
                 return False
             cur.execute("UPDATE password_resets SET used_at = ? WHERE id = ?", (now.isoformat(timespec="seconds"), row["id"]))
-            cur.execute("UPDATE users SET secret_hash = ?, failed_attempts = 0, lockouts = 0, locked_until = '' "
-                        "WHERE id = ?", (hash_secret(new_secret), row["user_id"]))
+            cur.execute("UPDATE users SET secret_hash = ?, failed_attempts = 0, lockouts = 0, locked_until = '', "
+                        "must_change = 0 WHERE id = ?", (hash_secret(new_secret), row["user_id"]))
             self._end_user_sessions(cur, row["user_id"])
             self._audit(cur, username, "contraseña_cambiada", "con código enviado por email")
         return True

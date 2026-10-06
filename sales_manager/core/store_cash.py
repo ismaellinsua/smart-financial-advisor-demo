@@ -90,9 +90,10 @@ class CashMixin:
             row = {**row, "breakdown": json.loads(row["breakdown"] or "{}")}
         return row
 
-    def reopen_cash(self, day: date, location_id: int | None = None, by: str = "") -> None:
+    def reopen_cash(self, day: date, location_id: int | None = None, by: str = "", as_role: str | None = None) -> None:
         """Reopen a closed day. The closing is copied whole to `cash_reopenings` first: what was counted, the
         difference and who closed it stay on record, and closing again later adds a new one."""
+        self._require(as_role, "encargado")
         with self.db.tx() as cur:
             where, args = self._closing_where(self._location_or_main(cur, location_id))
             row = cur.execute(f"SELECT * FROM cash_closings WHERE day = ? AND {where}" + self.db.for_update,

@@ -29,7 +29,7 @@ def _confirm_cancel(sale_id: int, number: str) -> None:
             st.error("Solo un encargado o el administrador puede anular ventas, y con la suscripción activa.")
             return
         try:
-            c.store.cancel_sale(sale_id, by=c.who)
+            c.store.cancel_sale(sale_id, by=c.who, as_role=c.role)
         except SaleError as exc:
             st.error(str(exc))
         else:
@@ -65,7 +65,7 @@ def _invoice_dialog(sale_id: int) -> None:
             if not c.can_change("encargado"):
                 raise ValueError("Solo un encargado o el administrador puede emitir facturas, y con la suscripción activa.")
             customer = {"name": name, "tax_id": tax_id, "address": address, "email": email}
-            issued = c.store.create_invoice(sale_id, customer, issued_by=c.who, irpf_rate=irpf)
+            issued = c.store.create_invoice(sale_id, customer, issued_by=c.who, irpf_rate=irpf, as_role=c.role)
             c.store.audit(c.username, "factura_emitida", f"{issued['number']} · {sale['number']}")
         except (ValueError, SaleError) as exc:
             st.error(str(exc))
@@ -235,7 +235,7 @@ def _refund_dialog(sale_id: int) -> None:
     if slot.button("Registrar devolución", type="primary", width="stretch", icon=":material/undo:",
                    disabled=not any(quantities.values())):
         try:
-            refund = c.store.create_refund(sale_id, quantities, method, reason, user_name=c.who)
+            refund = c.store.create_refund(sale_id, quantities, method, reason, user_name=c.who, as_role=c.role)
         except (ValueError, SaleError) as exc:
             st.error(str(exc))
             return

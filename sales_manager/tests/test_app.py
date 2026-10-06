@@ -333,7 +333,7 @@ def test_weak_pin_from_before_must_be_changed_at_login(tmp_path, monkeypatch):
     at.text_input[1].input("4826")
     at.button[0].click().run()
     assert not at.exception, at.exception
-    assert "más seguro" in " ".join(str(m.value) for m in at.markdown)
+    assert "tu propio PIN" in " ".join(str(m.value) for m in at.markdown)
     at.text_input[0].input("4826")
     at.text_input[1].input("771930")
     at.text_input[2].input("771930")

@@ -45,6 +45,18 @@ class PrivacyMixin:
                             ", ".join(f"{table}: {n}" for table, n in done.items() if n))
         return done
 
+    def daily_housekeeping(self, now: datetime | None = None) -> bool:
+        """Apply the retention rules (old booking contacts, activity log, errors, sessions) at most once a day from the
+        app itself, so they hold even where the scheduled job is not set up. Returns whether it ran."""
+        now = now or clock.now()
+        today = now.date().isoformat()
+        if self.settings().get("housekeeping_day") == today:
+            return False
+        self.forget_booking_contacts(now)
+        self.apply_retention(now)
+        self.save_settings({"housekeeping_day": today})
+        return True
+
     def set_marketing_consent(self, customer_id: int, consent: bool, by: str = "") -> None:
         stamp = clock.now().isoformat(timespec="seconds")
         with self.db.tx() as cur:
@@ -58,8 +70,9 @@ class PrivacyMixin:
             self._audit(cur, by, "consentimiento_publicidad",
                         f"cliente {int(customer_id)}: {'acepta' if consent else 'retirado'}")
 
-    def customer_data_export(self, customer_id: int, by: str = "") -> bytes:
+    def customer_data_export(self, customer_id: int, by: str = "", as_role: str | None = None) -> bytes:
         """Everything the business holds about one person, as JSON (right of access and portability)."""
+        self._require(as_role, "encargado")
         cid = int(customer_id)
         with self.db.tx() as cur:
             customer = cur.execute("SELECT * FROM customers WHERE id = ?", (cid,)).fetchone()
@@ -76,7 +89,7 @@ class PrivacyMixin:
                 "ORDER BY i.id", (cid,)).fetchall()
             points = cur.execute("SELECT points, reason, created_at FROM loyalty_moves WHERE customer_id = ? "
                                  "ORDER BY id", (cid,)).fetchall()
-            appointments = cur.execute("SELECT starts_at, duration_min, status, notes FROM appointments "
+            appointments = cur.execute("SELECT starts_at, duration_min, status, notes, phone, email FROM appointments "
                                        "WHERE customer_id = ? ORDER BY id", (cid,)).fetchall()
             business = self._settings(cur)
             self._audit(cur, by, "datos_exportados", f"cliente {cid}")
@@ -88,8 +101,9 @@ class PrivacyMixin:
         }
         return json.dumps(data, ensure_ascii=False, indent=2, default=str).encode("utf-8")
 
-    def forget_customer(self, customer_id: int, by: str = "") -> None:
+    def forget_customer(self, customer_id: int, by: str = "", as_role: str | None = None) -> None:
         """Right to erasure: remove the person's contact data, keep the figures and the invoices the law requires."""
+        self._require(as_role, "encargado")
         cid = int(customer_id)
         stamp = clock.now().isoformat(timespec="seconds")
         with self.db.tx() as cur:
@@ -101,8 +115,8 @@ class PrivacyMixin:
             cur.execute("UPDATE customers SET name = ?, email = '', phone = '', tax_id = '', address = '', notes = '', "
                         "marketing_consent = 0, consent_at = ?, anonymized_at = ? WHERE id = ?",
                         (f"{ANONYMOUS} #{cid}", stamp, stamp, cid))
-            cur.execute("UPDATE appointments SET customer_name = ?, notes = '' WHERE customer_id = ?",
-                        (f"{ANONYMOUS} #{cid}", cid))
+            cur.execute("UPDATE appointments SET customer_name = ?, notes = '', phone = '', email = '', cancel_hash = '' "
+                        "WHERE customer_id = ?", (f"{ANONYMOUS} #{cid}", cid))
             self._audit(cur, by, "cliente_suprimido", f"cliente {cid} (facturas conservadas por obligación legal)")
 
     def customer_history(self, customer_id: int, limit: int = 50) -> dict:

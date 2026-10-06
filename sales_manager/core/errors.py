@@ -11,3 +11,7 @@ class FiscalDataError(ValueError):
 
 class AuthError(Exception):
     """Raised when a login fails. The message is safe to show: it never reveals whether a user exists."""
+
+
+class PermissionDenied(SaleError, ValueError):
+    """Raised when the role given to a sensitive operation is not allowed to do it (a second check behind the pages)."""

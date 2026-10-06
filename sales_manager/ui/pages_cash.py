@@ -167,6 +167,6 @@ def _closed_cash_panel(c, day: date, closing: dict, summary: dict) -> None:
                     f"cierre-{day:%Y-%m-%d}.pdf", "application/pdf", type="primary",
                     width="stretch", icon=":material/picture_as_pdf:")
     if st.button("Reabrir caja", width="stretch", icon=":material/lock_open:"):
-        c.store.reopen_cash(day, c.location_id, by=c.who)
+        c.store.reopen_cash(day, c.location_id, by=c.who, as_role=c.role)
         c.store.audit(c.username, "caja_reabierta", f"{day:%d/%m/%Y}")
         st.rerun()

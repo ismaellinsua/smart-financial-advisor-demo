@@ -254,7 +254,7 @@ secret**:
 | Secreto | Qué poner |
 |---|---|
 | `BACKUP_DATABASES` | Una línea por negocio: `nombre=postgresql://…` (la cadena de conexión de Neon). Ej.: `cafe-aurora=postgresql://usuario:clave@ep-xxxx.eu-central-1.aws.neon.tech/neondb?sslmode=require` |
-| `BACKUP_PASSPHRASE` | Una frase larga (16+ caracteres) para cifrar. **Guárdala en tu gestor de contraseñas: sin ella las copias no se pueden abrir.** |
+| `BACKUP_PASSPHRASE` | Una frase larga (32+ caracteres) para cifrar: las copias se guardan como artefactos de GitHub y esa frase es lo único que las protege. **Guárdala en tu gestor de contraseñas: sin ella las copias no se pueden abrir.** |
 | `BACKUP_S3_*` (opcional) | Para guardar además una copia fuera de GitHub (Cloudflare R2, Backblaze B2 o S3): `BACKUP_S3_BUCKET`, `BACKUP_S3_ACCESS_KEY_ID`, `BACKUP_S3_SECRET_ACCESS_KEY`, `BACKUP_S3_ENDPOINT` y `BACKUP_S3_REGION`. |
 
 Después, en **Actions → Copias de seguridad → Run workflow**, lánzala una vez para comprobar que va.
