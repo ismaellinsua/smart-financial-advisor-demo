@@ -33,7 +33,7 @@ def test_backup_and_restore_drill(tmp_path):
     sales = len(store.sales())
     store.close()
 
-    env = {**os.environ, "BACKUP_DATABASES": f"peluqueria={source}", "BACKUP_PASSPHRASE": "frase-de-prueba-muy-larga",
+    env = {**os.environ, "BACKUP_DATABASES": f"peluqueria={source}", "BACKUP_PASSPHRASE": "frase-de-prueba-muy-larga-y-segura-2026",
            "RESTORE_URL": PG_URL}
     out = tmp_path / "copias"
     taken = _run(["--out", str(out)], env)
@@ -74,7 +74,7 @@ def test_shared_database_is_copied_business_by_business(tmp_path):
     sales = len(aurora.sales())
     aurora.close()
 
-    env = {**os.environ, "BACKUP_DATABASES": f"nube={source}", "BACKUP_PASSPHRASE": "frase-de-prueba-muy-larga",
+    env = {**os.environ, "BACKUP_DATABASES": f"nube={source}", "BACKUP_PASSPHRASE": "frase-de-prueba-muy-larga-y-segura-2026",
            "RESTORE_URL": PG_URL}
     out = tmp_path / "copias"
     taken = _run(["--out", str(out)], env)

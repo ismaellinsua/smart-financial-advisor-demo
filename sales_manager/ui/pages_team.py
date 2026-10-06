@@ -122,41 +122,7 @@ def _own_account_security(c) -> None:
                 st.rerun()
     with totp_col, st.container(border=True):
         st.markdown("**Verificación en dos pasos**")
-        me = c.store.user(c.user["id"])
-        if me is None:
-            return
-        enabled = bool(me["two_factor"])
-        if enabled:
-            st.success("Activada: al entrar se pide también el código de tu app de autenticación.",
-                       icon=":material/verified_user:")
-            with st.form("totp_off", clear_on_submit=True, border=False):
-                code = st.text_input("Código actual de la app para desactivarla", max_chars=6)
-                if st.form_submit_button("Desactivar"):
-                    try:
-                        c.store.disable_two_factor(c.user["id"], code)
-                    except ValueError as exc:
-                        st.error(str(exc))
-                    else:
-                        st.rerun()
-            return
-        st.caption("Recomendado para el administrador: aunque alguien adivine tu contraseña, sin tu móvil no entra. "
-                   "Usa Google Authenticator, Microsoft Authenticator o similar.")
-        secret = st.session_state.setdefault("totp_pending", new_totp_secret())
-        st.markdown("1. En la app, añade una cuenta con **«Introducir clave de configuración»** y escribe esta clave "
-                    "(tipo: basada en tiempo):")
-        st.code(" ".join(secret[i:i + 4] for i in range(0, len(secret), 4)), language=None)
-        st.caption(f"Cuenta: {c.username} · NirKanA. En el móvil también puedes abrir este enlace: "
-                   f"[añadir a la app]({totp_uri(secret, c.username)}).")
-        with st.form("totp_on", clear_on_submit=True, border=False):
-            code = st.text_input("2. Escribe el código de 6 cifras que muestra la app", max_chars=6)
-            if st.form_submit_button("Activar", type="primary"):
-                try:
-                    c.store.enable_two_factor(c.user["id"], secret, code)
-                except ValueError as exc:
-                    st.error(str(exc))
-                else:
-                    st.session_state.pop("totp_pending", None)
-                    st.rerun()
+        two_factor_panel(c)
 
 
 def _manage_user(c, target, uid: int) -> None:
@@ -171,16 +137,72 @@ def _manage_user(c, target, uid: int) -> None:
                                 key=f"team_location_{uid}",
                                 help="Fijado a un local, solo vende, cobra y ve la caja de ese local.") or None
     new_secret = st.text_input("Nuevo PIN o contraseña (opcional)", type="password", max_chars=128,
-                               key=f"team_secret_{uid}")
+                               key=f"team_secret_{uid}",
+                               help="La persona tendrá que elegir uno propio la próxima vez que entre.")
+    other_admin = target["role"] == "admin" and uid != c.user["id"]
+    mine = st.text_input("Tu contraseña", type="password", max_chars=128, key=f"team_mine_{uid}",
+                         help="Para cambiar la contraseña de otro administrador.") if other_admin and new_secret else ""
+    if bool(target["two_factor"]) and uid != c.user["id"] and st.button(
+            "Quitar verificación en dos pasos", key=f"team_2fa_{uid}", icon=":material/phonelink_erase:",
+            help="Si perdió el móvil: tendrá que activarla de nuevo."):
+        c.store.reset_two_factor(uid, by=c.username, as_role=c.role)
+        st.session_state["team_flash"] = f"Verificación en dos pasos quitada a {target['name']}."
+        st.rerun()
     if st.button("Guardar cambios", type="primary", key=f"team_save_{uid}", icon=":material/save:"):
+        if other_admin and new_secret and not c.store.confirm_secret(c.user["id"], mine):
+            st.error("Tu contraseña no es correcta: hace falta para cambiar la de otro administrador.")
+            return
         try:
-            c.store.update_user(uid, role=new_role, active=active, by=c.username)
+            c.store.update_user(uid, role=new_role, active=active, by=c.username, as_role=c.role)
             if c.multi_location:
                 c.store.set_user_location(uid, location)
             if new_secret:
-                c.store.set_user_secret(uid, new_secret, by=c.username)
+                c.store.set_user_secret(uid, new_secret, by=c.username, as_role=c.role)
         except ValueError as exc:
             st.error(str(exc))
         else:
             st.session_state["team_flash"] = f"Cambios guardados para {target['name']}."
             st.rerun()
+
+def two_factor_panel(c) -> None:
+    """Turn two-step verification on or off for the person who is signed in (administrators and managers)."""
+    me = c.store.user(c.user["id"])
+    if me is None:
+        return
+    enabled = bool(me["two_factor"])
+    if enabled:
+        st.success("Activada: al entrar se pide también el código de tu app de autenticación.",
+                   icon=":material/verified_user:")
+        with st.form("totp_off", clear_on_submit=True, border=False):
+            code = st.text_input("Código actual de la app para desactivarla", max_chars=6)
+            if st.form_submit_button("Desactivar"):
+                try:
+                    c.store.disable_two_factor(c.user["id"], code)
+                except ValueError as exc:
+                    st.error(str(exc))
+                else:
+                    st.rerun()
+        return
+    st.caption("Recomendado: aunque alguien adivine tu contraseña, sin tu móvil no entra. "
+               "Usa Google Authenticator, Microsoft Authenticator o similar.")
+    secret = st.session_state.setdefault("totp_pending", new_totp_secret())
+    st.markdown("1. En la app, añade una cuenta con **«Introducir clave de configuración»** y escribe esta clave "
+                "(tipo: basada en tiempo):")
+    st.code(" ".join(secret[i:i + 4] for i in range(0, len(secret), 4)), language=None)
+    st.caption(f"Cuenta: {c.username} · NirKanA. En el móvil también puedes abrir este enlace: "
+               f"[añadir a la app]({totp_uri(secret, c.username)}).")
+    with st.form("totp_on", clear_on_submit=True, border=False):
+        code = st.text_input("2. Escribe el código de 6 cifras que muestra la app", max_chars=6)
+        if st.form_submit_button("Activar", type="primary"):
+            try:
+                c.store.enable_two_factor(c.user["id"], secret, code)
+            except ValueError as exc:
+                st.error(str(exc))
+            else:
+                st.session_state.pop("totp_pending", None)
+                st.rerun()
+
+
+@st.dialog("Verificación en dos pasos")
+def two_factor_dialog() -> None:
+    two_factor_panel(ctx())

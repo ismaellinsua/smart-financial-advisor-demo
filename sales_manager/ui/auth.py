@@ -139,7 +139,9 @@ def _sign_in(store: Store, user: dict, secret: str | None = None) -> None:
     st.session_state[SESSION_USER] = user
     st.session_state[SESSION_SEEN] = _time.time()
     _remember(store, user)
-    if secret is not None:
+    if user.get("must_change"):  # an administrator chose it: the person picks their own now
+        st.session_state[MUST_CHANGE] = True
+    elif secret is not None:
         try:
             check_secret_strength(secret, user["role"])
         except ValueError:  # set before the current rules: ask for a stronger one now
@@ -365,9 +367,10 @@ def _show_new_codes() -> None:
 def _force_change(store: Store, user: dict) -> None:
     _, center, _ = st.columns([1, 2, 1])
     with center:
-        page_header("Elige un PIN o contraseña más seguro",
-                    "El tuyo es de antes de las normas actuales: ahora el PIN debe tener al menos 6 cifras y no "
-                    "puede ser una serie fácil (123456, 111111…); la contraseña del administrador, 8 caracteres con "
+        page_header("Elige tu propio PIN o contraseña",
+                    "Antes de seguir, cámbialo: o te lo dio otra persona, o es de antes de las normas actuales. Solo "
+                    "tú debes conocerlo, porque todo lo que haces queda firmado con tu nombre. El PIN, 6 cifras o "
+                    "más y sin series fáciles (123456, 111111…); la contraseña del administrador, 8 caracteres con "
                     "letras y números.", eyebrow="Seguridad")
         if change_secret_form(store, user, key="force_change"):
             st.session_state.pop(MUST_CHANGE, None)

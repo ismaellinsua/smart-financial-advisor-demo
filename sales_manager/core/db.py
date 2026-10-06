@@ -474,8 +474,9 @@ class Store(UsersMixin, ThrottleMixin, DemoMixin, CatalogMixin, InvoicesMixin, A
             "(SELECT 1 FROM sale_payments p WHERE p.sale_id = s.id)"
         )
 
-    def cancel_sale(self, sale_id: int, by: str = "", when: datetime | None = None) -> None:
+    def cancel_sale(self, sale_id: int, by: str = "", when: datetime | None = None, as_role: str | None = None) -> None:
         """Void a sale and return its units to stock. Sales are never deleted, to keep numbering intact."""
+        self._require(as_role, "encargado")
         sale_id = int(sale_id)
         stamp = (when or clock.now()).isoformat(timespec="seconds")
         with self.db.tx() as cur:

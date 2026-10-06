@@ -243,3 +243,35 @@ def test_a_short_data_key_is_reported(monkeypatch, caplog):
         assert secretbox.unseal(sealed) == "JBSWY3DPEHPK3PXP"
     finally:
         logging.getLogger(logs.ROOT).propagate = False
+
+
+def test_a_pin_chosen_by_an_administrator_must_be_changed_at_the_next_sign_in(make_store):
+    store = make_store()
+    uid = store.create_user("Lucía", "lucia", "empleado", "482619")
+    assert store.authenticate("lucia", "482619")["must_change"] is False
+    store.set_user_secret(uid, "730194", by="marta", as_role="admin")
+    assert store.authenticate("lucia", "730194")["must_change"] is True
+    store.change_own_secret(uid, "730194", "918273")
+    assert store.authenticate("lucia", "918273")["must_change"] is False
+
+
+def test_only_an_administrator_resets_someone_elses_account(make_store):
+    from core.errors import PermissionDenied
+
+    store = make_store()
+    uid = store.create_user("Lucía", "lucia", "empleado", "482619")
+    for call in (lambda: store.set_user_secret(uid, "730194", by="javier", as_role="encargado"),
+                 lambda: store.update_user(uid, role="admin", by="javier", as_role="encargado"),
+                 lambda: store.reset_two_factor(uid, by="javier", as_role="encargado")):
+        with pytest.raises(PermissionDenied):
+            call()
+    store.reset_two_factor(uid, by="marta", as_role="admin")
+
+
+def test_common_passwords_are_refused():
+    from core.security import check_secret_strength
+
+    for secret, role in (("123123", "empleado"), ("147258", "empleado"), ("nirkana2026", "admin"), ("abcd1234", "admin")):
+        with pytest.raises(ValueError):
+            check_secret_strength(secret, role)
+    check_secret_strength("482619", "empleado")

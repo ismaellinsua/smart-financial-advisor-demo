@@ -87,3 +87,43 @@ def test_old_logs_errors_and_sessions_are_deleted_on_schedule(store):
     assert log.iloc[0]["action"] == "datos_caducados_borrados"
     assert store.resume_session(recent, 60) is not None and store.resume_session(old, 10**6) is None
     assert store.apply_retention(now) == {"audit_log": 0, "app_errors": 0, "sessions": 0}
+
+
+def test_erasure_also_clears_the_contact_kept_on_their_appointments(store):
+    from datetime import timedelta
+
+    from core import clock
+
+    cid = store.upsert_customer({"name": "Iker Sanz", "email": "iker@example.com", "phone": "699000111"})
+    start = clock.now().replace(minute=0, second=0, microsecond=0) + timedelta(days=3)
+    store.create_appointment(start, 30, customer_id=cid, customer_name="Iker Sanz", phone="699000111")
+    exported = json.loads(store.customer_data_export(cid, by="ana"))
+    assert exported["citas"][0]["phone"] == "699000111"  # the right of access covers it too
+    store.forget_customer(cid, by="ana")
+    with store.db.tx() as cur:
+        row = cur.execute("SELECT customer_name, phone, email, cancel_hash FROM appointments "
+                          "WHERE customer_id = ?", (cid,)).fetchone()
+    assert row["phone"] == "" and row["email"] == "" and row["cancel_hash"] == ""
+    assert row["customer_name"].startswith("Cliente eliminado")
+
+
+def test_retention_runs_from_the_app_once_a_day(store):
+    from datetime import datetime
+
+    day = datetime(2026, 10, 6, 9, 0)
+    assert store.daily_housekeeping(day) is True
+    assert store.daily_housekeeping(day.replace(hour=18)) is False  # already done today
+    assert store.daily_housekeeping(day.replace(day=7)) is True
+
+
+def test_sensitive_operations_check_the_role_themselves(store):
+    from core.errors import PermissionDenied
+
+    cid = store.upsert_customer({"name": "Ana Ruiz", "email": "ana@example.com"})
+    sale = _buy(store, cid)
+    for call in (lambda: store.cancel_sale(sale["id"], by="lucia", as_role="empleado"),
+                 lambda: store.customer_data_export(cid, by="lucia", as_role="empleado"),
+                 lambda: store.forget_customer(cid, by="lucia", as_role="empleado")):
+        with pytest.raises(PermissionDenied):
+            call()
+    store.cancel_sale(sale["id"], by="javier", as_role="encargado")  # a manager may

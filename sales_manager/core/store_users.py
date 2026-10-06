@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 import pandas as pd
 
 from . import clock
-from .errors import AuthError
+from .errors import AuthError, PermissionDenied
 from .secretbox import needs_sealing, seal, unseal
 from .security import (
     DUMMY_HASH, RECOVERY_CODE_COUNT, RECOVERY_ITERATIONS, ROLE_RANK, ROLES, USERNAME_RE, check_secret_strength,
@@ -72,7 +72,8 @@ class UsersMixin:
         return cur.execute("SELECT COUNT(*) AS n FROM users WHERE role = 'admin' AND active = 1").fetchone()["n"]
 
     def update_user(self, user_id: int, *, name: str | None = None, role: str | None = None,
-                    active: bool | None = None, by: str = "") -> None:
+                    active: bool | None = None, by: str = "", as_role: str | None = None) -> None:
+        self._require(as_role, "admin")
         user_id = int(user_id)
         with self.db.tx() as cur:
             user = cur.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
@@ -93,15 +94,19 @@ class UsersMixin:
             self._audit(cur, by, "usuario_modificado",
                         f"{user['username']}: rol {ROLES[new_role]}, {'activo' if new_active else 'desactivado'}")
 
-    def set_user_secret(self, user_id: int, secret: str, by: str = "") -> None:
+    def set_user_secret(self, user_id: int, secret: str, by: str = "", as_role: str | None = None) -> None:
+        self._require(as_role, "admin")
         with self.db.tx() as cur:
             user = cur.execute("SELECT username, role FROM users WHERE id = ?", (int(user_id),)).fetchone()
             if user is None:
                 raise ValueError("Usuario no encontrado.")
             check_secret_strength(secret, user["role"])
-            cur.execute("UPDATE users SET secret_hash = ?, failed_attempts = 0, lockouts = 0, locked_until = '' "
-                        "WHERE id = ?",
-                        (hash_secret(secret), int(user_id)))
+            # Chosen by someone else (an administrator): the person must pick their own at the next sign-in, so only
+            # they know it and what they sign stays theirs.
+            must_change = int(bool(by) and by != user["username"])
+            cur.execute("UPDATE users SET secret_hash = ?, failed_attempts = 0, lockouts = 0, locked_until = '', "
+                        "must_change = ? WHERE id = ?",
+                        (hash_secret(secret), must_change, int(user_id)))
             self._end_user_sessions(cur, user_id)
             self._audit(cur, by, "contraseña_cambiada", user["username"])
 
@@ -154,7 +159,8 @@ class UsersMixin:
                     cur.execute("UPDATE users SET failed_attempts = 0, lockouts = 0, locked_until = '', last_login = ? "
                                 "WHERE id = ?", (now.isoformat(timespec="seconds"), user["id"]))
                     self._audit(cur, username, "acceso", "")
-                return {k: user[k] for k in ("id", "username", "name", "role")}
+                return {**{k: user[k] for k in ("id", "username", "name", "role")},
+                        "must_change": bool(user["must_change"])}
             elif purpose:  # a failed authorisation: counted apart (see authorize), never locks the account
                 self._audit(cur, username, "autorizacion_fallida", purpose)
             else:
@@ -196,7 +202,7 @@ class UsersMixin:
             if verify_secret(new, user["secret_hash"]):
                 raise ValueError("El nuevo PIN o contraseña debe ser distinto del actual.")
             check_secret_strength(new, user["role"])
-            cur.execute("UPDATE users SET secret_hash = ? WHERE id = ?", (hash_secret(new), int(user_id)))
+            cur.execute("UPDATE users SET secret_hash = ?, must_change = 0 WHERE id = ?", (hash_secret(new), int(user_id)))
             self._end_user_sessions(cur, user_id)  # other devices must sign in again with the new one
             self._audit(cur, user["username"], "contraseña_cambiada", "por la propia persona")
 
@@ -241,7 +247,7 @@ class UsersMixin:
                 cur.execute("UPDATE recovery_codes SET used_at = ? WHERE id = ?",
                             (clock.now().isoformat(timespec="seconds"), match["id"]))
                 cur.execute("UPDATE users SET secret_hash = ?, totp_secret = '', failed_attempts = 0, lockouts = 0, "
-                            "locked_until = '' WHERE id = ?", (hash_secret(new_secret), user["id"]))
+                            "locked_until = '', must_change = 0 WHERE id = ?", (hash_secret(new_secret), user["id"]))
                 self._end_user_sessions(cur, user["id"])
                 self._audit(cur, username, "acceso_recuperado", "con código de recuperación")
                 return {k: user[k] for k in ("id", "username", "name", "role")}
@@ -255,6 +261,17 @@ class UsersMixin:
             user = cur.execute("SELECT username FROM users WHERE id = ?", (int(user_id),)).fetchone()
             cur.execute("UPDATE users SET totp_secret = ?, totp_last_step = 0 WHERE id = ?", (seal(secret), int(user_id)))
             self._audit(cur, user["username"], "verificacion_dos_pasos", "activada")
+
+    def reset_two_factor(self, user_id: int, by: str = "", as_role: str | None = None) -> None:
+        """An administrator turns off someone's two-step verification (e.g. a lost phone); they set it up again."""
+        self._require(as_role, "admin")
+        with self.db.tx() as cur:
+            user = cur.execute("SELECT username FROM users WHERE id = ?", (int(user_id),)).fetchone()
+            if user is None:
+                raise ValueError("Usuario no encontrado.")
+            cur.execute("UPDATE users SET totp_secret = '', totp_last_step = 0 WHERE id = ?", (int(user_id),))
+            self._end_user_sessions(cur, user_id)
+            self._audit(cur, by, "verificacion_dos_pasos", f"{user['username']}: quitada por un administrador")
 
     def disable_two_factor(self, user_id: int, code: str) -> None:
         with self.db.tx() as cur:
@@ -282,3 +299,11 @@ class UsersMixin:
     @staticmethod
     def can(role: str, needed: str) -> bool:
         return ROLE_RANK.get(role, -1) >= ROLE_RANK[needed]
+
+    @staticmethod
+    def _require(as_role: str | None, needed: str) -> None:
+        """Sensitive operations check the role again here, not only in the page that offers them, so a new page or
+        an integration that forgot the check still cannot do them. Callers with no person behind (jobs, tests of
+        the store itself) pass no role."""
+        if as_role is not None and ROLE_RANK.get(as_role, -1) < ROLE_RANK[needed]:
+            raise PermissionDenied("No tienes permiso para hacer esto.")

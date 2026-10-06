@@ -451,6 +451,8 @@ MIGRATIONS = [
     ("users", "location_id", "INTEGER REFERENCES locations(id) ON DELETE SET NULL"),
     # The time step of the last two-step code accepted: the same code is never accepted twice.
     ("users", "totp_last_step", "INTEGER NOT NULL DEFAULT 0"),
+    # Set when someone else chose this person's PIN: they must choose their own at the next sign-in.
+    ("users", "must_change", "INTEGER NOT NULL DEFAULT 0"),
     # Orders imported from an online shop («shopify:1001»): importing the same file twice never duplicates them.
     ("sales", "external_ref", "TEXT NOT NULL DEFAULT ''"),
 ]

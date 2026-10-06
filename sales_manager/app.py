@@ -12,7 +12,8 @@ import streamlit as st
 
 from core.presets import PRESETS
 from core.security import ROLES
-from ui import booking, pages, pages_billing, pages_intel, pages_management, pages_promos, pages_tables, routes, tenancy
+from ui import (booking, pages, pages_billing, pages_intel, pages_management, pages_promos, pages_tables, pages_team,
+                routes, tenancy)
 from ui.auth import logout_button, require_user
 from ui.context import PAGES, MissingDatabase, ctx, stripe_client
 from ui.styles import inject_css, installable, sidebar_brand, sidebar_copyright, topbar
@@ -45,6 +46,10 @@ except Exception as exc:  # the database is unreachable or the URL is wrong; ret
     st.caption(f"Detalle técnico: {type(exc).__name__}")
     st.stop()
 inject_css(c.settings["accent_color"])
+try:  # retention rules, once a day (RGPD art. 5.1.e); a failure here must never keep anyone from working
+    c.store.daily_housekeeping()
+except Exception:
+    log.exception("housekeeping_failed")
 
 # Customers booking online (…/?reservar): a public page, no sign-in.
 if booking.wanted():
@@ -150,6 +155,9 @@ st.html("""<script>
   }, true);
 })();
 </script>""", unsafe_allow_javascript=True)
+if c.can("encargado") and not c.can("admin") and st.sidebar.button(
+        "Verificación en dos pasos", icon=":material/verified_user:", width="stretch"):
+    pages_team.two_factor_dialog()  # administrators have it in Equipo y seguridad
 logout_button(c.store, user)
 sidebar_copyright()
 

@@ -48,9 +48,10 @@ class RefundsMixin:
                 for i in items]
 
     def create_refund(self, sale_id: int, quantities: dict, method: str, reason: str, user_name: str = "",
-                      when: datetime | None = None) -> dict:
+                      when: datetime | None = None, as_role: str | None = None) -> dict:
         """Return units of a sale. `quantities` maps sale_item_id to units. Invoiced sales get a corrective
         invoice automatically. Stock goes back for tracked products and the points earned are reduced."""
+        self._require(as_role, "encargado")
         reason = clean_text(reason, "Motivo", "notes")
         if len(reason) < 3:
             raise ValueError("Indica el motivo de la devolución.")

@@ -139,7 +139,7 @@ def _customer_card(c, ranking) -> None:
 
 def _prepare_export(cid: int) -> None:
     c = ctx()
-    st.session_state[f"export_{cid}"] = c.store.customer_data_export(cid, by=c.username)
+    st.session_state[f"export_{cid}"] = c.store.customer_data_export(cid, by=c.username, as_role=c.role)
 
 
 def _privacy_section(c, customers: pd.DataFrame) -> None:
@@ -178,7 +178,7 @@ def _privacy_section(c, customers: pd.DataFrame) -> None:
                        "sin identificarle y **las facturas se conservan tal cual**, porque la ley obliga a guardarlas.")
             sure = st.checkbox("Confirmo que el cliente lo ha pedido", key=f"forget_ok_{cid}")
             if st.button("Borrar datos personales", disabled=not sure, key=f"forget_{cid}", icon=":material/delete:"):
-                c.store.forget_customer(cid, by=c.username)
+                c.store.forget_customer(cid, by=c.username, as_role=c.role)
                 st.session_state["customers_flash"] = "Datos personales borrados. Las facturas se conservan."
                 bump_editor("customers_editor")
                 st.rerun()

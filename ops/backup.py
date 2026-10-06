@@ -55,10 +55,14 @@ def databases() -> dict[str, str]:
     return found
 
 
-def passphrase() -> str:
+NEW_COPY_MIN_LENGTH = 32  # copies are stored outside the database (e.g. CI artifacts): the passphrase is all that protects them
+
+
+def passphrase(minimum: int = 16) -> str:
     value = os.environ.get("BACKUP_PASSPHRASE", "")
-    if len(value) < 16:
-        fail("BACKUP_PASSPHRASE debe tener al menos 16 caracteres: las copias nunca se guardan sin cifrar.")
+    if len(value) < minimum:
+        fail(f"BACKUP_PASSPHRASE debe tener al menos {minimum} caracteres: las copias nunca se guardan sin cifrar y "
+             "esa frase es lo único que las protege.")
     return value
 
 
@@ -143,7 +147,7 @@ def app_copy(conn, target: Path) -> None:
 
 
 def take(out: Path) -> None:
-    secret = passphrase()
+    secret = passphrase(NEW_COPY_MIN_LENGTH)  # older, shorter phrases still open old copies (--decrypt, --verify)
     out.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now(UTC).strftime("%Y%m%d-%H%M")
     manifest = {"created_utc": stamp, "businesses": {}}

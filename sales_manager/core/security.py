@@ -50,7 +50,15 @@ def verify_secret(secret: str, stored: str) -> bool:
 DUMMY_HASH = hash_secret(secrets.token_hex(16))
 
 
-COMMON_SECRETS = {"password", "contraseña", "12345678", "123456789", "qwerty123", "admin123", "password1"}
+# The most used passwords and PINs (public leaked-password lists), plus obvious ones for this app. Compared lower-cased.
+COMMON_SECRETS = {
+    "password", "password1", "password123", "passw0rd", "contraseña", "contraseña1", "contrasena", "contrasena1",
+    "12345678", "123456789", "1234567890", "87654321", "11223344", "12341234", "123123123",
+    "121212", "123123", "112233", "131313", "159753", "147258", "147258369", "159357", "696969", "102030",
+    "qwerty", "qwerty123", "qwertyuiop", "1q2w3e4r", "1qaz2wsx", "123qwe", "abc123", "abcd1234", "a1b2c3d4",
+    "admin", "admin123", "admin1234", "administrador", "administrador1", "iloveyou", "teamo123", "letmein1",
+    "nirkana", "nirkana1", "nirkana123", "nirkana2026", "bienvenido1", "hola1234",
+}
 MIN_PIN_LENGTH = 6
 
 
