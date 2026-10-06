@@ -136,8 +136,8 @@ def switch_business_dialog() -> None:
     confirmed = identity_confirmed(c, "switch_secret")
     if st.button(f"Cambiar a «{PRESETS[business_type]['label']}»", type="primary", width="stretch",
                  icon=":material/swap_horiz:", disabled=not confirmed):
-        if not c.can("admin"):
-            st.error("Solo el administrador puede cambiar de negocio.")
+        if not c.can_change("admin"):
+            st.error("Solo el administrador puede cambiar de negocio, y con la suscripción activa.")
             return
         try:
             with st.spinner("Preparando el nuevo negocio…"):

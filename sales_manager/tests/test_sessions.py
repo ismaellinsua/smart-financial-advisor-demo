@@ -190,7 +190,7 @@ def test_two_step_codes_work_once_and_keys_are_encrypted(make_store, monkeypatch
     with store.db.tx() as cur:
         assert cur.execute("SELECT totp_secret FROM users WHERE id = ?", (admin,)).fetchone()["totp_secret"] == plain
 
-    monkeypatch.setenv("DATA_KEY", "una-clave-larga-y-aleatoria-de-prueba")
+    monkeypatch.setenv("DATA_KEY", "una-clave-larga-y-aleatoria-de-prueba-de-32+")
     code = totp_code(plain, time.time() - 30)
     assert store.authenticate("elena", "Segura2026", otp=code)["id"] == admin
     with store.db.tx() as cur:  # encrypted at that sign-in
@@ -205,3 +205,41 @@ def test_two_step_codes_work_once_and_keys_are_encrypted(make_store, monkeypatch
     monkeypatch.setenv("DATA_KEY", "otra-clave")  # a different key: the check fails safely, never lets anyone in
     with pytest.raises(AuthError):
         store.authenticate("elena", "Segura2026", otp=totp_code(plain, time.time() + 30))
+
+
+
+def test_older_encrypted_keys_are_read_and_upgraded(make_store, monkeypatch):
+    """Keys encrypted by the first version (SHA-256-derived) still work and move to the scrypt-derived key."""
+    import time
+
+    from core import secretbox
+    from core.security import new_totp_secret, totp_code
+
+    monkeypatch.setenv("DATA_KEY", "otra-clave-larga-y-aleatoria-de-prueba-32+")
+    store = make_store()
+    admin = store.create_user("Elena", "elena", "admin", "Segura2026")
+    plain = new_totp_secret()
+    legacy = secretbox.LEGACY_PREFIX + secretbox._fernet(secretbox._key(), 1).encrypt(plain.encode()).decode()
+    with store.db.tx() as cur:
+        cur.execute("UPDATE users SET totp_secret = ? WHERE id = ?", (legacy, admin))
+    assert store.authenticate("elena", "Segura2026", otp=totp_code(plain, time.time() - 30))["id"] == admin
+    with store.db.tx() as cur:
+        stored = cur.execute("SELECT totp_secret FROM users WHERE id = ?", (admin,)).fetchone()["totp_secret"]
+    assert stored.startswith(secretbox.PREFIX) and secretbox.unseal(stored) == plain
+
+
+def test_a_short_data_key_is_reported(monkeypatch, caplog):
+    import logging
+
+    from core import logs, secretbox
+
+    logs.setup()
+    logging.getLogger(logs.ROOT).propagate = True
+    try:
+        monkeypatch.setenv("DATA_KEY", "corta")
+        with caplog.at_level(logging.WARNING, logger=logs.ROOT):
+            sealed = secretbox.seal("JBSWY3DPEHPK3PXP")
+        assert "data_key_short" in caplog.text and "corta" not in caplog.text
+        assert secretbox.unseal(sealed) == "JBSWY3DPEHPK3PXP"
+    finally:
+        logging.getLogger(logs.ROOT).propagate = False

@@ -129,7 +129,7 @@ if c.multi_location:
     st.sidebar.selectbox("Local", ids, format_func={loc["id"]: loc["name"] for loc in c.locations}.get,
                          key="location", disabled=bool(c.fixed_location),
                          help="Las ventas, la caja, las mesas y el stock de esta sesión son de este local.")
-if c.can("admin") and c.store.can_replace_data() and st.sidebar.button(
+if c.can_change("admin") and c.store.can_replace_data() and st.sidebar.button(
         "Cambiar de negocio", icon=":material/swap_horiz:", width="stretch"):
     pages.switch_business_dialog()
 nav = st.navigation(sections, expanded=True)

@@ -177,6 +177,7 @@ DEFAULT_SETTINGS = {
     "booking_notice_hours": "2",
     "booking_capacity": "30",
     "booking_max_party": "10",
+    "booking_hourly_limit": "20",
     "tables_enabled": "auto",
     "opening_float": "150",
     # Idle time before a device asks to sign in again: a work shift, not a whole day (shared tills).

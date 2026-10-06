@@ -225,6 +225,10 @@ def _online_booking_panel(c, cfg: dict) -> None:
             values["step"] = b.number_input("Una hora de inicio cada (min)", 5, 240, rules["step"], 5)
             values["days"] = a.number_input("Se puede reservar con hasta (días)", 1, 365, rules["days_ahead"], 1)
             values["notice_hours"] = b.number_input("Antelación mínima (horas)", 0, 168, rules["notice_hours"], 1)
+            values["hourly_limit"] = a.number_input(
+                "Máximo de reservas online por hora", 1, 500, rules["hourly_limit"], 1,
+                help="Frena a quien intente llenar la agenda con reservas falsas. Si lo alcanzas, queda en el "
+                     "registro de actividad; súbelo si tu negocio recibe más reservas reales en una hora.")
             st.caption("Si el envío de emails está configurado, la persona recibe la confirmación y un recordatorio "
                        "el día antes, y tú un aviso de cada reserva nueva en el email del negocio.")
             if st.form_submit_button("Guardar", type="primary"):

@@ -7,7 +7,7 @@ import pandas as pd
 
 from . import clock
 from .errors import AuthError
-from .secretbox import is_sealed, seal, unseal
+from .secretbox import needs_sealing, seal, unseal
 from .security import (
     DUMMY_HASH, RECOVERY_CODE_COUNT, RECOVERY_ITERATIONS, ROLE_RANK, ROLES, USERNAME_RE, check_secret_strength,
     clean_text, hash_secret, new_recovery_code, normalize_recovery_code, totp_step, verify_secret, verify_totp,
@@ -116,7 +116,9 @@ class UsersMixin:
         try:
             user = self.authenticate(username, secret, otp=otp, purpose=purpose or "autorización")
         except AuthError:
-            self.throttle_failed(key, now)
+            # Fixed 15-minute blocks: whoever keeps failing at the till cannot leave the manager unable to approve
+            # anything for a whole day.
+            self.throttle_failed(key, now, grow=False)
             raise
         self.throttle_succeeded(key)
         if not self.can(user["role"], needed):
@@ -174,7 +176,7 @@ class UsersMixin:
         step = totp_step(unseal(user["totp_secret"]), otp)
         if step is None or step <= int(user["totp_last_step"] or 0):
             return False
-        sealed = user["totp_secret"] if is_sealed(user["totp_secret"]) else seal(user["totp_secret"])
+        sealed = seal(user["totp_secret"]) if needs_sealing(user["totp_secret"]) else user["totp_secret"]
         cur.execute("UPDATE users SET totp_last_step = ?, totp_secret = ? WHERE id = ?", (step, sealed, user["id"]))
         return True
 

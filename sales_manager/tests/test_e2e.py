@@ -229,6 +229,14 @@ def test_operator_creates_businesses_that_stay_apart(multi_server):
         page.wait_for_timeout(1500)
         page.goto(f"{multi_server}/?negocio=cafe-aurora", wait_until="networkidle")
         page.get_by_text("está suspendido").wait_for()
+
+        # Guessing business codes from one device is slowed down: after a few unknown ones, even a real code waits.
+        from core import throttle
+        for i in range(throttle.MAX_FAILURES - 1):  # «no-existe», above, was the first
+            page.goto(f"{multi_server}/?negocio=prueba-{i}", wait_until="networkidle")
+            page.get_by_text("No encontramos ese negocio").wait_for()
+        page.goto(f"{multi_server}/?negocio=tienda-sol", wait_until="networkidle")
+        page.get_by_text("Demasiados códigos que no existen").wait_for()
         browser.close()
 
 

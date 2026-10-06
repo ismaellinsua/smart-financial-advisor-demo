@@ -19,8 +19,6 @@ from ui.context import get_directory, multi_tenant, setting, stripe_client, tria
 from ui.styles import page_header
 
 OPERATOR_SESSION_HOURS = 2
-# The last operator code accepted by this server: the same code never opens the panel twice.
-_OPERATOR_LAST_STEP = {"step": 0}
 
 
 @st.cache_data(ttl=30, show_spinner=False)
@@ -46,8 +44,15 @@ def gate() -> bool:
         # Another business in the same browser tab: nothing of the previous one may carry over (user, ticket…).
         for key in list(st.session_state.keys()):
             del st.session_state[key]
+    # Trying codes one after another to learn which businesses exist is slowed down like a password guess. Only a
+    # new lookup is checked: a session already in its business costs no extra query per click.
+    lookup = "negocio:" + client_key()
+    if st.session_state.get("tenant") != code and (minutes := client_blocked_minutes(lookup, store=get_directory())):
+        _choose_business(error=f"Demasiados códigos que no existen desde este dispositivo. Espera {minutes} min.")
+        return False
     tenant = tenant_info(code)
     if tenant is None:
+        client_failed(lookup, store=get_directory())
         st.session_state.pop("tenant", None)
         _choose_business(error="No encontramos ese negocio. Revisa la dirección o el código que te dimos.")
         return False
@@ -237,10 +242,9 @@ def _operator_login(expected: str) -> None:
                 return
             password_ok = hmac.compare_digest(secret.encode(), expected.encode())
             step = totp_step(totp_secret, code) if totp_secret else None
-            fresh = step is not None and step > _OPERATOR_LAST_STEP["step"]
+            # The step is claimed only with the right password, so guesses cannot burn the owner's next code.
+            fresh = password_ok and step is not None and directory.claim_operator_step(step)
             if password_ok and (not totp_secret or fresh):
-                if step is not None:
-                    _OPERATOR_LAST_STEP["step"] = step
                 client_succeeded(key, store=directory)
                 st.session_state["operator_since"] = _time.time()
                 st.rerun()

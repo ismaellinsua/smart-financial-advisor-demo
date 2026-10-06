@@ -141,7 +141,7 @@ segundos en despertar la primera vez; la app se reconecta sola.
 Para clientes de pago: la app en Frankfurt, junto a la base de Neon (también en Frankfurt), sin que se duerma y con
 cabeceras de seguridad. El `Dockerfile` de la raíz pone [Caddy](https://caddyserver.com) delante de Streamlit, que solo
 escucha dentro del contenedor, y añade HSTS, `X-Frame-Options`/`frame-ancestors` (nadie puede incrustar la app en otra
-web), `nosniff`, `Referrer-Policy` y `Permissions-Policy`. La app no corre como administrador del sistema. La cookie
+web), una política de contenido (CSP) que solo deja cargar y enviar datos a la propia app, `nosniff`, `Referrer-Policy` y `Permissions-Policy`. La app no corre como administrador del sistema. La cookie
 de sesión la escribe el propio servidor como **HttpOnly** (ningún script de la página puede leerla). **Para clientes
 reales usa solo este contenedor:** en Streamlit Community Cloud no hay Caddy, así que faltan esas cabeceras y la cookie
 de sesión la escribe la página.
