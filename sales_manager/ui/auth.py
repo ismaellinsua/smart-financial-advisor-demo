@@ -234,7 +234,8 @@ def _login(store: Store, business_name: str) -> None:
         with st.form("login"):
             username = st.text_input("Usuario", max_chars=30, autocomplete="username")
             secret = st.text_input("PIN o contraseña", type="password", max_chars=128, autocomplete="current-password")
-            otp = st.text_input("Código de verificación", max_chars=6, autocomplete="one-time-code",
+            otp = st.text_input("Código de verificación (solo si lo tienes activado)", max_chars=6,
+                                autocomplete="one-time-code",
                                 help="Solo si tienes activada la verificación en dos pasos: el código de 6 cifras de "
                                      "tu app de autenticación.")
             if st.form_submit_button("Entrar", type="primary", width="stretch"):

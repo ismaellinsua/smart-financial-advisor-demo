@@ -136,12 +136,11 @@ def point_of_sale() -> None:
 
     catalog_col, ticket_col = st.columns([3, 2], gap="large")
     with catalog_col, st.container(key="pos_catalog"):
-        f1, f2 = st.columns([2, 3])
-        query = f1.text_input("Buscar", placeholder="Nombre, código o escanea…", label_visibility="collapsed",
+        query = st.text_input("Buscar", placeholder="Nombre, código o escanea…", label_visibility="collapsed",
                               key="pos_query", on_change=_scan, args=(dict(zip(products["sku"].str.lower(),
                                                                               products["id"].astype(int))),))
         categories = sorted(products["category"].unique())
-        selected = f2.pills("Categoría", categories, selection_mode="multi", label_visibility="collapsed")
+        selected = st.pills("Categoría", categories, selection_mode="multi", label_visibility="collapsed")
         shown = products
         if query:
             q = query.lower()

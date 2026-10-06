@@ -249,7 +249,7 @@ def expenses_page() -> None:
     with list_tab:
         df = c.store.expenses(start, end)
         if df.empty:
-            st.caption("No hay gastos este mes.")
+            st.caption("Este mes aún no has apuntado gastos. Hazlo en la pestaña «Apuntar gasto».")
         else:
             event = st.dataframe(df, hide_index=True, width="stretch", on_select="rerun",
                                  selection_mode="single-row", key="exp_table",

@@ -510,3 +510,24 @@ details p { color: var(--muted); margin: .8rem 0 0; max-width: 64ch; }
 .whatsapp-btn:hover, .whatsapp-btn:focus-visible { background: #1E9E50; transform: scale(1.06); }
 .whatsapp-btn .ic { width: 26px; height: 26px; }
 @media (max-width: 480px) { .whatsapp-btn { right: 16px; bottom: 16px; } }
+
+/* ------------------------------------------------------------------ sector pages and 404 */
+.sub-hero { padding: clamp(48px, 7vw, 96px) 0 clamp(32px, 5vw, 64px); background: var(--surface); border-bottom: 1px solid var(--line); }
+.sub-hero h1 { max-width: 22ch; }
+.sub-hero .sub { font-size: 1.15rem; }
+.crumbs { font-size: .9rem; color: var(--muted); margin-bottom: 1rem; }
+.crumbs a { color: var(--brand-text); }
+.cta-row { display: flex; flex-wrap: wrap; gap: .8rem; margin: 1.6rem 0 1rem; }
+.subpage .btn.ghost { color: var(--ink); border-color: var(--line); }
+.shots { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+.shot { margin: 0; border: 1px solid var(--line); border-radius: 16px; overflow: hidden; background: var(--surface); box-shadow: var(--shadow-sm); }
+.shot img { width: 100%; aspect-ratio: 16 / 10; object-fit: cover; object-position: top left; }
+.shot figcaption { padding: .7rem 1rem; font-size: .95rem; color: var(--muted); }
+@media (max-width: 860px) { .shots { grid-template-columns: 1fr; } }
+.center-cta { text-align: center; }
+.center-cta .sub { margin-inline: auto; margin-bottom: 1.6rem; }
+.subpage .sub a, .subpage .faq-side a { color: var(--brand-text); }
+
+.panel-copy .more { display: inline-flex; align-items: center; gap: .4rem; margin: .2rem 0 1.2rem; font-weight: 700;
+  color: var(--brand-text); text-decoration: none; }
+.panel-copy .more:hover { text-decoration: underline; }

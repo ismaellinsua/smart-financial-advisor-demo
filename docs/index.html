@@ -6,10 +6,10 @@
   <meta http-equiv="Content-Security-Policy"
         content="default-src 'self'; img-src 'self' data: https://*.goatcounter.com; style-src 'self'; script-src 'self'; connect-src https://formspree.io; form-action https://formspree.io; base-uri 'none'; object-src 'none'; upgrade-insecure-requests">
   <meta name="referrer" content="strict-origin-when-cross-origin">
-  <title>NirKanA · Vende, gestiona y decide con datos</title>
-  <meta name="description" content="NirKanA, el gestor de ventas para restaurantes, tiendas, autónomos y tiendas online: cobra, controla tu stock, tu caja y tu equipo, con alertas y un informe semanal en el panel. Desde el móvil, sin instalar nada.">
-  <meta property="og:title" content="NirKanA · Gestor de ventas inteligente">
-  <meta property="og:description" content="Cobra, gestiona y decide con datos. Para restaurantes, tiendas, autónomos y e-commerce.">
+  <title>NirKanA · TPV y programa de gestión para negocios</title>
+  <meta name="description" content="TPV y programa de gestión para restaurantes, tiendas, autónomos y tiendas online: cobra, controla stock, caja y equipo y factura con IVA. Sin instalar nada.">
+  <meta property="og:title" content="NirKanA · TPV y programa de gestión para negocios">
+  <meta property="og:description" content="TPV y gestión de ventas, stock, caja y facturas para restaurantes, tiendas, autónomos y tiendas online.">
   <meta property="og:type" content="website">
   <meta property="og:image" content="https://nirkana.es/assets/img/og.jpg">
   <meta property="og:image:width" content="1200">
@@ -31,12 +31,18 @@
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
     "name": "NirKanA",
-    "description": "Gestor de ventas para restaurantes, tiendas, autónomos y tiendas online: cobro, stock, caja, equipo y alertas.",
+    "description": "TPV y programa de gestión para restaurantes, tiendas, autónomos y tiendas online: cobro, stock, caja, facturas, equipo y alertas.",
     "url": "https://nirkana.es/",
     "applicationCategory": "BusinessApplication",
     "operatingSystem": "Web",
-    "inLanguage": "es"
+    "inLanguage": "es",
+    "offers": {"@type": "Offer", "price": "20", "priceCurrency": "EUR", "description": "Desde 20 € al mes",
+               "priceSpecification": {"@type": "UnitPriceSpecification", "price": "20", "priceCurrency": "EUR",
+                                      "unitText": "mes", "billingDuration": "P1M"}}
   }
+  </script>
+  <script type="application/ld+json">
+  {"@context": "https://schema.org", "@type": "Organization", "name": "NirKanA", "url": "https://nirkana.es/", "logo": "https://nirkana.es/assets/apple-touch-icon.png", "email": "nirkana.oficial@gmail.com", "contactPoint": {"@type": "ContactPoint", "contactType": "sales", "email": "nirkana.oficial@gmail.com", "availableLanguage": "es", "areaServed": "ES"}}
   </script>
 </head>
 <body>
@@ -94,7 +100,7 @@
       <canvas class="orb" aria-hidden="true"></canvas>
       <div class="spot" aria-hidden="true"></div>
       <div class="wrap hero-copy">
-        <p class="pill"><span class="live"></span>Gestor de ventas para negocios en España</p>
+        <p class="pill"><span class="live"></span>TPV y gestión de ventas para negocios en España</p>
         <h1>De libreta a datos<br><span class="grad">en un día.</span></h1>
         <p class="lead">Para <strong>restaurantes, tiendas, autónomos y tiendas online</strong>. Cobra, controla tu stock, tu
           caja y tu equipo, y ve en las alertas lo que va mal antes de que vaya a más. En el móvil, la tablet o el ordenador.</p>
@@ -179,7 +185,8 @@
         <div class="head" data-reveal>
           <p class="eyebrow">Sectores</p>
           <h2>Una app que se adapta a tu forma de trabajar</h2>
-          <p class="sub">Elige tu tipo de negocio: NirKanA carga la plantilla, los menús y las funciones que necesitas.</p>
+          <p class="sub">TPV para restaurantes y comercios, agenda y facturación para autónomos o gestión de tu tienda online:
+            NirKanA carga la plantilla, los menús y las funciones que necesitas.</p>
         </div>
 
         <div class="tabs" role="tablist" aria-label="Tipo de negocio" data-reveal>
@@ -200,6 +207,7 @@
               <li><svg class="ic"><use href="#i-check"/></svg>Cuenta dividida y pago mixto</li>
               <li><svg class="ic"><use href="#i-check"/></svg>Happy hour y promociones automáticas</li>
             </ul>
+            <a class="more" href="/tpv-restaurantes/">Todo sobre el TPV para restaurantes <svg class="ic"><use href="#i-arrow"/></svg></a>
             <div class="thumbs" aria-label="Pantallas de restaurante">
               <button class="on" data-src="assets/img/shots/mesas-c.webp" data-full="assets/img/shots/mesas.webp" data-alt="Plano de mesas"><img src="assets/img/shots/mesas-c.webp" alt="" loading="lazy" width="1200" height="750"><span>Mesas</span></button>
               <button data-src="assets/img/shots/cocina-c.webp" data-full="assets/img/shots/cocina.webp" data-alt="Pantalla de cocina"><img src="assets/img/shots/cocina-c.webp" alt="" loading="lazy" width="1200" height="750"><span>Cocina</span></button>
@@ -219,11 +227,12 @@
             <p>Cobra en segundos buscando por nombre o código, y deja que la app calcule qué reponer según lo que
               realmente vendes. El pedido al proveedor sale con un clic.</p>
             <ul class="ticks">
-              <li><svg class="ic"><use href="#i-check"/></svg>Punto de venta rápido con control de stock</li>
+              <li><svg class="ic"><use href="#i-check"/></svg>TPV rápido con control de inventario</li>
               <li><svg class="ic"><use href="#i-check"/></svg>Reposición inteligente según la demanda</li>
               <li><svg class="ic"><use href="#i-check"/></svg>Compras y proveedores con coste actualizado</li>
               <li><svg class="ic"><use href="#i-check"/></svg>Devoluciones y puntos para clientes fieles</li>
             </ul>
+            <a class="more" href="/tpv-tiendas/">Todo sobre el TPV para tiendas <svg class="ic"><use href="#i-arrow"/></svg></a>
             <div class="thumbs" aria-label="Pantallas de tienda">
               <button class="on" data-src="assets/img/shots/punto-de-venta-c.webp" data-full="assets/img/shots/punto-de-venta.webp" data-alt="Punto de venta"><img src="assets/img/shots/punto-de-venta-c.webp" alt="" loading="lazy" width="1200" height="750"><span>Vender</span></button>
               <button data-src="assets/img/shots/reposicion-c.webp" data-full="assets/img/shots/reposicion.webp" data-alt="Reposición inteligente"><img src="assets/img/shots/reposicion-c.webp" alt="" loading="lazy" width="1200" height="750"><span>Reposición</span></button>
@@ -248,6 +257,7 @@
               <li><svg class="ic"><use href="#i-check"/></svg>Facturas en PDF con numeración propia</li>
               <li><svg class="ic"><use href="#i-check"/></svg>Seguimiento de clientes que no vuelven</li>
             </ul>
+            <a class="more" href="/programa-facturacion-autonomos/">Todo sobre el programa para autónomos <svg class="ic"><use href="#i-arrow"/></svg></a>
             <div class="thumbs" aria-label="Pantallas de autónomo">
               <button class="on" data-src="assets/img/shots/agenda-c.webp" data-full="assets/img/shots/agenda.webp" data-alt="Agenda de citas"><img src="assets/img/shots/agenda-c.webp" alt="" loading="lazy" width="1200" height="750"><span>Agenda</span></button>
               <button data-src="assets/img/shots/emitir-factura-c.webp" data-full="assets/img/shots/emitir-factura.webp" data-alt="Emitir factura"><img src="assets/img/shots/emitir-factura-c.webp" alt="" loading="lazy" width="1200" height="750"><span>Factura</span></button>
@@ -272,6 +282,7 @@
               <li><svg class="ic"><use href="#i-check"/></svg>Precios recomendados por margen</li>
               <li><svg class="ic"><use href="#i-check"/></svg>Clientes que dejan de comprar</li>
             </ul>
+            <a class="more" href="/tpv-tienda-online/">Todo sobre la gestión de tiendas online <svg class="ic"><use href="#i-arrow"/></svg></a>
             <div class="thumbs" aria-label="Pantallas de tienda online">
               <button class="on" data-src="assets/img/shots/analisis-abc-c.webp" data-full="assets/img/shots/analisis-abc.webp" data-alt="Análisis ABC"><img src="assets/img/shots/analisis-abc-c.webp" alt="" loading="lazy" width="1200" height="750"><span>Análisis ABC</span></button>
               <button data-src="assets/img/shots/precios-c.webp" data-full="assets/img/shots/precios.webp" data-alt="Precios recomendados"><img src="assets/img/shots/precios-c.webp" alt="" loading="lazy" width="1200" height="750"><span>Precios</span></button>
@@ -505,7 +516,7 @@
               <b id="r-year">4.920 €</b>
             </div>
             <p class="fine">Estimación orientativa, no una garantía. <a href="#supuestos">Cómo lo calculamos</a>.
-              El precio de NirKanA lo vemos juntos en la demo, según lo que necesites.</p>
+              NirKanA cuesta desde 20 € al mes; en la demo vemos el plan que encaja con tu negocio.</p>
           </div>
         </div>
         <details class="assume" id="supuestos">
@@ -599,8 +610,8 @@
           </details>
           <details>
             <summary>¿Cuánto cuesta?</summary>
-            <p>Depende de tu negocio y de las funciones que necesites. Pide una demo y te preparo un presupuesto sin
-              compromiso.</p>
+            <p>Desde 20 € al mes. El precio final depende de las funciones que necesites: en la demo te digo
+              exactamente cuánto sería para tu negocio, sin compromiso.</p>
           </details>
           <details>
             <summary>¿Me ayudas a ponerla en marcha?</summary>
@@ -684,10 +695,10 @@
       </nav>
       <nav aria-label="Sectores">
         <b>Sectores</b>
-        <a href="#sectores" data-tab="tab-rest">Restaurantes</a>
-        <a href="#sectores" data-tab="tab-shop">Tiendas</a>
-        <a href="#sectores" data-tab="tab-pro">Autónomos</a>
-        <a href="#sectores" data-tab="tab-web">Tiendas online</a>
+        <a href="/tpv-restaurantes/">Restaurantes</a>
+        <a href="/tpv-tiendas/">Tiendas</a>
+        <a href="/programa-facturacion-autonomos/">Autónomos</a>
+        <a href="/tpv-tienda-online/">Tiendas online</a>
       </nav>
       <nav aria-label="Contacto y legal">
         <b>Contacto</b>
