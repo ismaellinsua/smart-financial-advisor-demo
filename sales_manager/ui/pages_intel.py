@@ -1,6 +1,7 @@
 """Intelligence: smart alerts, ABC analysis, price suggestions and the weekly report."""
 
 from datetime import datetime, timedelta
+from functools import partial
 
 import pandas as pd
 import plotly.graph_objects as go
@@ -72,9 +73,9 @@ def report_card(c) -> None:
                    f"<span style='opacity:.7'>{_week_label(start)}: ventas, márgenes, equipo, alertas y "
                    "recomendaciones.</span>", unsafe_allow_html=True)
         store, settings = c.store, c.settings
-        b.download_button("Descargar informe (PDF)", lambda: weekly_report_pdf(store.weekly_report(start), settings),
-                          f"informe_semanal_{start:%Y-%m-%d}.pdf", "application/pdf", icon=":material/summarize:",
-                          width="stretch", type="primary" if monday else "secondary", key="dash_report")
+        logged_download(b, "Descargar informe (PDF)", lambda: weekly_report_pdf(store.weekly_report(start), settings),
+                        f"informe_semanal_{start:%Y-%m-%d}.pdf", "application/pdf", icon=":material/summarize:",
+                        width="stretch", type="primary" if monday else "secondary", key="dash_report")
 
 
 def intelligence_page() -> None:
@@ -149,8 +150,8 @@ def _abc_tab(c, products: pd.DataFrame) -> pd.DataFrame:
         "share": st.column_config.ProgressColumn("Peso en el margen", format="%.1f %%", min_value=0, max_value=100),
     })
     logged_download(st, "Descargar análisis (CSV)",
-                       csv_safe(abc).to_csv(index=False, sep=";", decimal=",").encode("utf-8-sig"),
-                       "analisis_abc.csv", "text/csv", icon=":material/download:")
+                    csv_safe(abc).to_csv(index=False, sep=";", decimal=",").encode("utf-8-sig"),
+                    "analisis_abc.csv", "text/csv", icon=":material/download:")
     return abc
 
 
@@ -230,6 +231,6 @@ def _report_tab(c) -> None:
         st.markdown("**Recomendaciones**")
         for i, rec in enumerate(report["recommendations"], 1):
             st.markdown(f"{i}. {rec}")
-    st.download_button("Descargar informe completo (PDF)", weekly_report_pdf(report, c.settings),
-                       f"informe_semanal_{start:%Y-%m-%d}.pdf", "application/pdf", type="primary",
-                       icon=":material/summarize:")
+    logged_download(st, "Descargar informe completo (PDF)", partial(weekly_report_pdf, report, c.settings),
+                    f"informe_semanal_{start:%Y-%m-%d}.pdf", "application/pdf", type="primary",
+                    icon=":material/summarize:")

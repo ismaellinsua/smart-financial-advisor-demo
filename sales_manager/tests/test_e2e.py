@@ -363,7 +363,6 @@ def test_unpaid_business_can_only_look_up_until_it_subscribes(billing_server):
         page.goto(f"{base}/vender?negocio=cafe-pago", wait_until="networkidle")  # typing the address won't do
         page.get_by_text("puedes consultar y descargar tus datos").first.wait_for()
         assert not page.get_by_role("button", name="Cobrar").count()
-        page.keyboard.press("Escape")  # Streamlit's «Page not found» notice
 
         page.get_by_test_id("stSidebarNav").get_by_text("Suscripción").click()
         page.get_by_role("button", name="Suscribirme").click()

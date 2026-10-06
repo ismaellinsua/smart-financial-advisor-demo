@@ -1,6 +1,7 @@
 """Purchasing (suppliers and purchase orders) and expenses with net profit."""
 
 from datetime import date, timedelta
+from functools import partial
 
 import pandas as pd
 import plotly.graph_objects as go
@@ -71,8 +72,8 @@ def _orders(c) -> None:
     with st.container(border=True):
         st.markdown(f"#### {po['number']} · {po['supplier_name'] or 'Sin proveedor'} · "
                     f"{PURCHASE_STATUSES[po['status']]}")
-        st.download_button("Descargar pedido (PDF)", purchase_order_pdf(po, c.settings), f"{po['number']}.pdf",
-                           "application/pdf", icon=":material/picture_as_pdf:")
+        logged_download(st, "Descargar pedido (PDF)", partial(purchase_order_pdf, po, c.settings), f"{po['number']}.pdf",
+                        "application/pdf", icon=":material/picture_as_pdf:")
         if po["status"] not in ("borrador", "enviado"):
             st.dataframe(pd.DataFrame(po["items"])[["name", "quantity", "received", "unit_cost"]], hide_index=True,
                          width="stretch", column_config={

@@ -70,6 +70,8 @@ def _create_customer_from_pos() -> None:
         st.session_state["pos_flash"] = ("error", str(exc))
         return
     st.session_state["pos_customer"] = cid
+    for key in ("pos_new_name", "pos_new_email", "pos_new_phone"):  # cleared only once it worked
+        st.session_state[key] = ""
     st.session_state["pos_flash"] = ("success", f"Cliente «{name}» creado y seleccionado.")
 
 
@@ -197,7 +199,7 @@ def point_of_sale() -> None:
             chosen = cust_col.selectbox("Cliente", [0, *names], key="pos_customer",
                                         format_func=lambda i: names.get(i, "Cliente general")) or None
             with new_col.popover("Nuevo", icon=":material/person_add:", help="Nuevo cliente"):
-                with st.form("pos_new_customer", clear_on_submit=True, border=False):
+                with st.form("pos_new_customer", border=False):
                     st.text_input("Nombre", key="pos_new_name")
                     st.text_input("Email", key="pos_new_email")
                     st.text_input("Teléfono", key="pos_new_phone")

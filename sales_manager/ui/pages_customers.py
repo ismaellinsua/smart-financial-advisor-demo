@@ -6,7 +6,7 @@ import pandas as pd
 import streamlit as st
 
 from core import automation
-from ui.context import ctx
+from ui.context import ctx, logged_download
 from ui.pages_common import require_role
 from ui.pages_products import bump_editor, editor_key
 from ui.styles import page_header
@@ -167,8 +167,8 @@ def _privacy_section(c, customers: pd.DataFrame) -> None:
                 st.caption(f"Última decisión: {datetime.fromisoformat(person['consent_at']):%d/%m/%Y %H:%M}")
         export = st.session_state.get(f"export_{cid}")
         if export:
-            b.download_button("Descargar sus datos (JSON)", export, f"datos-cliente-{cid}.json", "application/json",
-                              icon=":material/download:", width="stretch", type="primary")
+            logged_download(b, "Descargar sus datos (JSON)", export, f"datos-cliente-{cid}.json", "application/json",
+                            icon=":material/download:", width="stretch", type="primary")
         else:
             b.button("Preparar sus datos", key=f"prepare_{cid}", width="stretch", icon=":material/folder_zip:",
                      on_click=_prepare_export, args=(cid,),
