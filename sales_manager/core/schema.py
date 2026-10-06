@@ -429,6 +429,8 @@ MIGRATIONS = [
     ("stock_moves", "location_id", "INTEGER"),
     ("purchase_orders", "location_id", "INTEGER"),
     ("users", "location_id", "INTEGER"),
+    # The time step of the last two-step code accepted: the same code is never accepted twice.
+    ("users", "totp_last_step", "INTEGER NOT NULL DEFAULT 0"),
     # Orders imported from an online shop («shopify:1001»): importing the same file twice never duplicates them.
     ("sales", "external_ref", "TEXT NOT NULL DEFAULT ''"),
 ]

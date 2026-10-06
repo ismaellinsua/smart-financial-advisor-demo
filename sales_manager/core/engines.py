@@ -332,12 +332,24 @@ def load_numbers(conn) -> None:
 LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1", ""}
 
 
+def _root_certificates() -> str:
+    """Mozilla's list of trusted certificate authorities (certifi), the same whatever OpenSSL libpq was built with."""
+    try:
+        import certifi
+    except ImportError:  # pragma: no cover - certifi comes with Streamlit's dependencies
+        return "system"
+    return certifi.where()
+
+
 def secure_url(url: str) -> str:
-    """Require TLS for any remote PostgreSQL server unless the URL already sets an sslmode."""
+    """Remote PostgreSQL only over TLS, checking the server's certificate and name (verify-full), so nobody on the
+    way can pose as the database. A URL that sets its own sslmode keeps it."""
     parts = urlsplit(url)
     query = dict(parse_qsl(parts.query))
-    if parts.hostname not in LOCAL_HOSTS and "sslmode" not in query:
-        query["sslmode"] = "require"
+    if parts.hostname not in LOCAL_HOSTS:
+        query.setdefault("sslmode", "verify-full")
+        if query["sslmode"] in ("verify-ca", "verify-full"):
+            query.setdefault("sslrootcert", _root_certificates())
     return urlunsplit(parts._replace(query=urlencode(query)))
 
 

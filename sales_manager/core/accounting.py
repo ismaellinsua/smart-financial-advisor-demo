@@ -193,8 +193,14 @@ class AccountingMixin:
             keep = [c for c in ("Fecha", "Proveedor", "Categoría", "Concepto", "Importe (IVA incluido)",
                                 "Forma de pago") if c in exp.columns]
             exp[keep].to_excel(xls, sheet_name="Gastos", index=False)
-            for sheet in xls.sheets.values():  # readable column widths
-                for column in sheet.columns:
+            for sheet in xls.sheets.values():
+                # Text such as «=HYPERLINK(…)» typed as a customer or supplier name must stay text: openpyxl would
+                # store it as a formula that runs when the accountant opens the file. This book has no formulas.
+                for row in sheet.iter_rows():
+                    for cell in row:
+                        if cell.data_type == "f":
+                            cell.data_type = "s"
+                for column in sheet.columns:  # readable column widths
                     width = max(len(str(c.value or "")) for c in column)
                     sheet.column_dimensions[column[0].column_letter].width = min(max(10, width + 2), 48)
         return out.getvalue()

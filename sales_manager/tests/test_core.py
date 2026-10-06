@@ -392,21 +392,25 @@ def test_users_and_login_lockout(make_store):
     for _ in range(MAX_FAILED_LOGINS - 1):
         with pytest.raises(AuthError, match="incorrectos"):
             s.authenticate("ana", "000000", now=now)
-    with pytest.raises(AuthError, match="bloqueada"):
-        s.authenticate("ana", "000000", now=now)
-    with pytest.raises(AuthError, match="Demasiados"):
+    with pytest.raises(AuthError, match="incorrectos"):
+        s.authenticate("ana", "000000", now=now)  # the tenth: locks, with the same answer as any failure
+    with pytest.raises(AuthError, match="incorrectos") as locked:
         s.authenticate("ana", "482619", now=now)  # even the right PIN waits
+    with pytest.raises(AuthError) as unknown:
+        s.authenticate("nadie", "482619", now=now)
+    assert str(locked.value) == str(unknown.value)  # a locked account looks like a wrong or unknown one
     later = now + timedelta(minutes=LOCKOUT_MINUTES + 1)
     for _ in range(MAX_FAILED_LOGINS - 1):
         with pytest.raises(AuthError, match="incorrectos"):
             s.authenticate("ana", "000000", now=later)
-    with pytest.raises(AuthError, match=f"bloqueada {LOCKOUT_MINUTES} minutos"):
+    with pytest.raises(AuthError, match=f"{LOCKOUT_MINUTES} minutos"):
         s.authenticate("ana", "000000", now=later)  # never longer: nobody can keep the team out for a day
     after = later + timedelta(minutes=LOCKOUT_MINUTES + 1)
     assert s.authenticate("ana", "482619", now=after)["name"] == "Ana"
 
     actions = list(s.audit_log()["action"])
-    assert actions.count("acceso_fallido") == 2 * MAX_FAILED_LOGINS + 1 and "acceso" in actions
+    assert actions.count("acceso_fallido") == 2 * MAX_FAILED_LOGINS + 2 and "acceso" in actions
+    assert "acceso_bloqueado" in actions
 
     with pytest.raises(ValueError, match="administrador"):
         s.update_user(admin, role="empleado")  # last admin
@@ -428,7 +432,7 @@ def test_recovery_code_lets_a_locked_out_admin_back_in(make_store):
     for _ in range(MAX_FAILED_LOGINS):  # someone locks the owner out
         with pytest.raises(AuthError):
             s.authenticate("elena", "adivinando1")
-    with pytest.raises(AuthError, match="Demasiados"):
+    with pytest.raises(AuthError, match="incorrectos"):
         s.authenticate("elena", "Segura2026")
     with pytest.raises(AuthError):
         s.recover_with_code("elena", "AAAA-BBBB-CCCC", "Nueva2026!")
@@ -596,8 +600,11 @@ def test_csv_safe_and_secure_url():
     df = csv_safe(pd.DataFrame({"name": ["=HYPERLINK(\"x\")", "Ana", "+34 600", "@SUM(1)"], "n": [1, -2, 3, 4]}))
     assert list(df["name"]) == ["'=HYPERLINK(\"x\")", "Ana", "'+34 600", "'@SUM(1)"]
     assert list(df["n"]) == [1, -2, 3, 4]
-    assert "sslmode=require" in secure_url("postgresql://u:p@ep-x.neon.tech/db")
-    assert "sslmode=verify-full" in secure_url("postgresql://u:p@ep-x.neon.tech/db?sslmode=verify-full")
+    from urllib.parse import parse_qs, urlsplit
+
+    remote = parse_qs(urlsplit(secure_url("postgresql://u:p@ep-x.neon.tech/db")).query)
+    assert remote["sslmode"] == ["verify-full"] and remote["sslrootcert"][0].endswith(".pem")
+    assert "sslmode=require" in secure_url("postgresql://u:p@ep-x.neon.tech/db?sslmode=require")  # explicit: kept
     assert "sslmode" not in secure_url("postgresql://u:p@localhost:5432/db")
 
 

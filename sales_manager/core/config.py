@@ -27,10 +27,15 @@ SETTINGS: dict[str, Setting] = {
                             secret=True),
     "require_database": Setting("1 en servidores cuyo disco se borra al desplegar: sin database_url no arrancan."),
     "db_pool_size": Setting("Conexiones por base de datos que mantiene cada servidor (1-50).", "5"),
+    "trusted_proxies": Setting("Redes de proxies propios con IP pública (separadas por comas), además de las privadas, "
+                               "para saber la IP real de cada visitante."),
     "log_level": Setting("Detalle del registro del servidor: DEBUG, INFO, WARNING o ERROR.", "INFO"),
     # ---------------------------------------------------------------- access
     "app_password": Setting("Prueba de propiedad al crear el primer administrador en una app publicada.", secret=True),
     "multi_tenant": Setting("true para servir varios negocios desde una app y una base de datos."),
+    "data_key": Setting("Clave larga y aleatoria con la que se cifran en la base de datos las claves de verificación "
+                        "en dos pasos. Guárdala aparte: si se pierde, hay que volver a activar la verificación.",
+                        secret=True),
     "operator_password": Setting("Contraseña del panel ?operador (modo varios negocios).", secret=True),
     "operator_totp_secret": Setting("Clave de verificación en dos pasos del panel ?operador.", secret=True),
     # ---------------------------------------------------------------- email
@@ -49,6 +54,7 @@ SETTINGS: dict[str, Setting] = {
     "trial_days": Setting("Días de prueba gratis de un negocio nuevo (0-365).", "30"),
     "app_url": Setting("Dirección pública de la app, para volver de Stripe Checkout."),
     "webhook_port": Setting("Puerto interno del servicio de webhooks.", "8502"),
+    "sessions_port": Setting("Puerto interno del servicio que escribe la cookie de sesión HttpOnly.", "8503"),
     # ---------------------------------------------------------------- ops
     "backup_databases": Setting("Bases de datos a copiar, una por línea: nombre=postgresql://…", secret=True,
                                 used_by="ops"),

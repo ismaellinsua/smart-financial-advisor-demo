@@ -5,6 +5,7 @@ set -euo pipefail
 python ops/deploy/migrate.py
 streamlit run sales_manager/app.py --server.address 127.0.0.1 --server.port 8501 --server.headless true &
 caddy run --config ops/deploy/Caddyfile --adapter caddyfile &
+python ops/deploy/sessions.py &
 if [[ -n "${STRIPE_WEBHOOK_SECRET:-}" ]]; then
   python ops/deploy/webhook.py &
 fi

@@ -39,7 +39,8 @@ def booking_url(token: str = "") -> str:
 
 def public_page(store, settings: dict) -> None:
     # Free times wrap onto several lines instead of a sideways scroll that hides them on phones.
-    st.html("<style>[data-testid='stButtonGroup'] > div { flex-wrap: wrap; overflow-x: visible; }</style>")
+    st.html("<style>[data-testid='stButtonGroup'] > div { flex-wrap: wrap; overflow-x: visible; }"
+            ".st-key-booking_web { position: absolute; left: -10000px; height: 1px; overflow: hidden; }</style>")
     _, center, _ = st.columns([1, 2.4, 1])
     with center:
         page_header(settings.get("business_name", ""), _contact(settings), eyebrow="Reservar")
@@ -92,12 +93,17 @@ def _book(store, settings: dict) -> None:
         email = st.text_input("Email (opcional)", max_chars=254, autocomplete="email",
                               help="Para enviarte la confirmación y un recordatorio el día antes.")
         notes = st.text_input("Comentarios (opcional)", max_chars=500)
+        # Hidden from people (CSS below), filled in by bots that complete every field: such bookings are dropped.
+        trap = st.text_input("Web de tu empresa", max_chars=100, key="booking_web", autocomplete="off")
         st.caption(f"{settings.get('business_name', 'El negocio')} usará tu nombre, teléfono y email solo para "
                    "gestionar esta reserva y avisarte de ella. Se borran 90 días después de la cita.")
         agreed = st.checkbox("Acepto que se usen mis datos para esta reserva")
         submitted = st.form_submit_button("Confirmar reserva", type="primary", width="stretch",
                                           icon=":material/event_available:")
     if not submitted:
+        return
+    if trap:
+        st.error("No hemos podido guardar la reserva. Llama al negocio.")
         return
     if not chosen:
         st.error("Elige una hora.")

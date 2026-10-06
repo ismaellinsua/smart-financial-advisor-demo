@@ -12,13 +12,15 @@ import pandas as pd
 import streamlit as st
 
 from core import billing
-from core.security import new_totp_secret, totp_uri, verify_totp
+from core.security import new_totp_secret, totp_step, totp_uri
 from core.tenants import CODE_RE, STATUSES, normalize_code
 from ui.auth import client_blocked_minutes, client_failed, client_key, client_succeeded
 from ui.context import get_directory, multi_tenant, setting, stripe_client, trial_days
 from ui.styles import page_header
 
 OPERATOR_SESSION_HOURS = 2
+# The last operator code accepted by this server: the same code never opens the panel twice.
+_OPERATOR_LAST_STEP = {"step": 0}
 
 
 @st.cache_data(ttl=30, show_spinner=False)
@@ -234,7 +236,11 @@ def _operator_login(expected: str) -> None:
                 st.error(f"Demasiados intentos. Vuelve a probar en {minutes} min.")
                 return
             password_ok = hmac.compare_digest(secret.encode(), expected.encode())
-            if password_ok and (not totp_secret or verify_totp(totp_secret, code)):
+            step = totp_step(totp_secret, code) if totp_secret else None
+            fresh = step is not None and step > _OPERATOR_LAST_STEP["step"]
+            if password_ok and (not totp_secret or fresh):
+                if step is not None:
+                    _OPERATOR_LAST_STEP["step"] = step
                 client_succeeded(key, store=directory)
                 st.session_state["operator_since"] = _time.time()
                 st.rerun()

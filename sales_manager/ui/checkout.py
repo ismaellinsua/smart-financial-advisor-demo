@@ -1,5 +1,6 @@
 """Checkout panel shared by the till and table orders: customer, discounts, points and payments."""
 
+import time as _time
 from html import escape
 
 import streamlit as st
@@ -176,6 +177,7 @@ def _discount_approval(c, prefix: str, discount: float, limit: float) -> str:
                     who = c.store.authorize(username, secret, otp=otp,
                                             purpose=f"descuento del {discount:g} % en la caja de {c.who}")
                 except AuthError as exc:
+                    _time.sleep(0.8)  # slows down scripted guessing
                     st.error(str(exc))
                 else:
                     st.session_state[key] = (who["name"], discount)

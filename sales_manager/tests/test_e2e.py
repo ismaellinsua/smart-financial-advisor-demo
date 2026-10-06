@@ -136,18 +136,30 @@ def multi_server(tmp_path_factory):
 
 
 OPERATOR_TOTP = "JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP"
+_LAST_OPERATOR_STEP = [0]
+
+
+def _fresh_operator_code() -> str:
+    """A code the server has not seen yet: it refuses a code used before (as a person would wait for the next)."""
+    from core.security import totp_code
+
+    while True:
+        now = time.time()
+        for at in (now - 30, now, now + 30):
+            if int(at // 30) > _LAST_OPERATOR_STEP[0]:
+                _LAST_OPERATOR_STEP[0] = int(at // 30)
+                return totp_code(OPERATOR_TOTP, at)
+        time.sleep(1)
 
 
 def _operator(page, base, code=None):
     """Open the operator panel, signing in when needed (visiting a business in the same tab ends that session)."""
-    from core.security import totp_code
-
     page.goto(f"{base}/?operador", wait_until="networkidle")
     if page.get_by_role("textbox", name="Contraseña de operador").count():
         page.get_by_role("textbox", name="Contraseña de operador").fill("operador-de-prueba-2026")
         second_step = page.get_by_role("textbox", name="Código de tu app de autenticación")
         if second_step.count():  # only when the server has OPERATOR_TOTP_SECRET
-            second_step.fill(code or totp_code(OPERATOR_TOTP))
+            second_step.fill(code or _fresh_operator_code())
         page.get_by_role("button", name="Entrar").click()
     if code is None:
         page.get_by_text("Dar de alta un negocio").wait_for()

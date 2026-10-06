@@ -24,8 +24,8 @@ def _confirm_cancel(sale_id: int, number: str) -> None:
              "La venta se conserva en el historial marcada como anulada.")
     if st.button("Sí, anular", type="primary", width="stretch"):
         c = ctx()
-        if not c.can("encargado"):
-            st.error("Solo un encargado o el administrador puede anular ventas.")
+        if not c.can_change("encargado"):
+            st.error("Solo un encargado o el administrador puede anular ventas, y con la suscripción activa.")
             return
         try:
             c.store.cancel_sale(sale_id, by=c.who)
@@ -61,8 +61,8 @@ def _invoice_dialog(sale_id: int) -> None:
     if invoice is None and slot.button("Emitir factura", type="primary", width="stretch",
                                        icon=":material/request_quote:"):
         try:
-            if not c.can("encargado"):
-                raise ValueError("Solo un encargado o el administrador puede emitir facturas.")
+            if not c.can_change("encargado"):
+                raise ValueError("Solo un encargado o el administrador puede emitir facturas, y con la suscripción activa.")
             customer = {"name": name, "tax_id": tax_id, "address": address, "email": email}
             issued = c.store.create_invoice(sale_id, customer, issued_by=c.who, irpf_rate=irpf)
             c.store.audit(c.username, "factura_emitida", f"{issued['number']} · {sale['number']}")
@@ -186,7 +186,7 @@ def _history_sales(c) -> None:
             full = c.store.invoice(invoice["id"])
             b.download_button("Descargar factura", invoice_pdf(full, c.settings), f"{full['number']}.pdf",
                               "application/pdf", icon=":material/request_quote:", width="stretch")
-        elif b.button("Emitir factura", disabled=sale["status"] != "completada" or not c.can("encargado"),
+        elif b.button("Emitir factura", disabled=sale["status"] != "completada" or not c.can_change("encargado"),
                       width="stretch", icon=":material/request_quote:"):
             _invoice_dialog(sale["id"])
         past_refunds = c.store.sale_refunds(sale["id"])
@@ -194,10 +194,10 @@ def _history_sales(c) -> None:
             st.caption("Devoluciones: " + " · ".join(
                 f"{r['number']} ({c.money(r['total'])})" + (f", rectificativa {r['credit_note']['number']}"
                                                           if r["credit_note"] else "") for r in past_refunds))
-        if d.button("Devolver productos", disabled=sale["status"] != "completada" or not c.can("encargado"),
+        if d.button("Devolver productos", disabled=sale["status"] != "completada" or not c.can_change("encargado"),
                     width="stretch", icon=":material/undo:"):
             _refund_dialog(sale["id"])
-        if c.can("encargado") and sale["status"] == "completada" and not invoice and not past_refunds:
+        if c.can_change("encargado") and sale["status"] == "completada" and not invoice and not past_refunds:
             if st.button("Anular la venta completa", icon=":material/block:", type="tertiary"):
                 _confirm_cancel(sale["id"], sale["number"])
 
@@ -207,8 +207,8 @@ def _history_sales(c) -> None:
 @st.dialog("Devolver productos")
 def _refund_dialog(sale_id: int) -> None:
     c = ctx()
-    if not c.can("encargado"):
-        st.error("Solo un encargado o el administrador puede registrar devoluciones.")
+    if not c.can_change("encargado"):
+        st.error("Solo un encargado o el administrador puede registrar devoluciones, y con la suscripción activa.")
         return
     sale = c.store.sale(sale_id)
     st.caption(f"Venta {sale['number']} · {c.money(sale['total'])}. Elige cuántas unidades devuelves de cada producto.")
