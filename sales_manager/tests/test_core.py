@@ -507,7 +507,7 @@ def test_change_own_secret(make_store):
 def test_device_throttle_blocks_the_guesser_not_the_account():
     from ui import auth
 
-    auth._CLIENTS.clear()
+    auth._MEMORY.clear()
     t0 = 1_000_000.0
     for i in range(auth.CLIENT_MAX_FAILURES):
         auth.client_failed("1.2.3.4", now=t0 + i)
@@ -519,7 +519,7 @@ def test_device_throttle_blocks_the_guesser_not_the_account():
     assert auth.client_blocked_minutes("1.2.3.4", now=later + 10) == 2 * auth.CLIENT_FIRST_BLOCK_MINUTES
     auth.client_succeeded("1.2.3.4")
     assert auth.client_blocked_minutes("1.2.3.4", now=later + 10) == 0
-    auth._CLIENTS.clear()
+    auth._MEMORY.clear()
 
 
 def test_secret_hashing():

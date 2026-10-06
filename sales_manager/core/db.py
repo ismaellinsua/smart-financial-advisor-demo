@@ -26,6 +26,7 @@ from .store_invoices import InvoicesMixin
 from .store_appointments import AppointmentsMixin
 from .store_cash import CashMixin
 from .store_backup import BackupMixin
+from .throttle import ThrottleMixin
 from .store_orders import OrdersMixin
 from .store_purchases import PurchasesMixin
 from .store_intel import IntelligenceMixin
@@ -61,7 +62,7 @@ DEFAULT_DB_PATH = Path(__file__).resolve().parent.parent / "data" / "ventas.db"
 
 
 # ----------------------------------------------------------------------------- store
-class Store(UsersMixin, DemoMixin, CatalogMixin, InvoicesMixin, AppointmentsMixin, CashMixin, BackupMixin,
+class Store(UsersMixin, ThrottleMixin, DemoMixin, CatalogMixin, InvoicesMixin, AppointmentsMixin, CashMixin, BackupMixin,
             RefundsMixin, OrdersMixin, PurchasesMixin, IntelligenceMixin, BillingMixin, SessionsMixin,
             PrivacyMixin, ErrorsMixin, AccountingMixin, BookingMixin, OfflineMixin, LocationsMixin,
             EcommerceMixin):

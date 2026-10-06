@@ -299,3 +299,41 @@ def test_every_call_is_valid_for_stripe():
     assert subscription_fields(stripe.latest_subscription("cus_123"))["stripe_subscription"].startswith("sub_")
     with pytest.raises(BillingError, match="validation"):  # the simulator does reject what Stripe would
         stripe._call("POST", "/checkout/sessions", {"mode": "subscription", "parametro_inventado": "x"})
+
+
+@needs_pg
+def test_access_for_records_a_purchase_and_rechecks_stale_billing(directory):
+    directory.create("cafe", "Café")
+
+    class FakeStripe:
+        def __init__(self):
+            self.synced = 0
+
+        def checkout_session(self, session_id):
+            assert session_id == "cs_1"
+            return {"client_reference_id": "cafe", "subscription": subscription("active")}
+
+        def latest_subscription(self, customer):
+            self.synced += 1
+            return subscription("active")
+
+    assert directory.access_for(directory.get("cafe"), None) == (billing.Access("full"), "", False)
+    stripe = FakeStripe()
+    access_now, message, refreshed = directory.access_for(directory.get("cafe"), stripe, "cs_1")
+    assert access_now.level == "full" and "suscripción está activa" in message and refreshed
+    assert directory.get("cafe")["billing_status"] == "active"
+    # Just synced: no call to Stripe on the next visits.
+    calls = stripe.synced
+    assert directory.access_for(directory.get("cafe"), stripe)[2] is False and stripe.synced == calls
+
+
+@needs_pg
+def test_access_for_ignores_a_session_of_another_business(directory):
+    directory.create("cafe", "Café")
+
+    class OtherBusiness:
+        def checkout_session(self, session_id):
+            return {"client_reference_id": "otro", "subscription": subscription("active", code="otro")}
+
+    _, message, _ = directory.access_for(directory.get("cafe"), OtherBusiness(), "cs_x")
+    assert message == "" and directory.get("cafe")["billing_status"] == "prueba"

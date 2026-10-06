@@ -360,7 +360,14 @@ CREATE INDEX IF NOT EXISTS idx_refunds_created ON refunds(created_at);
 CREATE INDEX IF NOT EXISTS idx_refund_items_refund ON refund_items(refund_id);
 CREATE INDEX IF NOT EXISTS idx_credit_notes_refund ON credit_notes(refund_id);
 CREATE INDEX IF NOT EXISTS idx_billing_source ON billing_records(source, source_id);
-CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id)
+CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
+CREATE TABLE IF NOT EXISTS login_throttle (
+    key TEXT PRIMARY KEY,
+    fails TEXT NOT NULL DEFAULT '[]',
+    blocked_until BIGINT NOT NULL DEFAULT 0,
+    level INTEGER NOT NULL DEFAULT 0,
+    updated BIGINT NOT NULL DEFAULT 0
+)
 """
 
 # Columns added after the first release, applied to existing databases on start-up.

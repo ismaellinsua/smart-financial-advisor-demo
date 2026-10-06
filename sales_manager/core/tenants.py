@@ -6,14 +6,17 @@ data lives in schema `n_<code>`, created with the same tables as a single-busine
 does can read or change another's data: every query runs with its own schema as the search path.
 """
 
+import json
 import re
 import secrets
+import time
 from datetime import datetime, timedelta
 
 from . import clock
-from .billing import TRIAL_DAYS, subscription_fields, utc_now
+from .billing import TRIAL_DAYS, Access, BillingError, access, parse_when, subscription_fields, utc_now
 from .db import Store
-from .engines import _secure_url
+from .engines import _secure_url, acquire_pool, release_pool
+from .throttle import after_failure, blocked_minutes, key_hash
 from .security import hash_secret, verify_secret
 
 DIRECTORY_SCHEMA = "nirkana_operador"
@@ -54,8 +57,17 @@ CREATE TABLE IF NOT EXISTS {DIRECTORY_SCHEMA}.operator_log (
     happened_at TEXT NOT NULL,
     action TEXT NOT NULL,
     detail TEXT NOT NULL DEFAULT ''
+);
+CREATE TABLE IF NOT EXISTS {DIRECTORY_SCHEMA}.login_throttle (
+    key TEXT PRIMARY KEY,
+    fails TEXT NOT NULL DEFAULT '[]',
+    blocked_until BIGINT NOT NULL DEFAULT 0,
+    level INTEGER NOT NULL DEFAULT 0,
+    updated BIGINT NOT NULL DEFAULT 0
 )
 """
+# Billing is re-checked with Stripe this often, in case a webhook was lost.
+SYNC_EVERY = timedelta(hours=6)
 
 
 def normalize_code(value: str) -> str:
@@ -70,12 +82,10 @@ class Directory:
     """The list of businesses served by one database. Only the operator creates, suspends or lists them."""
 
     def __init__(self, url: str):
-        import psycopg
-        from psycopg.rows import dict_row
-
         self._url = _secure_url(url)
-        self._connect = lambda: psycopg.connect(self._url, row_factory=dict_row, connect_timeout=15,
-                                                prepare_threshold=None)
+        # The same pool as the businesses' stores on this database, instead of a new connection per call.
+        self._pool_key, pool = acquire_pool(url)
+        self._connect = pool.connection
         with self._connect() as conn:
             for statement in filter(str.strip, DIRECTORY_SQL.split(";")):
                 conn.execute(statement)
@@ -274,6 +284,64 @@ class Directory:
         with self._connect() as conn:
             return conn.execute(f"SELECT happened_at, action, detail FROM {DIRECTORY_SCHEMA}.operator_log "
                                 "ORDER BY id DESC LIMIT %s", (limit,)).fetchall()
+
+    def close(self) -> None:
+        release_pool(self._pool_key)
+
+    # ------------------------------------------------------------- billing access
+    def access_for(self, tenant: dict, stripe, checkout_session_id: str = "") -> tuple[Access, str, bool]:
+        """What a business may do now, and a message for its visitor (or ""). Records a subscription just bought
+        (`checkout_session_id`, when returning from Stripe Checkout) and re-checks with Stripe every SYNC_EVERY in
+        case a webhook was lost. Full access while billing is off (`stripe` is None). The last value tells whether the
+        directory was asked again (so cached copies of the business are stale)."""
+        if stripe is None:
+            return Access("full"), "", False
+        message, refreshed = "", False
+        if checkout_session_id:
+            try:
+                session = stripe.checkout_session(checkout_session_id)
+                if session.get("client_reference_id") == tenant["code"] and isinstance(session.get("subscription"),
+                                                                                       dict):
+                    self.record_subscription(tenant["code"], session["subscription"], "suscripcion_contratada")
+                    message = "¡Gracias! Tu suscripción está activa."
+            except BillingError as exc:
+                message = str(exc)
+            tenant = self.get(tenant["code"]) or tenant
+            refreshed = True
+        synced = parse_when(tenant.get("billing_synced_at"))
+        if tenant.get("stripe_customer") and (synced is None or utc_now() - synced > SYNC_EVERY):
+            try:
+                tenant = self.sync_subscription(tenant["code"], stripe) or tenant
+                refreshed = True
+            except BillingError:
+                pass  # Stripe unreachable: keep what we know and try again on a later visit
+        return access(tenant, utc_now()), message, refreshed
+
+    # ------------------------------------------------- operator sign-in throttle
+    # The same policy as the businesses' sign-in (core/throttle.py), kept in the directory.
+    def throttle_blocked_minutes(self, key: str, now: float | None = None) -> int:
+        now = time.time() if now is None else now
+        with self._connect() as conn:
+            row = conn.execute(f"SELECT blocked_until FROM {DIRECTORY_SCHEMA}.login_throttle WHERE key = %s",
+                               (key_hash(key),)).fetchone()
+        return blocked_minutes(int(row["blocked_until"]), now) if row else 0
+
+    def throttle_failed(self, key: str, now: float | None = None) -> None:
+        now = time.time() if now is None else now
+        hashed = key_hash(key)
+        with self._connect() as conn:
+            row = conn.execute(f"SELECT fails, blocked_until, level FROM {DIRECTORY_SCHEMA}.login_throttle "
+                               "WHERE key = %s FOR UPDATE", (hashed,)).fetchone()
+            fails, until, level = (json.loads(row["fails"]), row["blocked_until"], row["level"]) if row else ([], 0, 0)
+            fails, until, level = after_failure(fails, until, level, now)
+            conn.execute(f"INSERT INTO {DIRECTORY_SCHEMA}.login_throttle(key, fails, blocked_until, level, updated) "
+                         "VALUES (%s, %s, %s, %s, %s) ON CONFLICT (key) DO UPDATE SET fails = excluded.fails, "
+                         "blocked_until = excluded.blocked_until, level = excluded.level, updated = excluded.updated",
+                         (hashed, json.dumps([int(t) for t in fails]), int(until), level, int(now)))
+
+    def throttle_succeeded(self, key: str) -> None:
+        with self._connect() as conn:
+            conn.execute(f"DELETE FROM {DIRECTORY_SCHEMA}.login_throttle WHERE key = %s", (key_hash(key),))
 
     def store(self, code: str) -> Store:
         tenant = self.get(code)

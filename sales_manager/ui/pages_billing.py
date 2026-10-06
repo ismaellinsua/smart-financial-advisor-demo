@@ -22,7 +22,7 @@ def _base_url() -> str:
 
 
 def _date(text: str) -> str:
-    when = billing._when(text)
+    when = billing.parse_when(text)
     return f"{when:%d/%m/%Y}" if when else "—"
 
 

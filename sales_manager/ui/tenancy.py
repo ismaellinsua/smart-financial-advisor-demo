@@ -1,17 +1,18 @@
 """Several businesses in one app: which business a visit is for, and the operator's panel to manage them.
 
 Only active in multi-business mode (secret `multi_tenant = true`). Each business opens the app at
-`…/?negocio=<code>`; the operator panel is at `…/?operador` and needs the secret `operator_password`.
+`…/?negocio=<code>`; the operator panel is at `…/?operador` and needs the secret `operator_password`, plus a
+code from an authenticator app once `operator_totp_secret` is set.
 """
 
 import hmac
 import time as _time
-from datetime import timedelta
 
 import pandas as pd
 import streamlit as st
 
 from core import billing
+from core.security import new_totp_secret, totp_uri, verify_totp
 from core.tenants import CODE_RE, STATUSES, normalize_code
 from ui.auth import client_blocked_minutes, client_failed, client_key, client_succeeded
 from ui.context import _secret, get_directory, multi_tenant, stripe_client, trial_days
@@ -63,36 +64,20 @@ def gate() -> bool:
     return True
 
 
-SYNC_EVERY = timedelta(hours=6)
-
-
 def _billing_access(tenant: dict) -> billing.Access:
-    """Billing state of this visit's business: returning from Stripe Checkout, a periodic check with Stripe (in case
-    a webhook was lost), then what the business may do. Always full access while billing is off."""
-    stripe = stripe_client()
-    if stripe is None:
-        return billing.Access("full")
+    """Billing state of this visit's business (see Directory.access_for); this only handles the address."""
     params = st.query_params
-    if params.get("pago") == "ok" and params.get("session_id"):
-        try:
-            session = stripe.checkout_session(params["session_id"])
-            if session.get("client_reference_id") == tenant["code"] and isinstance(session.get("subscription"), dict):
-                get_directory().record_subscription(tenant["code"], session["subscription"], "suscripcion_contratada")
-                st.session_state["billing_flash"] = "¡Gracias! Tu suscripción está activa."
-        except billing.BillingError as exc:
-            st.session_state["billing_flash"] = str(exc)
+    returning = params.get("session_id", "") if params.get("pago") == "ok" else ""
+    stripe = stripe_client()
+    access, message, refreshed = get_directory().access_for(tenant, stripe, returning)
+    if returning:
         for key in ("pago", "session_id"):
             params.pop(key, None)
-        _tenant.clear()
-        tenant = _tenant(tenant["code"]) or tenant
-    synced = billing._when(tenant.get("billing_synced_at"))
-    if tenant.get("stripe_customer") and (synced is None or billing.utc_now() - synced > SYNC_EVERY):
-        try:
-            tenant = get_directory().sync_subscription(tenant["code"], stripe) or tenant
-            _tenant.clear()
-        except billing.BillingError:
-            pass  # Stripe unreachable: keep what we know and try again on a later visit
-    return billing.access(tenant, billing.utc_now())
+    if message:
+        st.session_state["billing_flash"] = message
+    if refreshed:
+        _tenant.clear()  # the cached copy of the business is out of date
+    return access
 
 
 REMEMBER_COOKIE = "nk_negocio"
@@ -144,6 +129,7 @@ def operator_panel() -> None:
         _operator_login(expected)
         return
     directory = get_directory()
+    _operator_2fa_notice()
     if st.button("Salir del panel", icon=":material/logout:"):
         st.session_state.pop("operator_since", None)
         st.rerun()
@@ -236,16 +222,38 @@ def _show_setup(code: str, setup: str, intro: str) -> None:
 
 def _operator_login(expected: str) -> None:
     key = "operador:" + client_key()
+    directory = get_directory()
+    totp_secret = _secret("operator_totp_secret")
     with st.form("operator_login"):
         secret = st.text_input("Contraseña de operador", type="password", max_chars=128)
+        code = st.text_input("Código de tu app de autenticación", max_chars=8,
+                             help="Las 6 cifras de Google Authenticator, Microsoft Authenticator o similar.") \
+            if totp_secret else ""
         if st.form_submit_button("Entrar", type="primary"):
-            if minutes := client_blocked_minutes(key):
+            if minutes := client_blocked_minutes(key, store=directory):
                 st.error(f"Demasiados intentos. Vuelve a probar en {minutes} min.")
                 return
-            if hmac.compare_digest(secret.encode(), expected.encode()):
-                client_succeeded(key)
+            password_ok = hmac.compare_digest(secret.encode(), expected.encode())
+            if password_ok and (not totp_secret or verify_totp(totp_secret, code)):
+                client_succeeded(key, store=directory)
                 st.session_state["operator_since"] = _time.time()
                 st.rerun()
-            client_failed(key)
+            client_failed(key, store=directory)
             _time.sleep(1)
-            st.error("Contraseña incorrecta.")
+            st.error("Contraseña o código incorrectos." if totp_secret else "Contraseña incorrecta.")
+
+
+def _operator_2fa_notice() -> None:
+    """Without `operator_totp_secret`, the panel that controls every business is guarded by a password alone."""
+    if _secret("operator_totp_secret"):
+        return
+    proposal = st.session_state.setdefault("operator_totp_proposal", new_totp_secret())
+    with st.container(border=True):
+        st.warning("Activa la verificación en dos pasos del panel de operador: ahora solo lo protege la contraseña.",
+                   icon=":material/shield:")
+        st.markdown("1. Añade esta clave a tu app de autenticación (o abre el enlace en el móvil).\n"
+                    "2. Guárdala como secreto `operator_totp_secret` (Secrets de Streamlit o variable "
+                    "`OPERATOR_TOTP_SECRET` del servidor) y reinicia la app.\n"
+                    "3. Desde entonces el panel pedirá también el código de 6 cifras.")
+        st.code(proposal, language=None)
+        st.code(totp_uri(proposal, "operador"), language=None)
