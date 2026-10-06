@@ -12,6 +12,7 @@
   --ok: #0E9F6E;
   --bad: #D92D20;
   --brand-ink: #FFFFFF;
+  --brand-text: #3B5BFD; /* brand colour for small text: a lighter one on dark backgrounds keeps 4.5:1 contrast */
   --shadow: 0 30px 60px -24px rgba(14, 23, 38, .30), 0 12px 24px -14px rgba(14, 23, 38, .20);
   --shadow-sm: 0 1px 2px rgba(14, 23, 38, .06), 0 8px 24px -12px rgba(14, 23, 38, .14);
   --radius: 20px;
@@ -21,6 +22,7 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #0A0F1C; --surface: #111A2C; --surface-2: #17223A; --ink: #E8ECF5; --muted: #9AA6BD; --line: #22304A;
+    --brand-text: #8EA2FF;
     --shadow: 0 30px 60px -20px rgba(0, 0, 0, .7), 0 12px 24px -12px rgba(0, 0, 0, .6);
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px -12px rgba(0, 0, 0, .6);
     color-scheme: dark;
@@ -28,6 +30,7 @@
 }
 :root[data-theme="dark"] {
   --bg: #0A0F1C; --surface: #111A2C; --surface-2: #17223A; --ink: #E8ECF5; --muted: #9AA6BD; --line: #22304A;
+  --brand-text: #8EA2FF;
   --shadow: 0 30px 60px -20px rgba(0, 0, 0, .7), 0 12px 24px -12px rgba(0, 0, 0, .6);
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px -12px rgba(0, 0, 0, .6);
   color-scheme: dark;
@@ -67,7 +70,7 @@ section { padding: clamp(72px, 10vw, 136px) 0; }
 .sub.on-dark { color: #AEBBDA; }
 .eyebrow {
   display: inline-flex; align-items: center; gap: .5rem; font-size: .78rem; font-weight: 800; letter-spacing: .16em;
-  text-transform: uppercase; color: var(--brand); margin-bottom: 1rem;
+  text-transform: uppercase; color: var(--brand-text); margin-bottom: 1rem;
 }
 .eyebrow::before { content: ""; width: 18px; height: 2px; border-radius: 2px; background: var(--grad); }
 .skip { position: absolute; left: -999px; top: 8px; background: var(--surface); padding: .5rem 1rem; border-radius: 8px; z-index: 50; }
@@ -117,7 +120,29 @@ section { padding: clamp(72px, 10vw, 136px) 0; }
 .top.on-dark { background: rgba(7, 13, 28, .82); border-bottom-color: rgba(255, 255, 255, .08); color: #EAF0FF; }
 .top.on-dark nav a { color: #AEBBDA; }
 .top.on-dark nav a:hover { color: #fff; }
-@media (max-width: 920px) { .top nav { display: none; } }
+.top nav .login { color: var(--brand-text); }
+.top.on-dark nav .login { color: #8EA2FF; }
+.bar-end { display: flex; align-items: center; gap: .5rem; }
+.bar-end .btn { white-space: nowrap; }
+@media (max-width: 400px) { .bar { gap: .5rem; } .bar-end .btn.small { padding-inline: .9rem; } .menu-btn { width: 40px; height: 40px; } }
+@media (max-width: 359px) { .brand .name { display: none; } } /* the logo alone keeps the bar on one line */
+.menu-btn { display: none; place-items: center; width: 44px; height: 44px; border-radius: 12px; cursor: pointer;
+  background: transparent; border: 1px solid var(--line); color: inherit; }
+.menu-btn .ic { width: 22px; height: 22px; }
+@media (max-width: 920px) {
+  .top nav { display: none; }
+  /* Small screens: the sections open from the menu button (only with JavaScript; without it the button is hidden). */
+  .js .menu-btn { display: grid; }
+  .top.on-dark .menu-btn { border-color: rgba(255, 255, 255, .2); }
+  .top.open nav {
+    display: grid; position: absolute; top: 100%; left: 0; right: 0; gap: 0; padding: .5rem 16px 1rem;
+    background: var(--surface); border-bottom: 1px solid var(--line); box-shadow: var(--shadow);
+  }
+  .top.open nav a { color: var(--ink); padding: .8rem .25rem; border-bottom: 1px solid var(--line); font-size: 1.05rem; }
+  .top.open nav a:last-child { border-bottom: 0; }
+  .top.open nav a::after { display: none; }
+  .top.open nav .login { color: var(--brand-text); }
+}
 
 /* ------------------------------------------------------------------ hero */
 .hero {
@@ -149,6 +174,7 @@ section { padding: clamp(72px, 10vw, 136px) 0; }
   color: transparent; background-size: 200% 100%;
 }
 .lead { font-size: clamp(1.1rem, 1.8vw, 1.32rem); color: #C6D2EE; max-width: 60ch; margin: 0 auto; line-height: 1.6; }
+.lead strong { color: #fff; font-weight: 700; }
 .cta { display: flex; flex-wrap: wrap; justify-content: center; gap: .8rem; margin: 2.2rem 0 0; }
 .hero .btn.ghost { color: #EAF0FF; border-color: rgba(234, 240, 255, .35); backdrop-filter: blur(6px); }
 
@@ -161,7 +187,7 @@ section { padding: clamp(72px, 10vw, 136px) 0; }
 .glow { position: absolute; inset: 5% 10%; transform: translateZ(-150px); filter: blur(70px); border-radius: 50%;
   background: radial-gradient(circle, rgba(94, 234, 212, .5), rgba(109, 75, 255, .4) 55%, transparent 70%); }
 .screen { margin: 0; border-radius: 16px; overflow: hidden; background: #fff; box-shadow: 0 60px 100px -30px rgba(0, 0, 0, .8), 0 0 0 1px rgba(255, 255, 255, .14); }
-.chrome { display: flex; align-items: center; gap: 6px; padding: 9px 12px; background: #EEF1F7; color: #6B7487; font-size: .72rem; border-bottom: 1px solid #E1E6EF; }
+.chrome { display: flex; align-items: center; gap: 6px; padding: 9px 12px; background: #EEF1F7; color: #555E70; font-size: .72rem; border-bottom: 1px solid #E1E6EF; }
 .chrome i { width: 9px; height: 9px; border-radius: 50%; background: #FF5F57; }
 .chrome i:nth-child(2) { background: #FEBC2E; }
 .chrome i:nth-child(3) { background: #28C840; }
@@ -345,7 +371,7 @@ section { padding: clamp(72px, 10vw, 136px) 0; }
 .calc-in { background: var(--bg); padding: clamp(24px, 4vw, 44px); display: grid; gap: 26px; align-content: center; }
 .field { display: grid; grid-template-columns: 1fr auto; gap: 10px; font-weight: 700; font-size: .95rem; align-items: center; }
 .field > select, .field > input { grid-column: 1 / -1; }
-.field output { font-variant-numeric: tabular-nums; color: var(--brand); font-weight: 800; font-size: 1.05rem; }
+.field output { font-variant-numeric: tabular-nums; color: var(--brand-text); font-weight: 800; font-size: 1.05rem; }
 .field select { font: inherit; font-weight: 600; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: .8rem .9rem; }
 .field input[type="range"] { -webkit-appearance: none; appearance: none; width: 100%; height: 8px; border-radius: 999px; cursor: pointer;
   background: linear-gradient(90deg, var(--brand), var(--brand-2)) 0 / var(--fill, 50%) 100% no-repeat, var(--line); }

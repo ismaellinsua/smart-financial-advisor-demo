@@ -12,6 +12,9 @@ const CONTACT = {
 };
 const MESSAGE = "Hola, me interesa NirKanA para mi negocio. ¿Podemos ver una demo?";
 
+// Address of the app for existing customers (e.g. "https://app.nirkana.es"). Empty: no «Entrar» link is shown.
+const APP_URL = "";
+
 // Visit counter (GoatCounter): your site code, e.g. "nirkana" for nirkana.goatcounter.com. Empty: nothing is counted.
 // No cookies, nothing stored on the visitor's device, no third-party script; visitors who ask not to be tracked
 // (Do Not Track or Global Privacy Control) are not counted.
@@ -55,11 +58,41 @@ const ANALYTICS = { goatcounter: "" };
     }
   }
 
+  // ------------------------------------------------------------ «Entrar»: the app, for existing customers
+  const appLink = document.getElementById("app-link");
+  if (appLink && /^https:\/\/[a-z0-9.-]+(\/.*)?$/i.test(APP_URL)) {
+    appLink.href = APP_URL;
+    appLink.hidden = false;
+  }
+
+  // ------------------------------------------------------------ menu on small screens
+  const top = document.querySelector(".top");
+  const menuBtn = document.querySelector(".menu-btn");
+  if (top && menuBtn) {
+    const setMenu = (open) => {
+      top.classList.toggle("open", open);
+      menuBtn.setAttribute("aria-expanded", String(open));
+      menuBtn.setAttribute("aria-label", open ? "Cerrar el menú" : "Abrir el menú");
+    };
+    menuBtn.addEventListener("click", () => setMenu(!top.classList.contains("open")));
+    document.querySelectorAll(".top nav a").forEach((a) => a.addEventListener("click", () => setMenu(false)));
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && top.classList.contains("open")) { setMenu(false); menuBtn.focus(); }
+    });
+    document.addEventListener("click", (e) => { if (!top.contains(e.target)) setMenu(false); });
+    window.matchMedia("(min-width: 921px)").addEventListener("change", (e) => { if (e.matches) setMenu(false); });
+  }
+
   // ------------------------------------------------------------ contact form
   const form = document.getElementById("contact-form");
   const status = document.getElementById("form-status");
   const say = (text, kind) => { status.textContent = text; status.className = `status ${kind || ""}`; };
   const clean = (v, max) => String(v || "").replace(/[\u0000-\u0008\u000B-\u001F\u007F]/g, "").trim().slice(0, max);
+
+  const formType = form ? form.elements.namedItem("tipo") : null;
+  let typeChosen = false;
+  const suggestType = (label) => { if (formType && !typeChosen && label) formType.value = label; };
+  if (formType) formType.addEventListener("change", () => { typeChosen = true; });
 
   if (form) {
     let lastSent = 0;
@@ -111,6 +144,7 @@ const ANALYTICS = { goatcounter: "" };
         });
         if (!res.ok) throw new Error(String(res.status));
         form.reset();
+        typeChosen = false;
         lastSent = Date.now();
         countVisit("contacto-enviado", "Formulario de contacto enviado", true); // how many visits become requests
         say("¡Gracias! Te responderé en menos de 24 horas laborables.", "ok");
@@ -167,7 +201,10 @@ const ANALYTICS = { goatcounter: "" };
 
   // ------------------------------------------------------------ sector tabs (ARIA tabs with arrow keys)
   const tabs = [...document.querySelectorAll('[role="tab"]')];
+  const TAB_TYPES = { "tab-rest": "Restaurante / cafetería", "tab-shop": "Tienda / comercio",
+                      "tab-pro": "Autónomo / servicios", "tab-web": "Tienda online" };
   const selectTab = (tab, focus) => {
+    suggestType(TAB_TYPES[tab.id]);
     tabs.forEach((t) => {
       const on = t === tab;
       t.setAttribute("aria-selected", String(on));
@@ -257,6 +294,7 @@ const ANALYTICS = { goatcounter: "" };
       $("r-year").textContent = euros((timeValue + loss) * 12);
     };
     calc.addEventListener("input", update);
+    $("c-type").addEventListener("change", (e) => suggestType(e.target.selectedOptions[0]?.textContent.trim()));
     calc.addEventListener("submit", (e) => e.preventDefault());
     update();
   }
@@ -284,7 +322,8 @@ const ANALYTICS = { goatcounter: "" };
         if (entry.isIntersecting) navLinks.forEach((a) => a.classList.toggle("here", a.hash === `#${entry.target.id}`));
       });
     }, { rootMargin: "-45% 0px -50% 0px" });
-    navLinks.forEach((a) => { const s = document.querySelector(a.hash); if (s) io.observe(s); });
+    // Every section, so that one with no menu entry (Contacto, Seguridad…) leaves none highlighted.
+    document.querySelectorAll("main section[id]").forEach((section) => io.observe(section));
   }
 
   // ------------------------------------------------------------ 3D particle orb behind the headline
@@ -303,11 +342,23 @@ const ANALYTICS = { goatcounter: "" };
       return { x: Math.cos(t) * r, y, z: Math.sin(t) * r, phase: Math.random() * Math.PI * 2 };
     });
     let w = 0, h = 0, dpr = 1, running = true, visible = true;
+    // Where the small hero text sits on the canvas: particles there are drawn faint so the text stays easy to read.
+    const quiet = [...document.querySelectorAll(".hero .pill, .hero .lead")];
+    let calm = [];
+    const measure = () => {
+      const c = canvas.getBoundingClientRect();
+      calm = quiet.map((el) => {
+        const r = el.getBoundingClientRect();
+        return { l: r.left - c.left - 12, t: r.top - c.top - 10, r: r.right - c.left + 12, b: r.bottom - c.top + 10 };
+      });
+    };
+    const inCalm = (x, y) => calm.some((q) => x > q.l && x < q.r && y > q.t && y < q.b);
     const resize = () => {
       dpr = Math.min(window.devicePixelRatio || 1, 2);
       w = canvas.clientWidth; h = canvas.clientHeight;
       canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      measure();
     };
     const mix = (a, b, t) => Math.round(a + (b - a) * t);
     const draw = (time) => {
@@ -328,10 +379,12 @@ const ANALYTICS = { goatcounter: "" };
         const scale = f / (f + z2);
         const depth = (1 - z2) / 2; // 1 = front
         const t = (p.y + 1) / 2;
-        ctx.fillStyle = `rgba(${mix(142, 94, t)}, ${mix(162, 234, t)}, ${mix(255, 212, t)}, ${(0.12 + depth * 0.55).toFixed(3)})`;
+        const px = ox + x1 * R * scale, py = oy + y2 * R * scale;
+        const alpha = (0.12 + depth * 0.55) * (inCalm(px, py) ? 0.18 : 1);
+        ctx.fillStyle = `rgba(${mix(142, 94, t)}, ${mix(162, 234, t)}, ${mix(255, 212, t)}, ${alpha.toFixed(3)})`;
         const size = (0.6 + depth * 1.5) * scale;
         ctx.beginPath();
-        ctx.arc(ox + x1 * R * scale, oy + y2 * R * scale, size, 0, Math.PI * 2);
+        ctx.arc(px, py, size, 0, Math.PI * 2);
         ctx.fill();
       }
       // a tilted orbit ring
@@ -364,7 +417,6 @@ const ANALYTICS = { goatcounter: "" };
   }
 
   // Header turns dark glass while it sits over the dark hero.
-  const top = document.querySelector(".top");
   if (top && hero) {
     const onDark = () => top.classList.toggle("on-dark", window.scrollY < hero.offsetHeight - 64);
     window.addEventListener("scroll", onDark, { passive: true });
