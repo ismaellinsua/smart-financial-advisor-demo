@@ -1,6 +1,7 @@
 """Sales history, refunds and invoices."""
 
 from datetime import datetime, time, timedelta
+from functools import partial
 
 import pandas as pd
 import streamlit as st
@@ -74,9 +75,9 @@ def _invoice_dialog(sale_id: int) -> None:
     if invoice is not None:
         full = c.store.invoice(invoice["id"])
         st.success(f"Factura **{full['number']}** emitida.")
-        st.download_button("Descargar factura (PDF)", invoice_pdf(full, c.settings), f"{full['number']}.pdf",
-                           "application/pdf", type="primary", width="stretch",
-                           icon=":material/download:")
+        logged_download(st, "Descargar factura (PDF)", partial(invoice_pdf, full, c.settings), f"{full['number']}.pdf",
+                        "application/pdf", type="primary", width="stretch",
+                        icon=":material/download:")
 
 
 def history() -> None:
@@ -155,7 +156,7 @@ def _history_sales(c) -> None:
     )
     if c.can("encargado"):
         logged_download(st, "Exportar a CSV", csv_bytes(df.drop(columns=["id", "place"])), "ventas.csv", "text/csv",
-                           icon=":material/download:")
+                        icon=":material/download:")
 
     rows = event.selection.rows
     if not rows:
@@ -180,12 +181,13 @@ def _history_sales(c) -> None:
         with st.expander("Imprimir o enviar el ticket", icon=":material/print:"):
             ticket_actions(c, sale)
         a, b, d = st.columns(3)
-        a.download_button("Descargar ticket", receipt_html(sale, c.ticket_settings(sale.get("location_id"))), f"{sale['number']}.html",
-                          "text/html", icon=":material/receipt_long:", width="stretch")
+        logged_download(a, "Descargar ticket", receipt_html(sale, c.ticket_settings(sale.get("location_id"))),
+                        f"{sale['number']}.html",
+                        "text/html", icon=":material/receipt_long:", width="stretch")
         if invoice:
             full = c.store.invoice(invoice["id"])
-            b.download_button("Descargar factura", invoice_pdf(full, c.settings), f"{full['number']}.pdf",
-                              "application/pdf", icon=":material/request_quote:", width="stretch")
+            logged_download(b, "Descargar factura", partial(invoice_pdf, full, c.settings), f"{full['number']}.pdf",
+                            "application/pdf", icon=":material/request_quote:", width="stretch")
         elif b.button("Emitir factura", disabled=sale["status"] != "completada" or not c.can_change("encargado"),
                       width="stretch", icon=":material/request_quote:"):
             _invoice_dialog(sale["id"])
@@ -240,14 +242,14 @@ def _refund_dialog(sale_id: int) -> None:
         slot.empty()
         c.store.audit(c.username, "devolucion", f"{refund['number']} · {sale['number']} · {refund['total']:.2f}")
         st.success(f"Devolución **{refund['number']}** registrada: {c.money(refund['total'])} por {method}.")
-        st.download_button("Justificante de devolución", refund_receipt_html(refund, c.settings),
-                           f"{refund['number']}.html", "text/html", icon=":material/receipt_long:",
-                           width="stretch")
+        logged_download(st, "Justificante de devolución", refund_receipt_html(refund, c.settings),
+                        f"{refund['number']}.html", "text/html", icon=":material/receipt_long:",
+                        width="stretch")
         if refund["credit_note"]:
             note = c.store.credit_note(refund["id"])
-            st.download_button(f"Factura rectificativa {note['number']} (PDF)", credit_note_pdf(note, c.settings),
-                               f"{note['number']}.pdf", "application/pdf", type="primary",
-                               icon=":material/request_quote:", width="stretch")
+            logged_download(st, f"Factura rectificativa {note['number']} (PDF)", partial(credit_note_pdf, note, c.settings),
+                            f"{note['number']}.pdf", "application/pdf", type="primary",
+                            icon=":material/request_quote:", width="stretch")
 
 
 def _history_refunds(c) -> None:
@@ -267,17 +269,17 @@ def _history_refunds(c) -> None:
         },
     )
     logged_download(st, "Exportar devoluciones a CSV", csv_bytes(df.drop(columns=["id"])), "devoluciones.csv", "text/csv",
-                       icon=":material/download:")
+                    icon=":material/download:")
     if event.selection.rows:
         refund = c.store.refund(int(df.iloc[event.selection.rows[0]]["id"]))
         a, b = st.columns(2)
-        a.download_button("Justificante", refund_receipt_html(refund, c.settings), f"{refund['number']}.html",
-                          "text/html", icon=":material/receipt_long:", width="stretch")
+        logged_download(a, "Justificante", refund_receipt_html(refund, c.settings), f"{refund['number']}.html",
+                        "text/html", icon=":material/receipt_long:", width="stretch")
         if refund["credit_note"]:
             note = c.store.credit_note(refund["id"])
-            b.download_button(f"Rectificativa {note['number']}", credit_note_pdf(note, c.settings),
-                              f"{note['number']}.pdf", "application/pdf", icon=":material/request_quote:",
-                              width="stretch")
+            logged_download(b, f"Rectificativa {note['number']}", partial(credit_note_pdf, note, c.settings),
+                            f"{note['number']}.pdf", "application/pdf", icon=":material/request_quote:",
+                            width="stretch")
 
 
 def _history_invoices(c) -> None:
@@ -297,12 +299,12 @@ def _history_invoices(c) -> None:
         },
     )
     logged_download(st, "Exportar facturas a CSV", csv_bytes(df.drop(columns=["id"])), "facturas.csv", "text/csv",
-                       icon=":material/download:")
+                    icon=":material/download:")
     rows = event.selection.rows
     if rows:
         full = c.store.invoice(int(df.iloc[rows[0]]["id"]))
-        st.download_button(f"Descargar {full['number']} (PDF)", invoice_pdf(full, c.settings),
-                           f"{full['number']}.pdf", "application/pdf", type="primary",
-                           icon=":material/request_quote:")
+        logged_download(st, f"Descargar {full['number']} (PDF)", partial(invoice_pdf, full, c.settings),
+                        f"{full['number']}.pdf", "application/pdf", type="primary",
+                        icon=":material/request_quote:")
     else:
         st.caption("Selecciona una factura para descargarla.")

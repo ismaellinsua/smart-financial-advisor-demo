@@ -12,7 +12,7 @@ import streamlit as st
 
 from core.presets import PRESETS
 from core.security import ROLES
-from ui import booking, pages, pages_billing, pages_intel, pages_management, pages_promos, pages_tables, tenancy
+from ui import booking, pages, pages_billing, pages_intel, pages_management, pages_promos, pages_tables, routes, tenancy
 from ui.auth import logout_button, require_user
 from ui.context import PAGES, MissingDatabase, ctx, stripe_client
 from ui.styles import inject_css, installable, sidebar_brand, sidebar_copyright, topbar
@@ -102,7 +102,7 @@ PAGES.update(
 billing_access = st.session_state.get("billing_access")
 charged = stripe_client() is not None
 
-# Each role only gets the pages it may use; a hidden page cannot be opened by typing its address.
+# Each role only gets the pages it may use; typing the address of another one shows a notice, never the page.
 P = PAGES
 sections = {"Operación": [*([P["dashboard"]] if c.can("encargado") else []),
                           *([P["tables"], P["kitchen"]] if show_tables else []), P["pos"],
@@ -116,7 +116,8 @@ if c.can("admin"):
     sections["Ajustes"] = [P["settings"], P["team"], *([P["billing"]] if charged else []), P["help"]]
 else:
     sections["Ayuda"] = [P["help"]]
-if billing_access is not None and billing_access.level == "readonly":
+readonly = billing_access is not None and billing_access.level == "readonly"
+if readonly:
     # Not paid: look up and download only. Pages left out of the navigation cannot be opened by address either.
     sections = {"Tu cuenta": [P["billing"], P["history"], P["help"]]}
 
@@ -132,7 +133,9 @@ if c.multi_location:
 if c.can_change("admin") and c.store.can_replace_data() and st.sidebar.button(
         "Cambiar de negocio", icon=":material/swap_horiz:", width="stretch"):
     pages.switch_business_dialog()
-nav = st.navigation(sections, expanded=True)
+# Pages left out stay reachable by address only to say why they are not available (ui/routes.py).
+nav = st.navigation(routes.with_fallbacks(sections, PAGES, routes.requested_path(),
+                                          notice=billing_access.message if readonly else ""), expanded=True)
 # On phones the menu covers the screen: close it as soon as a page is chosen (Streamlit leaves it open).
 st.html("""<script>
 (() => {

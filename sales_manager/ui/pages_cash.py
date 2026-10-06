@@ -1,6 +1,7 @@
 """Cash closing and the offline till."""
 
 from datetime import date, datetime
+from functools import partial
 
 import pandas as pd
 import streamlit as st
@@ -108,7 +109,7 @@ def cash_page() -> None:
                          "difference": st.column_config.NumberColumn("Diferencia", format=f"%+.2f {c.symbol}"),
                      })
         logged_download(st, "Exportar cierres a CSV", csv_bytes(history), "cierres_de_caja.csv", "text/csv",
-                           icon=":material/download:")
+                        icon=":material/download:")
     reopened = c.store.cash_reopenings(c.location_id if c.multi_location else None)
     if not reopened.empty:
         with st.expander(f"Cierres reabiertos ({len(reopened)})", icon=":material/lock_open:"):
@@ -161,9 +162,10 @@ def _closed_cash_panel(c, day: date, closing: dict, summary: dict) -> None:
     if summary["count"] != closing["sales_count"] or abs(summary["total"] - closing["total_sales"]) >= 0.005:
         st.warning("Ha habido ventas o anulaciones después del cierre. Reabre la caja y ciérrala de nuevo "
                    "para incluirlas.", icon=":material/warning:")
-    st.download_button("Descargar informe (PDF)", cash_closing_pdf(closing, c.ticket_settings(closing.get("location_id"))),
-                       f"cierre-{day:%Y-%m-%d}.pdf", "application/pdf", type="primary",
-                       width="stretch", icon=":material/picture_as_pdf:")
+    logged_download(st, "Descargar informe (PDF)",
+                    partial(cash_closing_pdf, closing, c.ticket_settings(closing.get("location_id"))),
+                    f"cierre-{day:%Y-%m-%d}.pdf", "application/pdf", type="primary",
+                    width="stretch", icon=":material/picture_as_pdf:")
     if st.button("Reabrir caja", width="stretch", icon=":material/lock_open:"):
         c.store.reopen_cash(day, c.location_id, by=c.who)
         c.store.audit(c.username, "caja_reabierta", f"{day:%d/%m/%Y}")
