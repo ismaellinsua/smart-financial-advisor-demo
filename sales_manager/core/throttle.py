@@ -68,11 +68,13 @@ def blocked_minutes(until: float, now: float) -> int:
     return max(1, round((until - now) / 60)) if until > now else 0
 
 
-def after_failure(fails: list[float], until: float, level: int, now: float) -> tuple[list[float], float, int]:
-    """The new (recent failures, blocked until, level) after one more failure at `now`."""
+def after_failure(fails: list[float], until: float, level: int, now: float,
+                  grow: bool = True) -> tuple[list[float], float, int]:
+    """The new (recent failures, blocked until, level) after one more failure at `now`. With `grow`, each new
+    block doubles (up to MAX_BLOCK_MINUTES); without it, every block lasts FIRST_BLOCK_MINUTES."""
     fails = [t for t in fails if t >= now - WINDOW_SECONDS] + [now]
     if len(fails) >= MAX_FAILURES:
-        minutes = min(FIRST_BLOCK_MINUTES * 2 ** level, MAX_BLOCK_MINUTES)
+        minutes = min(FIRST_BLOCK_MINUTES * 2 ** level, MAX_BLOCK_MINUTES) if grow else FIRST_BLOCK_MINUTES
         return [], now + minutes * 60, level + 1
     return fails, until, level
 
@@ -119,7 +121,8 @@ class ThrottleMixin:
             row = cur.execute("SELECT blocked_until FROM login_throttle WHERE key = ?", (key_hash(key),)).fetchone()
         return blocked_minutes(int(row["blocked_until"]), now) if row else 0
 
-    def throttle_failed(self, key: str, now: float | None = None) -> None:
+    def throttle_failed(self, key: str, now: float | None = None, grow: bool = True) -> None:
+        """One more failure for `key`; `grow=False` keeps every block at FIRST_BLOCK_MINUTES (see after_failure)."""
         now = time.time() if now is None else now
         hashed = key_hash(key)
         with self.db.tx() as cur:
@@ -128,7 +131,7 @@ class ThrottleMixin:
             row = cur.execute("SELECT fails, blocked_until, level FROM login_throttle WHERE key = ?",
                               (hashed,)).fetchone()
             fails, until, level = (json.loads(row["fails"]), row["blocked_until"], row["level"]) if row else ([], 0, 0)
-            fails, until, level = after_failure(fails, until, level, now)
+            fails, until, level = after_failure(fails, until, level, now, grow)
             if until > now and not fails:
                 log.warning("sign_in_blocked key=%s minutes=%s", hashed[:12], blocked_minutes(until, now))
             # Whole seconds: plain integers on both engines.

@@ -86,3 +86,11 @@ def test_failed_authorisations_never_lock_the_manager_and_are_limited(make_store
         store.authorize("marta", "481920", now=t0 + 20)
     assert store.authenticate("marta", "481920")["username"] == "marta"  # her own sign-in still works
     assert store.authorize("marta", "481920", now=t0 + throttle.FIRST_BLOCK_MINUTES * 60 + 30)["username"] == "marta"
+    # Blocked again and again: never longer than FIRST_BLOCK_MINUTES (no doubling up to a day).
+    later = t0 + 3600
+    for round_ in range(3):
+        start = later + round_ * (throttle.FIRST_BLOCK_MINUTES * 60 + 60)
+        for i in range(throttle.MAX_FAILURES):
+            with pytest.raises(AuthError):
+                store.authorize("marta", "000000", now=start + i)
+        assert store.throttle_blocked_minutes("autorizacion:marta", now=start + 10) == throttle.FIRST_BLOCK_MINUTES

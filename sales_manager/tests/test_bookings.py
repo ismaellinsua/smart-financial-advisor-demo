@@ -250,6 +250,10 @@ def test_public_booking_cannot_be_used_to_spam(diary):
         diary.book_online(slots[3 + i], "Cliente", f"6{i:08d}", now=NOW)
     with pytest.raises(ValueError, match="más reservas online"):
         diary.book_online(slots[40], "Otra", "699999999", now=NOW)
+    assert "reservas_online_al_limite" in list(diary.audit_log()["action"])  # the owner sees it happened
+    diary.save_booking_rules({**RULES, "hours": {d: "08:00-22:00" for d in range(7)}, "step": 15, "duration": 15,
+                              "hourly_limit": 30})  # a busy business raises its own limit
+    diary.book_online(slots[41], "Otra", "699999998", now=NOW)
     later = NOW + timedelta(hours=1, minutes=1)  # the next hour opens again
     free = [s for d in diary.bookable_days(later) for s in diary.free_slots(d, now=later)]
     diary.book_online(free[-1], "Otra", "699999999", now=later)

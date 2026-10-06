@@ -13,11 +13,12 @@ import re
 import secrets
 from datetime import date, datetime, time, timedelta
 
-from . import clock
+from . import clock, logs
 from .mailer import valid_email
 from .presets import PRESETS
 from .security import clean_text
 
+log = logs.get("bookings")
 AGENDA_LOCK = "__agenda__"  # counters row locked while a booking is checked and saved, so two can't take one slot
 WEEKDAYS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
 CONTACT_DAYS = 90
@@ -25,7 +26,8 @@ UNKNOWN_PARTY = 2  # diners counted for a reservation saved without the number o
 MAX_PENDING_PER_PHONE = 2
 MAX_PENDING_PER_EMAIL = 2
 # The public page is open to anyone: a ceiling on online bookings per hour for the whole business keeps a script
-# from filling the diary or making the business's email account send confirmations to strangers.
+# from filling the diary or making the business's email account send confirmations to strangers. Each business sets
+# its own (Agenda → Reservas online), so a busy one is never stopped by it; reaching it is logged and audited.
 MAX_ONLINE_PER_HOUR = 20
 # A name never contains a link or an address: it is quoted in the confirmation email.
 _LINK_IN_NAME = re.compile(r"https?:|www\.|@|://|\.(com|net|org|io|es|ru|xyz|info|top)\b", re.I)
@@ -110,6 +112,7 @@ class BookingMixin:
             "notice_hours": max(0, number("booking_notice_hours", 2)),
             "capacity": max(1, number("booking_capacity", 30)),
             "max_party": max(1, number("booking_max_party", 10)),
+            "hourly_limit": max(1, number("booking_hourly_limit", MAX_ONLINE_PER_HOUR)),
             "services": services,
         }
 
@@ -123,7 +126,7 @@ class BookingMixin:
         out = {"booking_hours": json.dumps(hours, sort_keys=True), "booking_closed": values.get("closed", "").strip(),
                "booking_services": ",".join(str(int(i)) for i in values.get("services", []))}
         limits = {"step": (5, 240), "duration": (5, 600), "days": (1, 365), "notice_hours": (0, 168),
-                  "capacity": (1, 1000), "max_party": (1, 100)}
+                  "capacity": (1, 1000), "max_party": (1, 100), "hourly_limit": (1, 500)}
         for key, (low, high) in limits.items():
             if key in values:
                 value = int(values[key])
@@ -218,6 +221,7 @@ class BookingMixin:
         starts_at = starts_at.replace(second=0, microsecond=0)
         if starts_at not in self._candidates(rules, starts_at.date(), now):
             raise ValueError("Esa hora ya no está disponible. Elige otra.")
+        self._check_hourly_limit(rules, now)
         token = secrets.token_urlsafe(18)
         with self.db.tx() as cur:
             cur.execute("INSERT INTO counters(series, value) VALUES (?, 1) "
@@ -235,11 +239,6 @@ class BookingMixin:
                     "SELECT COUNT(*) AS n FROM appointments WHERE email = ? AND status = 'pendiente' AND starts_at >= ?",
                     (email, now.isoformat(timespec="seconds"))).fetchone()["n"] >= MAX_PENDING_PER_EMAIL:
                 raise ValueError("Ya tienes reservas pendientes con este email. Si necesitas otra, llama al negocio.")
-            recent = cur.execute("SELECT COUNT(*) AS n FROM appointments WHERE source = 'online' AND created_at >= ?",
-                                 ((now - timedelta(hours=1)).isoformat(timespec="seconds"),)).fetchone()["n"]
-            if recent >= MAX_ONLINE_PER_HOUR:
-                raise ValueError("Ahora mismo no podemos aceptar más reservas online. Prueba en un rato o llama al "
-                                 "negocio.")
             if not self._fits(rules, self._taken(cur, starts_at.date()), starts_at, people):
                 raise ValueError("Esa hora se acaba de ocupar. Elige otra.")
             row = cur.execute(
@@ -251,6 +250,19 @@ class BookingMixin:
                  phone, email, people, _hash(token)),
             ).fetchone()
         return {**self.online_booking(token), "token": token, "id": row["id"]}
+
+    def _check_hourly_limit(self, rules: dict, now: datetime) -> None:
+        """Refuse when the business already took its hourly maximum of online bookings, leaving a trace (in its own
+        transaction, so the refusal does not undo it) for the owner to see."""
+        with self.db.tx() as cur:
+            recent = cur.execute("SELECT COUNT(*) AS n FROM appointments WHERE source = 'online' AND created_at >= ?",
+                                 ((now - timedelta(hours=1)).isoformat(timespec="seconds"),)).fetchone()["n"]
+            if recent >= rules["hourly_limit"]:
+                self._audit(cur, "Reserva online", "reservas_online_al_limite",
+                            f"{recent} en la última hora (límite {rules['hourly_limit']})")
+        if recent >= rules["hourly_limit"]:
+            log.warning("online_bookings_at_limit count=%s limit=%s", recent, rules["hourly_limit"])
+            raise ValueError("Ahora mismo no podemos aceptar más reservas online. Prueba en un rato o llama al negocio.")
 
     def online_booking(self, token: str) -> dict | None:
         if not token or len(token) > 64:

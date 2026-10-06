@@ -80,9 +80,12 @@ jobs:
           headers=$(curl -sI http://localhost:8080/)
           echo "$headers"
           for h in "Strict-Transport-Security" "X-Frame-Options: SAMEORIGIN" "X-Content-Type-Options: nosniff" \
-                   "Content-Security-Policy: frame-ancestors 'self'" "Referrer-Policy" "Permissions-Policy"; do
+                   "Content-Security-Policy: default-src 'self'" "Referrer-Policy" "Permissions-Policy"; do
             echo "$headers" | grep -qi "^$h" || { echo "::error::Falta la cabecera $h"; exit 1; }
           done
+          echo "$headers" | grep -i "^Content-Security-Policy" | grep -q "frame-ancestors 'self'" \
+            && echo "$headers" | grep -i "^Content-Security-Policy" | grep -q "connect-src 'self'" \
+            || { echo "::error::La CSP no limita marcos o conexiones"; exit 1; }
           ! echo "$headers" | grep -qi "^Server:" || { echo "::error::La cabecera Server delata el software"; exit 1; }
           test "$(docker exec app id -u)" != "0" || { echo "::error::La app corre como root"; exit 1; }
           # The sign-in cookie is written by the server, HttpOnly; another site cannot plant one.

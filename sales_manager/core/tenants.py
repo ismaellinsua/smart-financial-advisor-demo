@@ -59,6 +59,10 @@ CREATE TABLE IF NOT EXISTS {DIRECTORY_SCHEMA}.operator_log (
     action TEXT NOT NULL,
     detail TEXT NOT NULL DEFAULT ''
 );
+CREATE TABLE IF NOT EXISTS {DIRECTORY_SCHEMA}.operator_totp (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    last_step BIGINT NOT NULL DEFAULT 0
+);
 CREATE TABLE IF NOT EXISTS {DIRECTORY_SCHEMA}.login_throttle (
     key TEXT PRIMARY KEY,
     fails TEXT NOT NULL DEFAULT '[]',
@@ -318,6 +322,16 @@ class Directory:
                 # Stripe unreachable: keep what we know and try again on a later visit (logged by billing).
                 pass
         return access(tenant, utc_now()), message, refreshed
+
+    def claim_operator_step(self, step: int) -> bool:
+        """Accept an operator two-step code of time step `step` only if no later or equal one was accepted before,
+        on any server and across restarts: the same code never opens the panel twice."""
+        with self._connect() as conn:
+            row = conn.execute(f"INSERT INTO {DIRECTORY_SCHEMA}.operator_totp(id, last_step) VALUES (1, %s) "
+                               f"ON CONFLICT (id) DO UPDATE SET last_step = excluded.last_step "
+                               f"WHERE {DIRECTORY_SCHEMA}.operator_totp.last_step < excluded.last_step RETURNING id",
+                               (int(step),)).fetchone()
+        return row is not None
 
     # ------------------------------------------------- operator sign-in throttle
     # The same policy as the businesses' sign-in (core/throttle.py), kept in the directory.

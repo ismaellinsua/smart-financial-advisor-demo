@@ -165,3 +165,13 @@ def test_every_business_is_migrated_before_the_app_starts(directory):
     broken = subprocess.run([sys.executable, str(script)], capture_output=True, text=True, timeout=120,
                             env={"DATABASE_URL": "postgresql://nadie:nada@127.0.0.1:1/ninguna", "PATH": "/usr/bin:/bin"})
     assert broken.returncode == 1 and "migrate_failed" in broken.stderr
+
+
+def test_an_operator_code_opens_the_panel_once_on_every_server(directory):
+    from core.tenants import Directory
+
+    other = Directory(directory._url)  # another server, or the same one after a restart
+    assert directory.claim_operator_step(1000)
+    assert not other.claim_operator_step(1000)  # the same code, again
+    assert not other.claim_operator_step(999)  # an older one
+    assert other.claim_operator_step(1001)

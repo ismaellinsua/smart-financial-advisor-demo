@@ -518,3 +518,27 @@ st.write(f"can={{c.can('encargado')}} change={{c.can_change('encargado')}} read_
                             ("full", "can=True change=True read_only=False")):
         at = AppTest.from_string(script.format(root=ROOT, db=target, level=level), default_timeout=30).run()
         assert not at.exception and at.markdown[0].value == expected
+
+
+def test_guessing_the_installation_code_only_slows_down_that_visitor_in_that_business(tmp_path, monkeypatch):
+    """Failures are counted in each business's own database: one business under attack never stops another from
+    creating its administrator."""
+    from core import throttle
+
+    def attempt(at, code):
+        fields = at.text_input
+        for field, value in zip(fields, [code, "Elena", "elena", "Segura2026", "Segura2026"]):
+            field.input(value)
+        at.button[0].click().run()
+        return at.error[0].value if at.error else ""
+
+    monkeypatch.setattr("time.sleep", lambda s: None)
+    attacked = Store(tmp_path / "atacado.db")
+    at = _app(attacked, monkeypatch)
+    for _ in range(throttle.MAX_FAILURES):
+        assert "no es correcto" in attempt(at, "NO-ES-EL-CODIGO")
+    assert "Demasiados intentos" in attempt(at, "OTRO-INTENTO")
+
+    other = Store(tmp_path / "otro.db")
+    at = _app(other, monkeypatch)
+    assert "no es correcto" in attempt(at, "NO-ES-EL-CODIGO")  # not blocked by the other business's attacker

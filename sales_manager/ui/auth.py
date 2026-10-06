@@ -4,7 +4,6 @@ import hmac
 import secrets
 import threading
 import time as _time
-from collections import deque
 
 import streamlit as st
 
@@ -32,10 +31,10 @@ CLIENT_FIRST_BLOCK_MINUTES, CLIENT_MAX_BLOCK_MINUTES = throttle.FIRST_BLOCK_MINU
 _MEMORY = throttle.MemoryThrottle()
 log = logs.get("auth")
 
-# Setup-password attempts are throttled across every visitor, not per browser tab.
-_SETUP_FAILURES: deque = deque()
+# The installation code is guessed like a password: same per-device limit, kept in that business's own database, so
+# one visitor failing never blocks another business (or another person) from creating its administrator.
+SETUP_KEY = "instalacion:"
 _SETUP_LOCK = threading.Lock()
-SETUP_MAX_FAILURES, SETUP_WINDOW_SECONDS = 10, 600
 _SETUP_CODE: str | None = None
 
 
@@ -136,18 +135,6 @@ def _forget(store: Store) -> None:
     st.session_state[_COOKIE_CLEAR] = True
 
 
-def _setup_blocked() -> bool:
-    with _SETUP_LOCK:
-        while _SETUP_FAILURES and _SETUP_FAILURES[0] < _time.time() - SETUP_WINDOW_SECONDS:
-            _SETUP_FAILURES.popleft()
-        return len(_SETUP_FAILURES) >= SETUP_MAX_FAILURES
-
-
-def _setup_failed() -> None:
-    with _SETUP_LOCK:
-        _SETUP_FAILURES.append(_time.time())
-
-
 def _sign_in(store: Store, user: dict, secret: str | None = None) -> None:
     st.session_state[SESSION_USER] = user
     st.session_state[SESSION_SEEN] = _time.time()
@@ -213,11 +200,12 @@ def _bootstrap(store: Store) -> None:
                                    help="Al menos 8 caracteres, con letras y números o símbolos.")
             repeat = st.text_input("Repite la contraseña", type="password", max_chars=128)
             if st.form_submit_button("Crear administrador", type="primary", width="stretch"):
-                if _setup_blocked():
-                    st.error("Demasiados intentos. Espera unos minutos.")
+                key = SETUP_KEY + client_key()
+                if minutes := client_blocked_minutes(key, store=store):
+                    st.error(f"Demasiados intentos desde este dispositivo. Espera {minutes} min.")
                     return
                 if not valid(code):
-                    _setup_failed()
+                    client_failed(key, store=store)
                     _time.sleep(1)
                     st.error("La contraseña o el código de instalación no es correcto.")
                     return
@@ -231,6 +219,7 @@ def _bootstrap(store: Store) -> None:
                 except ValueError as exc:
                     st.error(str(exc))
                     return
+                client_succeeded(key, store=store)
                 if business:
                     get_directory().mark_setup_used(business)
                 st.session_state[NEW_CODES] = store.create_recovery_codes(uid)
