@@ -5,16 +5,16 @@ import streamlit as st
 
 from core.presets import PAYMENT_METHODS
 from ui.context import ctx, logged_download
-from ui.pages_common import _require
+from ui.pages_common import require_role
 from ui.styles import page_header
 
 
 # ------------------------------------------------------------------ products
-def _editor_key(name: str) -> str:
+def editor_key(name: str) -> str:
     return f"{name}_{st.session_state.get(name + '_v', 0)}"
 
 
-def _bump(name: str) -> None:
+def bump_editor(name: str) -> None:
     st.session_state[name + "_v"] = st.session_state.get(name + "_v", 0) + 1
 
 
@@ -99,13 +99,13 @@ def _stock_by_location(c) -> None:
                                   f"{quantity} × {products[product]}: {places[origin]} → {places[target]}")
                     st.session_state["products_flash"] = (f"Traspasadas {quantity} unidades de «{products[product]}» "
                                                           f"de {places[origin]} a {places[target]}.")
-                    _bump("products_editor")
+                    bump_editor("products_editor")
                     st.rerun()
 
 
 def products_page() -> None:
     c = ctx()
-    if not _require(c, "encargado"):
+    if not require_role(c, "encargado"):
         return
     label, plural = c.preset["item_label"], c.preset["item_label_plural"]
     page_header(plural, "Edita directamente en la tabla y guarda. Desactiva en lugar de borrar para "
@@ -131,7 +131,7 @@ def products_page() -> None:
                    for t, s, m in zip(df["track_stock"], df["stock"], df["min_stock"])],
         )
         edited = st.data_editor(
-            df, key=_editor_key("products_editor"), hide_index=True, width="stretch",
+            df, key=editor_key("products_editor"), hide_index=True, width="stretch",
             disabled=["id", "margin", "state"],
             column_order=["sku", "name", "category", "price", "iva", "cost", "margin", "stock", "min_stock", "state",
                           "track_stock", "active"],
@@ -177,7 +177,7 @@ def products_page() -> None:
                 st.error(str(exc))
             else:
                 st.session_state["products_flash"] = f"{changed} cambio(s) guardado(s)."
-                _bump("products_editor")
+                bump_editor("products_editor")
                 st.rerun()
 
         if c.multi_location:
@@ -220,5 +220,5 @@ def products_page() -> None:
                     st.error(str(exc))
                 else:
                     st.session_state["products_flash"] = f"«{name}» añadido al catálogo."
-                    _bump("products_editor")
+                    bump_editor("products_editor")
                     st.rerun()

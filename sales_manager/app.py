@@ -5,7 +5,6 @@ Ejecutar desde la raíz del repositorio:  streamlit run sales_manager/app.py
 Copyright (c) 2025-2026 NirKanA. Todos los derechos reservados. Software propietario: ver LICENSE.
 """
 
-import traceback
 from datetime import timedelta
 from pathlib import Path
 
@@ -17,7 +16,9 @@ from ui import booking, pages, pages_billing, pages_intel, pages_management, pag
 from ui.auth import logout_button, require_user
 from ui.context import PAGES, MissingDatabase, ctx, stripe_client
 from ui.styles import inject_css, installable, sidebar_brand, sidebar_copyright, topbar
-from core import clock
+from core import clock, logs
+
+log = logs.get("app")
 
 # A local icon: a «:material/…:» one is fetched from Google's servers by every visitor's browser.
 st.set_page_config(page_title="Gestor de Ventas", page_icon=str(Path(__file__).parent / "static" / "icon-192.png"),
@@ -175,10 +176,11 @@ if billing_access is not None and billing_access.level == "warn" and c.can("enca
 try:
     nav.run()
 except Exception as exc:  # noqa: BLE001 - st.rerun/st.stop are BaseException and pass through untouched
-    traceback.print_exc()  # the full detail stays in the server log («Manage app → Logs»)
     try:
         ref = c.store.record_error(exc, nav.title, c.username)
     except Exception:  # noqa: BLE001 - the database itself may be what failed
         ref = "sin registrar"
+    # The full detail stays in the server log («Manage app → Logs»), under the reference the person sees.
+    log.exception("page_error ref=%s page=%s", ref, nav.title)
     st.error(f"Algo ha fallado en esta pantalla. Queda registrado con la referencia **{ref}**: si se repite, "
              "escríbenos a nirkana.oficial@gmail.com con ella. Tus datos no se han perdido.", icon=":material/error:")

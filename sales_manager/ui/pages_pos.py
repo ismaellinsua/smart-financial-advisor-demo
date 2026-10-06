@@ -69,7 +69,7 @@ def _create_customer_from_pos() -> None:
     st.session_state["pos_flash"] = ("success", f"Cliente «{name}» creado y seleccionado.")
 
 
-def _ticket_actions(c, sale: dict, preview_height: int = 420) -> None:
+def ticket_actions(c, sale: dict, preview_height: int = 420) -> None:
     """Print the ticket from the browser (A4 or thermal roll, as set in Configuración) or send it to the customer."""
     components.html(with_print_button(receipt_html(sale, c.ticket_settings(sale.get("location_id")))), height=preview_height, scrolling=True)
     text = receipt_text(sale, c.settings)
@@ -87,11 +87,11 @@ def _ticket_actions(c, sale: dict, preview_height: int = 420) -> None:
 
 
 @st.dialog("Venta registrada")
-def _sale_dialog(sale_id: int) -> None:
+def sale_dialog(sale_id: int) -> None:
     c = ctx()
     sale = c.store.sale(sale_id)
     st.success(f"Ticket **{sale['number']}** · {c.money(sale['total'])} · {sale['payment_method']}")
-    _ticket_actions(c, sale, preview_height=360)
+    ticket_actions(c, sale, preview_height=360)
     if st.button("Nueva venta", type="primary", width="stretch"):
         st.rerun()
 
@@ -101,7 +101,7 @@ def point_of_sale() -> None:
     page_header("Punto de venta", "Selecciona lo que vendes, elige la forma de pago y cobra en segundos.",
                 eyebrow="Vender")
     if "last_sale" in st.session_state:
-        _sale_dialog(st.session_state.pop("last_sale"))
+        sale_dialog(st.session_state.pop("last_sale"))
     if "pos_flash" in st.session_state:
         kind, msg = st.session_state.pop("pos_flash")
         getattr(st, kind)(msg)

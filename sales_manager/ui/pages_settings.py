@@ -8,8 +8,8 @@ from core.fiscal_id import tax_id_problem
 from core.presets import CURRENCIES, PRESETS
 from core.receipts import RECEIPT_PAPERS
 from ui.context import ctx, logged_download
-from ui.pages_common import _csv, _require
-from ui.pages_start import _identity_confirmed
+from ui.pages_common import csv_bytes, require_role
+from ui.pages_start import identity_confirmed
 from ui.styles import page_header
 
 
@@ -47,7 +47,7 @@ def _billing_register_section(c, s: dict) -> None:
                 st.success(f"Cadena correcta: {check['checked']} registros comprobados.")
             else:
                 st.error(f"Problema en el registro nº {check['broken_at']}: {check['reason']}.")
-        logged_download(b, "Descargar registros (CSV)", _csv(records), f"registro-facturacion-{clock.today():%Y-%m-%d}.csv",
+        logged_download(b, "Descargar registros (CSV)", csv_bytes(records), f"registro-facturacion-{clock.today():%Y-%m-%d}.csv",
                           "text/csv", width="stretch", icon=":material/download:", disabled=records.empty)
 
 
@@ -100,7 +100,7 @@ def _locations_settings(c) -> None:
 
 def settings_page() -> None:
     c = ctx()
-    if not _require(c, "admin"):
+    if not require_role(c, "admin"):
         return
     s = c.settings
     page_header("Configuración", "Identidad del negocio, impuestos, numeración y tipo de negocio.", eyebrow="Ajustes")
@@ -210,7 +210,7 @@ def settings_page() -> None:
             st.caption("Cambiar el tipo adapta el vocabulario de la aplicación. " + FISCAL_DATA_MESSAGE)
             demo = confirm = False
         if replaceable and confirm:
-            confirm = _identity_confirmed(c, "template_secret")
+            confirm = identity_confirmed(c, "template_secret")
         a, b, d = st.columns(3)
         if a.button("Cambiar solo el tipo", width="stretch"):
             c.store.save_settings({"business_type": business_type})
@@ -263,7 +263,7 @@ def settings_page() -> None:
         upload = st.file_uploader("Restaurar desde una copia", type=["db"])
         confirm_restore = st.checkbox("Entiendo que se reemplazarán los datos actuales por los de la copia")
         if upload and confirm_restore:
-            confirm_restore = _identity_confirmed(c, "restore_secret")
+            confirm_restore = identity_confirmed(c, "restore_secret")
         if st.button("Restaurar copia", disabled=not (upload and confirm_restore), icon=":material/restore:"):
             try:
                 c.store.restore(upload.getvalue())

@@ -45,7 +45,7 @@ def test_each_business_sees_only_its_own_data(directory):
         assert sol.users().empty and not sol.has_users()
         assert aurora.settings()["business_name"] == "Café Aurora" and sol.settings()["business_name"] == "Tienda Sol"
         sol.create_user("Ana", "ana", "admin", "OtraClave2026!")  # same username, different business
-        assert sale["number"] == "VTA-%d-00001" % clock.now().year
+        assert sale["number"] == f"VTA-{clock.now().year}-00001"
         assert _sell(sol)["number"] == sale["number"]  # each business numbers its own tickets
     finally:
         aurora.close()
@@ -143,3 +143,25 @@ def test_directory_and_businesses_share_one_pool(directory):
     directory.create("cafe-aurora", "Café Aurora")
     store = directory.store("cafe-aurora")
     assert store.db._pool is engines._POOLS[directory._pool_key][0]
+
+
+def test_every_business_is_migrated_before_the_app_starts(directory):
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    from core.db import VERSIONED_MIGRATIONS
+    from core.tenants import migrate_all
+
+    directory.create("cafe-aurora", "Café Aurora")
+    directory.create("tienda-sol", "Tienda Sol")
+    latest = max(v for v, *_ in VERSIONED_MIGRATIONS)
+    assert migrate_all(directory._url) == [("cafe-aurora", latest), ("tienda-sol", latest)]
+
+    script = Path(__file__).resolve().parents[2] / "ops" / "deploy" / "migrate.py"
+    ran = subprocess.run([sys.executable, str(script)], capture_output=True, text=True, timeout=120,
+                         env={"DATABASE_URL": directory._url, "PATH": "/usr/bin:/bin"})
+    assert ran.returncode == 0 and "migrated business=tienda-sol" in ran.stderr
+    broken = subprocess.run([sys.executable, str(script)], capture_output=True, text=True, timeout=120,
+                            env={"DATABASE_URL": "postgresql://nadie:nada@127.0.0.1:1/ninguna", "PATH": "/usr/bin:/bin"})
+    assert broken.returncode == 1 and "migrate_failed" in broken.stderr

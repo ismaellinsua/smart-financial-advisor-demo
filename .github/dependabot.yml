@@ -1,0 +1,17 @@
+# Weekly proposals to update pinned dependencies (Python packages, container images, CI actions).
+# Each one arrives as a pull request and must pass the test suite before merging.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

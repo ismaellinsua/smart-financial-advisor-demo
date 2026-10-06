@@ -159,7 +159,8 @@ def test_backup_and_restore_round_trip(store, make_store):
 
 
 def test_restore_rejects_invalid_files(store):
-    import sqlite3, tempfile
+    import sqlite3
+    import tempfile
     from pathlib import Path
 
     with pytest.raises(ValueError):
@@ -589,15 +590,15 @@ def test_text_limits(store):
 def test_csv_safe_and_secure_url():
     import pandas as pd
 
-    from core.engines import _secure_url
+    from core.engines import secure_url
     from core.security import csv_safe
 
     df = csv_safe(pd.DataFrame({"name": ["=HYPERLINK(\"x\")", "Ana", "+34 600", "@SUM(1)"], "n": [1, -2, 3, 4]}))
     assert list(df["name"]) == ["'=HYPERLINK(\"x\")", "Ana", "'+34 600", "'@SUM(1)"]
     assert list(df["n"]) == [1, -2, 3, 4]
-    assert "sslmode=require" in _secure_url("postgresql://u:p@ep-x.neon.tech/db")
-    assert "sslmode=verify-full" in _secure_url("postgresql://u:p@ep-x.neon.tech/db?sslmode=verify-full")
-    assert "sslmode" not in _secure_url("postgresql://u:p@localhost:5432/db")
+    assert "sslmode=require" in secure_url("postgresql://u:p@ep-x.neon.tech/db")
+    assert "sslmode=verify-full" in secure_url("postgresql://u:p@ep-x.neon.tech/db?sslmode=verify-full")
+    assert "sslmode" not in secure_url("postgresql://u:p@localhost:5432/db")
 
 
 def test_receipt_rejects_css_injection(store):
@@ -1048,7 +1049,9 @@ def test_numbering_has_no_yearly_limit(store):
         cur.execute("UPDATE sales SET number = ? WHERE id = ?", (f"VTA-{year}-99999", first["id"]))
         cur.execute("DELETE FROM counters")
     assert [_sell(store)["number"] for _ in range(2)] == [f"VTA-{year}-100000", f"VTA-{year}-100001"]
-    invoice_for = lambda: store.create_invoice(_sell(store)["id"], {"name": "Cliente SL", "tax_id": "B1"})["number"]
+    def invoice_for():
+        return store.create_invoice(_sell(store)["id"], {"name": "Cliente SL", "tax_id": "B1"})["number"]
+
     first_invoice = invoice_for()
     with store.db.tx() as cur:
         cur.execute("UPDATE invoices SET number = ? WHERE number = ?", (f"FAC-{year}-9999", first_invoice))

@@ -4,7 +4,7 @@ import sqlite3
 import tempfile
 from pathlib import Path
 
-from .engines import _Cursor
+from .engines import Cursor
 from .schema import ALL_TABLES, CORE_TABLES
 from .security import is_safe_identifier
 
@@ -21,7 +21,7 @@ class BackupMixin:
                 for t in tables
             }
 
-    def _replace(self, cur: _Cursor, data: dict[str, list[dict]]) -> None:
+    def _replace(self, cur: Cursor, data: dict[str, list[dict]]) -> None:
         """Replace the contents of the given tables, keeping ids. Callers pass all of DATA_TABLES together."""
         tables = [t for t in ALL_TABLES if t in data]
         for table in reversed(tables):

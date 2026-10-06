@@ -1,7 +1,7 @@
 """Emails about online bookings: the customer's confirmation (with a calendar file), the notice to the business
 and the reminder the day before. Customers' replies go to the business's own email."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, UTC
 
 from . import clock
 from .mailer import Mailer, valid_email
@@ -29,7 +29,7 @@ def calendar_file(booking: dict, settings: dict) -> bytes:
     start = datetime.fromisoformat(booking["starts_at"]) if isinstance(booking["starts_at"], str) else booking["starts_at"]
     end = start + timedelta(minutes=int(booking.get("duration_min") or 60))
     zone = settings.get("timezone") or clock.DEFAULT_TIMEZONE
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     lines = [
         "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//NirKanA//Reservas//ES", "METHOD:PUBLISH", "BEGIN:VEVENT",
         f"UID:reserva-{booking['id']}-{start:%Y%m%d%H%M}@nirkana.es", f"DTSTAMP:{stamp}",

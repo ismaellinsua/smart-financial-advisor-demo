@@ -1,7 +1,6 @@
 """Staff accounts: first-run administrator setup, login, recovery, idle timeout and logout."""
 
 import hmac
-import os
 import secrets
 import threading
 import time as _time
@@ -9,9 +8,10 @@ from collections import deque
 
 import streamlit as st
 
-from core import throttle
+from core import logs, throttle
 from core.db import AuthError, Store
 from core.security import check_secret_strength
+from ui.context import secrets_lookup, setting
 from ui.styles import page_header
 
 SESSION_USER = "user"
@@ -30,6 +30,7 @@ NEW_CODES = "new_recovery_codes"
 CLIENT_MAX_FAILURES, CLIENT_WINDOW_SECONDS = throttle.MAX_FAILURES, throttle.WINDOW_SECONDS
 CLIENT_FIRST_BLOCK_MINUTES, CLIENT_MAX_BLOCK_MINUTES = throttle.FIRST_BLOCK_MINUTES, throttle.MAX_BLOCK_MINUTES
 _MEMORY = throttle.MemoryThrottle()
+log = logs.get("auth")
 
 # Setup-password attempts are throttled across every visitor, not per browser tab.
 _SETUP_FAILURES: deque = deque()
@@ -40,11 +41,7 @@ _SETUP_CODE: str | None = None
 
 def configured_password() -> str | None:
     """`app_password` (Streamlit secrets or APP_PASSWORD): proves ownership when the first administrator is created."""
-    try:
-        value = st.secrets.get("app_password")
-    except Exception:  # no secrets file: running locally or in a container
-        value = None
-    return value or os.environ.get("APP_PASSWORD") or None
+    return setting("app_password") or None
 
 
 def client_key() -> str:
@@ -166,7 +163,7 @@ def setup_code() -> str:
     with _SETUP_LOCK:
         if _SETUP_CODE is None:
             _SETUP_CODE = secrets.token_hex(4).upper()
-            print(f"[Gestor de Ventas] Código de instalación para crear el administrador: {_SETUP_CODE}", flush=True)
+            log.warning("setup_code code=%s (para crear el primer administrador)", _SETUP_CODE)
         return _SETUP_CODE
 
 
@@ -268,12 +265,7 @@ def mailer():
     """The app's sending account (secrets smtp_*), or None when email is not set up."""
     from core.mailer import Mailer
 
-    def secret(name: str):
-        try:
-            return st.secrets.get(name)
-        except Exception:  # no secrets file
-            return None
-    return Mailer.from_settings(secret)
+    return Mailer.from_settings(secrets_lookup)
 
 
 def _email_reset(store: Store, key: str) -> None:
@@ -295,6 +287,7 @@ def _email_reset(store: Store, key: str) -> None:
                                   "ignora este mensaje: tu contraseña no cambia.\n\nNirKanA")
                 except Exception as exc:  # noqa: BLE001 - the visitor gets the same answer; the log keeps the cause
                     store.audit(username, "email_no_enviado", type(exc).__name__)
+                    log.warning("email_not_sent purpose=password_reset error=%s", type(exc).__name__)
             _time.sleep(0.5)
             st.info("Si ese usuario es administrador y el negocio tiene email, te hemos enviado un código al email "
                     "del negocio. ¿No llega en unos minutos? Usa uno de tus códigos de recuperación.")

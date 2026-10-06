@@ -6,3 +6,6 @@ __pycache__/
 # Documentos privados del negocio: nunca al repositorio público
 NEGOCIO.md
 NirKanA-negocio.pdf
+
+# Local settings with real values (see .env.example)
+.env

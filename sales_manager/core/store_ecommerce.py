@@ -15,7 +15,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 
 from . import clock
-from .pricing import _allocate, compute_totals
+from .pricing import allocate, compute_totals
 from .presets import PAYMENT_METHODS
 
 MAX_ORDERS = 5000
@@ -232,7 +232,7 @@ class EcommerceMixin:
             # The order's discount, spread over its products in cents (as a promotion would be).
             discount = _money(order["discount"])
             goods = [Decimal(str(line["unit_price"])) * line["quantity"] for _, line in lines if not line.get("shipping")]
-            shares = iter(_allocate(discount, goods) if discount > 0 else [Decimal("0")] * len(goods))
+            shares = iter(allocate(discount, goods) if discount > 0 else [Decimal("0")] * len(goods))
             for _, line in lines:
                 line["line_discount"] = 0.0 if line.get("shipping") else float(next(shares))
                 line["promo_name"] = "Descuento del pedido" if line["line_discount"] else ""

@@ -13,7 +13,7 @@ import pandas as pd
 
 from .presets import DEFAULT_SETTINGS, PAYMENT_METHODS
 from .pricing import apply_promotions, compute_totals, tax_breakdown
-from .engines import LOCAL_HOSTS, _Cursor, _Postgres, _SQLite, _is_postgres, _load_numbers, _secure_url
+from .engines import LOCAL_HOSTS, Cursor, PostgresEngine, SQLiteEngine, is_postgres, load_numbers, secure_url
 from .errors import AuthError, FiscalDataError, SaleError
 from .schema import (
     APPEND_ONLY_MESSAGE, DATA_TABLES, FISCAL_DATA_MESSAGE, FISCAL_TABLES, MIGRATIONS,
@@ -49,7 +49,7 @@ from . import clock
 __all__ = [
     "Store", "DEFAULT_DB_PATH", "SCHEMA_FINGERPRINT", "SaleError", "AuthError", "FiscalDataError",
     "FISCAL_DATA_MESSAGE", "APPEND_ONLY_MESSAGE", "DATA_TABLES", "FISCAL_TABLES", "VERSIONED_MIGRATIONS",
-    "LOCKOUT_MINUTES", "MAX_FAILED_LOGINS", "LOCAL_HOSTS", "_Cursor", "_load_numbers", "_secure_url",
+    "LOCKOUT_MINUTES", "MAX_FAILED_LOGINS", "LOCAL_HOSTS", "Cursor", "load_numbers", "secure_url",
 ]
 
 _HERE = Path(__file__).resolve().parent
@@ -69,7 +69,7 @@ class Store(UsersMixin, ThrottleMixin, DemoMixin, CatalogMixin, InvoicesMixin, A
     SaleError = SaleError
     def __init__(self, path=DEFAULT_DB_PATH, schema: str | None = None):
         """`schema`: on PostgreSQL, the business's own schema when one database serves several businesses."""
-        self.db = _Postgres(str(path), schema) if _is_postgres(path) else _SQLite(str(path))
+        self.db = PostgresEngine(str(path), schema) if is_postgres(path) else SQLiteEngine(str(path))
         if self._schema_is_current():
             return  # one query instead of ~110: with a remote database each one is a round trip
         with self.db.tx() as cur:
@@ -116,7 +116,7 @@ class Store(UsersMixin, ThrottleMixin, DemoMixin, CatalogMixin, InvoicesMixin, A
             return False
         return row["f"] == SCHEMA_FINGERPRINT and row["v"] == VERSIONED_MIGRATIONS[-1][0]
 
-    def _run_versioned_migrations(self, cur: _Cursor) -> None:
+    def _run_versioned_migrations(self, cur: Cursor) -> None:
         self.db.lock_migrations(cur)
         done = {r["version"] for r in cur.execute("SELECT version FROM schema_migrations").fetchall()}
         for version, name, method in VERSIONED_MIGRATIONS:
@@ -131,7 +131,7 @@ class Store(UsersMixin, ThrottleMixin, DemoMixin, CatalogMixin, InvoicesMixin, A
             row = cur.execute("SELECT MAX(version) AS v FROM schema_migrations").fetchone()
         return int(row["v"] or 0)
 
-    def _money_to_numeric(self, cur: _Cursor) -> None:
+    def _money_to_numeric(self, cur: Cursor) -> None:
         """PostgreSQL databases created before stored amounts as binary floating point: make them exact."""
         for table, column in self.db.float_columns(cur):
             if is_safe_identifier(table) and is_safe_identifier(column):
@@ -139,7 +139,7 @@ class Store(UsersMixin, ThrottleMixin, DemoMixin, CatalogMixin, InvoicesMixin, A
                             f"USING round({column}::numeric, 4)")
 
     @staticmethod
-    def _migrate_prices(cur: _Cursor) -> None:
+    def _migrate_prices(cur: Cursor) -> None:
         """Databases from before prices included VAT stored them without it: convert once (price × (1 + VAT))."""
         rate = float(cur.execute("SELECT value FROM settings WHERE key = 'tax_rate'").fetchone()["value"] or 0)
         rows = cur.execute("SELECT id, price FROM products").fetchall()
@@ -165,18 +165,18 @@ class Store(UsersMixin, ThrottleMixin, DemoMixin, CatalogMixin, InvoicesMixin, A
 
     # ------------------------------------------------------------------ settings
     @staticmethod
-    def _insert_default_settings(cur: _Cursor) -> None:
+    def _insert_default_settings(cur: Cursor) -> None:
         cur.executemany(
             "INSERT INTO settings(key, value) VALUES (?, ?) ON CONFLICT(key) DO NOTHING",
             DEFAULT_SETTINGS.items(),
         )
 
     @staticmethod
-    def _settings(cur: _Cursor) -> dict:
+    def _settings(cur: Cursor) -> dict:
         return {r["key"]: r["value"] for r in cur.execute("SELECT key, value FROM settings").fetchall()}
 
     @staticmethod
-    def _save_settings(cur: _Cursor, values: dict) -> None:
+    def _save_settings(cur: Cursor, values: dict) -> None:
         cur.executemany(
             "INSERT INTO settings(key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
             [(k, str(v)) for k, v in values.items()],
@@ -196,7 +196,7 @@ class Store(UsersMixin, ThrottleMixin, DemoMixin, CatalogMixin, InvoicesMixin, A
 
     # --------------------------------------------------------------------- sales
     @staticmethod
-    def _take_number(cur: _Cursor, table: str, stem: str, width: int) -> str:
+    def _take_number(cur: Cursor, table: str, stem: str, width: int) -> str:
         """Next correlative number of a series (e.g. `VTA-2026-`), with no gaps, no yearly limit and no clashes.
 
         One counter row per series is incremented inside the caller's transaction: concurrent sales wait for it
@@ -217,7 +217,7 @@ class Store(UsersMixin, ThrottleMixin, DemoMixin, CatalogMixin, InvoicesMixin, A
         ).fetchone()
         return f"{stem}{int(row['value']):0{width}d}"
 
-    def _next_number(self, cur: _Cursor, when: datetime) -> str:
+    def _next_number(self, cur: Cursor, when: datetime) -> str:
         prefix = self._settings(cur).get("invoice_prefix", "VTA").strip() or "VTA"
         return self._take_number(cur, "sales", f"{prefix}-{when.year}-", 5)
 
@@ -274,7 +274,7 @@ class Store(UsersMixin, ThrottleMixin, DemoMixin, CatalogMixin, InvoicesMixin, A
             "points_balance": q["points_balance"], "loyalty": q["loyalty"],
         }
 
-    def _loyalty_settings(self, settings: dict) -> dict:
+    def loyalty_settings(self, settings: dict) -> dict:
         def number(key, default):
             try:
                 return float(settings.get(key) or default)
@@ -321,7 +321,7 @@ class Store(UsersMixin, ThrottleMixin, DemoMixin, CatalogMixin, InvoicesMixin, A
              for p, q in products], promos, when,
         )
 
-        loyalty = self._loyalty_settings(settings)
+        loyalty = self.loyalty_settings(settings)
         enabled = loyalty["enabled"] and customer_id is not None
         balance = self._points(cur, customer_id) if customer_id is not None else 0
         if redeem_points < 0:

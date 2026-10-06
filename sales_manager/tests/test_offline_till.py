@@ -95,3 +95,33 @@ def test_sell_offline_and_import_into_the_app(site, browser_page, tmp_path):
     page.get_by_role("button", name="Ya las importé").click()
     page.get_by_text("No hay ventas pendientes").wait_for()
     store.close()
+
+
+def test_offline_till_vat_matches_the_app_to_the_cent():
+    """The offline till (JavaScript) and the app (Python) must print the same VAT on every ticket."""
+    import random
+    import shutil
+    import subprocess
+
+    from core.pricing import compute_totals
+
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("node not installed")
+    source = (Path(__file__).resolve().parents[2] / "docs" / "caja" / "caja.js").read_text()
+    start = source.index("  function breakdown(lines)")
+    function = source[start:source.index("\n  }\n", start) + 4]
+    rng = random.Random(7)
+    rates = [0, 4, 5, 5.5, 10, 21]
+    carts = [[{"price": rng.randint(1, 50_000), "qty": rng.randint(1, 9), "vat": rng.choice(rates)}
+              for _ in range(rng.randint(1, 6))] for _ in range(3000)]
+    carts += [[{"price": p, "qty": 1, "vat": 4}] for p in (13, 39, 65, 91)]  # exactly half a cent of base
+    script = function + "\nconst carts = JSON.parse(require('fs').readFileSync(0, 'utf8'));\n" \
+        "process.stdout.write(JSON.stringify(carts.map(breakdown)));"
+    js = json.loads(subprocess.run([node, "-e", script], input=json.dumps(carts), capture_output=True, text=True,
+                                   check=True, timeout=60).stdout)
+    for cart, from_js in zip(carts, js):
+        py = compute_totals([{"quantity": l["qty"], "unit_price": l["price"] / 100, "tax_rate": l["vat"]}
+                             for l in cart])["taxes"]
+        assert [(t["rate"], t["base"], t["tax"]) for t in from_js] == \
+            [(t["rate"], round(t["base"] * 100), round(t["tax"] * 100)) for t in py], cart

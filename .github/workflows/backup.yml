@@ -42,11 +42,11 @@ jobs:
       - uses: actions/setup-python@v5
         if: env.BACKUP_DATABASES != ''
         with:
-          python-version: "3.12"
+          python-version-file: .python-version
 
       - name: Dependencias
         if: env.BACKUP_DATABASES != ''
-        run: pip install --quiet -r requirements.txt
+        run: pip install --quiet --require-hashes -r requirements.lock
 
       - name: Cliente de PostgreSQL 17 (pg_dump debe ser igual o más nuevo que el servidor)
         if: env.BACKUP_DATABASES != ''

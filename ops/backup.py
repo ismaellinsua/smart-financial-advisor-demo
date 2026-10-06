@@ -24,7 +24,7 @@ import sqlite3
 import subprocess
 import sys
 import tempfile
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
 
@@ -93,11 +93,11 @@ def read_only(url: str, schema: str | None = None):
     import psycopg
     from psycopg.rows import dict_row
 
-    from core.engines import _load_numbers, _secure_url
+    from core.engines import load_numbers, secure_url
 
-    conn = psycopg.connect(_secure_url(url), row_factory=dict_row, options="-c default_transaction_read_only=on",
+    conn = psycopg.connect(secure_url(url), row_factory=dict_row, options="-c default_transaction_read_only=on",
                            connect_timeout=30)
-    _load_numbers(conn)  # amounts as the app reads them (NUMERIC → float)
+    load_numbers(conn)  # amounts as the app reads them (NUMERIC → float)
     if schema:
         conn.execute(f'SET search_path TO "{schema}"')  # one business of a shared database
     return conn
@@ -145,7 +145,7 @@ def app_copy(conn, target: Path) -> None:
 def take(out: Path) -> None:
     secret = passphrase()
     out.mkdir(parents=True, exist_ok=True)
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M")
+    stamp = datetime.now(UTC).strftime("%Y%m%d-%H%M")
     manifest = {"created_utc": stamp, "businesses": {}}
     from core.tenants import DIRECTORY_SCHEMA
 

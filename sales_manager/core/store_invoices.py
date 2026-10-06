@@ -5,14 +5,14 @@ from datetime import datetime
 import pandas as pd
 
 from . import clock
-from .engines import _Cursor
+from .engines import Cursor
 from .errors import SaleError
 from .security import clean_text
 
 
 class InvoicesMixin:
     # ------------------------------------------------------------------ invoices
-    def _next_invoice_number(self, cur: _Cursor, when: datetime) -> str:
+    def _next_invoice_number(self, cur: Cursor, when: datetime) -> str:
         series = (self._settings(cur).get("invoice_series") or "FAC").strip() or "FAC"
         return self._take_number(cur, "invoices", f"{series}-{when.year}-", 4)
 

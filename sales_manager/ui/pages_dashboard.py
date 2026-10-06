@@ -7,16 +7,16 @@ import streamlit as st
 from core import automation, clock
 from ui import pages_intel
 from ui.context import PAGES, ctx
-from ui.pages_common import _delta, _pct, _require, _today_label
+from ui.pages_common import fmt_delta, fmt_pct, require_role, today_label
 from ui.styles import insight, page_header, style_figure
 
 
 # ----------------------------------------------------------------- dashboard
 def dashboard() -> None:
     c = ctx()
-    if not _require(c, "encargado"):
+    if not require_role(c, "encargado"):
         return
-    page_header("Panel de ventas", f"Así va {c.settings['business_name']}", eyebrow=_today_label())
+    page_header("Panel de ventas", f"Así va {c.settings['business_name']}", eyebrow=today_label())
 
     pages_intel.report_card(c)
     period = st.segmented_control(
@@ -31,10 +31,10 @@ def dashboard() -> None:
 
     m1, m2, m3, m4 = st.columns(4)
     vs = f"Variación frente a los {period} días anteriores."
-    m1.metric("Facturación", c.money_short(k["revenue"]), _delta(k["revenue_delta"]), help=f"Impuestos incluidos. {vs}")
-    m2.metric("Ventas", f"{k['count']}", _delta(k["count_delta"]), help=vs)
-    m3.metric("Ticket medio", c.money_short(k["ticket"]), _delta(k["ticket_delta"]), help=vs)
-    m4.metric("Margen bruto", _pct(k["margin_pct"]), help="Sobre ventas netas, sin impuestos.")
+    m1.metric("Facturación", c.money_short(k["revenue"]), fmt_delta(k["revenue_delta"]), help=f"Impuestos incluidos. {vs}")
+    m2.metric("Ventas", f"{k['count']}", fmt_delta(k["count_delta"]), help=vs)
+    m3.metric("Ticket medio", c.money_short(k["ticket"]), fmt_delta(k["ticket_delta"]), help=vs)
+    m4.metric("Margen bruto", fmt_pct(k["margin_pct"]), help="Sobre ventas netas, sin impuestos.")
 
     cur_sales = sales[(sales["status"] == "completada") & (sales["created_at"] >= start)]
     if c.multi_location:

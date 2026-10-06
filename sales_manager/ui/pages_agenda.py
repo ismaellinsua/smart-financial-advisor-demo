@@ -15,7 +15,7 @@ from core.receipts import (
 )
 from ui import context
 from ui.context import ctx
-from ui.pages_pos import _sale_dialog
+from ui.pages_pos import sale_dialog
 from ui.styles import page_header
 
 # -------------------------------------------------------------------- agenda
@@ -49,7 +49,7 @@ def agenda_page() -> None:
     cfg = agenda_config(c.preset)
     page_header(cfg["title"], "Organiza el día, evita solapes y cobra cada cita con un toque.", eyebrow="Agenda")
     if "last_sale" in st.session_state:
-        _sale_dialog(st.session_state.pop("last_sale"))
+        sale_dialog(st.session_state.pop("last_sale"))
     if "agenda_flash" in st.session_state:
         kind, msg = st.session_state.pop("agenda_flash")
         getattr(st, kind)(msg)

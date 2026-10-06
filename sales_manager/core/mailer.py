@@ -9,12 +9,13 @@ Configuration (Streamlit secrets for the app, GitHub secrets for scheduled jobs;
 Nothing is sent while smtp_host, smtp_user and smtp_password are not all set.
 """
 
-import os
 import re
 import smtplib
 import ssl
 from email.message import EmailMessage
 from email.utils import formataddr, parseaddr
+
+from . import config
 
 EMAIL_RE = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
 
@@ -42,13 +43,12 @@ class Mailer:
     def from_settings(cls, get=None) -> "Mailer | None":
         """From a lookup function (e.g. Streamlit secrets) or the environment; None when not configured."""
         def value(name: str) -> str:
-            found = get(name) if get else None
-            return str(found or os.environ.get(name.upper(), "") or "").strip()
+            return config.value(name, get)
 
         host, user, password = value("smtp_host"), value("smtp_user"), value("smtp_password")
         if not (host and user and password):
             return None
-        return cls(host, int(value("smtp_port") or 587), user, password, value("smtp_from"))
+        return cls(host, config.integer("smtp_port", get, 1, 65535), user, password, value("smtp_from"))
 
     def message(self, to: str, subject: str, text: str, html: str = "",
                 attachments: list[tuple[str, bytes, str]] = (), reply_to: str = "") -> EmailMessage:

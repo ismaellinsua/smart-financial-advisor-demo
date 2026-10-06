@@ -1,0 +1,9 @@
+# Lint rules checked in CI (`ruff check`). Kept to what finds real bugs; the exceptions are deliberate:
+# long SQL and Spanish messages read better unwrapped (E501), zip() without strict= is used on lists built
+# together (B905), and `l` is the usual name for a sale line (E741).
+line-length = 120
+target-version = "py312"
+
+[lint]
+select = ["E", "F", "W", "B", "UP"]
+ignore = ["E501", "B905", "E741"]

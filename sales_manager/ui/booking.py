@@ -8,7 +8,7 @@ from urllib.parse import urlencode, urlsplit
 
 import streamlit as st
 
-from core import clock
+from core import clock, logs
 from core.booking_mail import calendar_file, notify_business, send_confirmation, what_text, when_text
 from core.mailer import valid_email
 from core.pricing import format_money
@@ -19,6 +19,7 @@ from ui.styles import page_header
 
 PARAM, CANCEL = "reservar", "cancelar"
 WEEKDAYS = ["lun", "mar", "mié", "jue", "vie", "sáb", "dom"]
+log = logs.get("booking")
 
 
 def wanted() -> bool:
@@ -131,7 +132,8 @@ def _send_emails(store, settings: dict, booking: dict) -> bool:
             emailed = True
         notify_business(sender, booking, settings)
     except Exception as exc:  # noqa: BLE001 - the booking is saved; email is a courtesy
-        store.record_error(exc, "Reserva online")
+        ref = store.record_error(exc, "Reserva online")
+        log.warning("email_not_sent purpose=booking ref=%s error=%s", ref, type(exc).__name__)
     return emailed
 
 

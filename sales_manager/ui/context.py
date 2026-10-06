@@ -1,11 +1,10 @@
 """Shared per-run context for pages."""
 
-import os
 from dataclasses import dataclass, field
 
 import streamlit as st
 
-from core import clock
+from core import clock, config
 from core.db import Store
 from core.presets import CURRENCIES, PRESETS
 from core.pricing import format_money, format_money_short
@@ -14,27 +13,26 @@ from core.pricing import format_money, format_money_short
 PAGES: dict = {}
 
 
+def secrets_lookup(name: str):
+    """Streamlit secrets; core.config falls back to the environment."""
+    return st.secrets.get(name)
+
+
+def setting(name: str) -> str:
+    """A setting listed in core/config.py, from the Secrets or the environment."""
+    return config.value(name, secrets_lookup)
+
+
+
 def database_url() -> str | None:
     """PostgreSQL URL from Streamlit secrets (`database_url`) or the DATABASE_URL environment variable."""
-    try:
-        url = st.secrets.get("database_url")
-    except Exception:  # no secrets file
-        url = None
-    return url or os.environ.get("DATABASE_URL") or None
-
-
-def _secret(name: str) -> str:
-    try:
-        value = st.secrets.get(name)
-    except Exception:  # no secrets file
-        value = None
-    return str(value or os.environ.get(name.upper(), "") or "")
+    return setting("database_url") or None
 
 
 def multi_tenant() -> bool:
     """One app and one database for several businesses (secret `multi_tenant = true`), each chosen in the address
     with ?negocio=code. Off by default: a single-business deployment works as always."""
-    return _secret("multi_tenant").lower() in ("1", "true", "si", "sí", "yes") and bool(database_url())
+    return config.flag("multi_tenant", secrets_lookup) and bool(database_url())
 
 
 @st.cache_resource(show_spinner=False)
@@ -54,7 +52,7 @@ class MissingDatabase(RuntimeError):
 
 
 def require_external_database() -> bool:
-    return os.environ.get("REQUIRE_DATABASE", "").lower() in ("1", "true", "si", "sí", "yes")
+    return config.flag("require_database")  # the server's environment only, never a business's secret
 
 
 @st.cache_resource(show_spinner="Conectando con la base de datos…")
@@ -184,16 +182,11 @@ def stripe_client():
     """The service's Stripe account, or None while billing is off (single business, or no Stripe secrets)."""
     from core.billing import Stripe
 
-    key, price = _secret("stripe_secret_key"), _secret("stripe_price_id")
+    key, price = setting("stripe_secret_key"), setting("stripe_price_id")
     if not (multi_tenant() and key and price):
         return None
     return Stripe(key, price)
 
 
 def trial_days() -> int:
-    from core.billing import TRIAL_DAYS
-
-    try:
-        return max(0, min(365, int(_secret("trial_days") or TRIAL_DAYS)))
-    except ValueError:
-        return TRIAL_DAYS
+    return config.integer("trial_days", secrets_lookup, 0, 365)
