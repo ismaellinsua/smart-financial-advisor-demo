@@ -3,20 +3,14 @@
 Pasos que solo puede dar el dueño del repositorio en GitHub. Hazlos **en este orden**: así nirkana.es no se cae y
 ningún flujo deja de funcionar. Tiempo total: unos 30 minutos.
 
-## 1. Proteger `main` (2 minutos)
+## 1. Proteger `main` (1 minuto)
 
-GitHub → repositorio → **Settings → Rules → Rulesets → New ruleset → New branch ruleset**:
+GitHub → repositorio → **Settings → Rules → Rulesets → New ruleset ▾ → Import a ruleset** → elige
+`ops/github/ruleset-main.json` (descárgalo antes desde GitHub o tu copia local) → **Create**.
 
-- Nombre: `main`. *Enforcement status*: **Active**. *Target branches*: **Include default branch**.
-- Marca **Restrict deletions** y **Block force pushes**.
-- Marca **Require a pull request before merging** (0 aprobaciones si trabajas solo: lo importante es que todo pase
-  por un PR).
-- Marca **Require status checks to pass** → *Add checks* → **tests**. Marca también *Require branches to be up to
-  date before merging*.
-- **Create**.
-
-Desde entonces nada llega a `main` sin pasar los tests, y nadie puede reescribir su historia por accidente. (Para el
-paso 5, si lo haces, desactiva un momento *Block force pushes* y vuelve a activarlo al terminar).
+Aplica a la rama principal: impide borrarla y reescribir su historia (*force push*), obliga a que todo llegue por un
+pull request y exige que pase el check **tests** del CI. Desde entonces nada llega a `main` sin pasar los tests. (Para
+el paso 5, si lo haces, desactiva un momento el ruleset y vuelve a activarlo al terminar).
 
 ## 2. Secretos y dependencias (1 minuto)
 
