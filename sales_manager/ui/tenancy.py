@@ -173,11 +173,14 @@ def operator_panel() -> None:
         overview["pago"] = [billing.STATUS_LABELS["cortesia"] if exempt else billing.STATUS_LABELS.get(status, status)
                             for status, exempt in zip(overview["billing_status"], overview["billing_exempt"])]
         overview["hasta"] = [(end or trial)[:10] for end, trial in zip(overview["period_end"], overview["trial_ends"])]
-        st.dataframe(overview[["code", "name", "estado", "pago", "hasta", "administrador", "users", "sales",
+        overview["condiciones"] = [f"v. {v} ({at[:10]})" if v else "Pendientes"
+                                   for v, at in zip(overview["terms_version"], overview["terms_accepted_at"])]
+        st.dataframe(overview[["code", "name", "estado", "pago", "hasta", "administrador", "condiciones", "users", "sales",
                                "last_sale", "errors", "contact", "created_at"]], hide_index=True, width="stretch",
                      column_config={"code": "Código", "name": "Nombre", "estado": "Estado", "pago": "Suscripción",
                                     "hasta": "Prueba o periodo hasta (UTC)",
-                                    "administrador": "Administrador", "users": "Personas", "sales": "Ventas",
+                                    "administrador": "Administrador", "condiciones": "Condiciones aceptadas",
+                                    "users": "Personas", "sales": "Ventas",
                                     "last_sale": "Última venta", "errors": "Errores 7 días",
                                     "contact": "Contacto", "created_at": "Alta"})
         if stripe_client() is None:

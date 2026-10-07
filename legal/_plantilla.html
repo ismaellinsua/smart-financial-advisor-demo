@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; base-uri 'none'; object-src 'none'; form-action 'none'; upgrade-insecure-requests">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <meta name="robots" content="noindex">
+  <title>{{titulo}} · NirKanA</title>
+  <link rel="canonical" href="{{web}}/{{pagina}}.html">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+  <!-- Generado con python ops/legal.py a partir de legal/{{pagina}}.html: edita la plantilla, no este archivo. -->
+  <header class="top">
+    <div class="wrap bar">
+      <a class="brand" href="/" aria-label="NirKanA, inicio">
+        <span class="logo" aria-hidden="true"><span>N</span></span><span class="name">NirKanA</span>
+      </a>
+      <a class="btn small" href="/#contacto">Pide una demo</a>
+    </div>
+  </header>
+  <main class="legal">
+    <div class="wrap narrow">
+      <h1>{{titulo}}</h1>
+      <p>Última actualización: {{fecha}}.{{version_texto}}</p>
+{{contenido}}
+    </div>
+  </main>
+  <footer class="foot">
+    <div class="wrap bar">
+      <span>© 2026 NirKanA</span>
+      <a href="/">Volver al inicio</a>
+    </div>
+  </footer>
+</body>
+</html>

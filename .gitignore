@@ -23,3 +23,6 @@ backups/
 *.p12
 .env.*
 !.env.example
+
+# Datos del titular para los textos legales (se publican en docs/ con ops/legal.py)
+legal/datos.json

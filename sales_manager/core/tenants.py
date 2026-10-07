@@ -26,7 +26,7 @@ CODE_RE = re.compile(r"[a-z0-9](?:[a-z0-9-]{1,38}[a-z0-9])")
 STATUSES = {"activo": "Activo", "suspendido": "Suspendido"}
 TENANT_FIELDS = ("code, name, schema_name, status, contact, created_at, setup_used_at, billing_status, trial_ends, "
                  "period_end, cancel_at_period_end, stripe_customer, stripe_subscription, billing_exempt, "
-                 "billing_synced_at, billing_event_at")
+                 "billing_synced_at, billing_event_at, terms_version, terms_accepted_at, terms_accepted_by")
 RESERVED = {"operador", "admin", "www", "app", "api", "nirkana"}
 
 DIRECTORY_SQL = f"""
@@ -50,6 +50,9 @@ ALTER TABLE {DIRECTORY_SCHEMA}.tenants ADD COLUMN IF NOT EXISTS stripe_subscript
 ALTER TABLE {DIRECTORY_SCHEMA}.tenants ADD COLUMN IF NOT EXISTS billing_exempt INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE {DIRECTORY_SCHEMA}.tenants ADD COLUMN IF NOT EXISTS billing_synced_at TEXT NOT NULL DEFAULT '';
 ALTER TABLE {DIRECTORY_SCHEMA}.tenants ADD COLUMN IF NOT EXISTS billing_event_at BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE {DIRECTORY_SCHEMA}.tenants ADD COLUMN IF NOT EXISTS terms_version TEXT NOT NULL DEFAULT '';
+ALTER TABLE {DIRECTORY_SCHEMA}.tenants ADD COLUMN IF NOT EXISTS terms_accepted_at TEXT NOT NULL DEFAULT '';
+ALTER TABLE {DIRECTORY_SCHEMA}.tenants ADD COLUMN IF NOT EXISTS terms_accepted_by TEXT NOT NULL DEFAULT '';
 CREATE TABLE IF NOT EXISTS {DIRECTORY_SCHEMA}.stripe_events (
     id TEXT PRIMARY KEY,
     type TEXT NOT NULL,
@@ -204,6 +207,18 @@ class Directory:
                 raise ValueError("Negocio no encontrado.")
             self._log(conn, "codigo_instalacion_nuevo", normalize_code(code))
         return setup
+
+    def accept_terms(self, code: str, version: str, by: str) -> None:
+        """The business's administrator accepted this version of the conditions and the data processing agreement:
+        who, when (UTC) and which version, in the directory and in the operator's log."""
+        when = utc_now().isoformat(timespec="seconds")
+        with self._connect() as conn:
+            updated = conn.execute(f"UPDATE {DIRECTORY_SCHEMA}.tenants SET terms_version = %s, terms_accepted_at = %s, "
+                                   "terms_accepted_by = %s WHERE code = %s",
+                                   (str(version)[:40], when, str(by)[:60], normalize_code(code))).rowcount
+            if not updated:
+                raise ValueError("Negocio no encontrado.")
+            self._log(conn, "condiciones_aceptadas", f"{normalize_code(code)} · versión {version} · {by}")
 
     def set_status(self, code: str, status: str) -> None:
         if status not in STATUSES:

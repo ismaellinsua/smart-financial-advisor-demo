@@ -209,6 +209,36 @@ grupo de conexiones por base de datos (`DB_POOL_SIZE`, 5 por defecto).
 
 Sin `multi_tenant`, la app funciona como siempre: un negocio por app.
 
+## Textos legales (modo multinegocio)
+
+Para vender el servicio hacen falta tres textos, ya redactados en `legal/` como **borrador para que lo revise un
+abogado**, ajustados a lo que la app hace de verdad (prueba gratuita, cobro con Stripe, 7 días de gracia, solo
+consulta sin borrar datos, exportaciones, plazos de borrado, subencargados y medidas de seguridad):
+
+| Texto | Para qué |
+|---|---|
+| `aviso-legal.html` | Datos del titular que exige la LSSI (nombre, NIF, domicilio, email). |
+| `condiciones.html` | Condiciones del servicio que acepta cada negocio. |
+| `encargado.html` | Contrato de encargado del tratamiento (RGPD art. 28): qué datos tratas por cuenta de cada negocio, subencargados, brechas, fin del servicio y medidas de seguridad. |
+
+**Publicarlos:**
+
+1. Copia `legal/datos.example.json` a `legal/datos.json` (no se sube al repositorio) y rellena lo que pone
+   `PENDIENTE`: nombre, NIF, domicilio, fecha y el proveedor de email que uses. Revisa la lista de subencargados:
+   deja solo los que uses de verdad.
+2. `python ops/legal.py --check` dice qué falta; `python ops/legal.py` escribe las páginas en `docs/` y añade los
+   enlaces «Aviso legal» y «Condiciones del servicio» al pie de toda la web. Con un hueco sin rellenar no escribe nada.
+3. Sube los cambios de `docs/` y define `TERMS_URL = https://nirkana.es` en el servidor (Render). Desde entonces, al
+   crear su administrador cada negocio acepta las condiciones y el contrato de encargado, y el panel de operador
+   muestra qué versión aceptó y cuándo.
+
+**Cambiar los textos:** edita `legal/`, sube `TERMS_VERSION` en `sales_manager/core/legal.py` y vuelve a
+publicar. El administrador de cada negocio tendrá que aceptar la nueva versión al entrar (el resto del equipo sigue
+trabajando). Las condiciones prometen avisar con 30 días de antelación de los cambios importantes.
+
+El aviso de privacidad de la web (`docs/privacidad.html`) ya explica también los datos que NirKanA trata de los
+negocios clientes (cuenta, cobro, soporte).
+
 ## Cobrar el servicio con Stripe (modo multinegocio)
 
 Mientras no haya claves de Stripe, nadie paga y todo funciona como siempre. Con ellas:

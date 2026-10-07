@@ -53,6 +53,8 @@ SETTINGS: dict[str, Setting] = {
                                "https://api.stripe.com/v1"),
     "trial_days": Setting("Días de prueba gratis de un negocio nuevo (0-365).", "30"),
     "app_url": Setting("Dirección pública de la app, para volver de Stripe Checkout."),
+    "terms_url": Setting("Web donde están publicadas las condiciones y el contrato de encargado (p. ej. "
+                         "https://nirkana.es). Con ella, cada negocio los acepta antes de usar la app."),
     "webhook_port": Setting("Puerto interno del servicio de webhooks.", "8502"),
     "sessions_port": Setting("Puerto interno del servicio que escribe la cookie de sesión HttpOnly.", "8503"),
     # ---------------------------------------------------------------- ops
