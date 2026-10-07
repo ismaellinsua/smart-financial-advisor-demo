@@ -6,6 +6,8 @@ from html import escape
 import plotly.graph_objects as go
 import streamlit as st
 
+from core.page_scripts import script_tag
+
 
 # Inter served by the app itself (static/fonts, SIL Open Font License): no visitor's address is sent to Google.
 _LATIN = "U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD"
@@ -323,15 +325,4 @@ def alert_card(alert: dict) -> None:
 def installable() -> None:
     """Declare the web app manifest and icons, so phones and computers offer to install NirKanA as an app (its
     own icon and window, no browser bar). Streamlit has no way to add them to the page head, so a script does."""
-    st.html("""<script>
-(() => {
-  if (document.querySelector('link[rel="manifest"]')) return;
-  const add = (tag, attrs) => document.head.appendChild(Object.assign(document.createElement(tag), attrs));
-  add("link", { rel: "manifest", href: "/app/static/manifest.json" });
-  add("link", { rel: "apple-touch-icon", href: "/app/static/apple-touch-icon.png" });
-  add("meta", { name: "theme-color", content: "#3B5BFD" });
-  add("meta", { name: "mobile-web-app-capable", content: "yes" });
-  add("meta", { name: "apple-mobile-web-app-capable", content: "yes" });
-  add("meta", { name: "apple-mobile-web-app-title", content: "NirKanA" });
-})();
-</script>""", unsafe_allow_javascript=True)
+    st.html(script_tag("installable"), unsafe_allow_javascript=True)

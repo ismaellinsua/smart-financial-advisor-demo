@@ -7,25 +7,25 @@ tienda física, restaurante/cafetería, servicios profesionales o e-commerce.
 
 | Panel | Punto de venta |
 |---|---|
-| ![Panel](../docs/screenshots/02-panel.png) | ![Punto de venta](../docs/screenshots/03-punto-de-venta.png) |
+| ![Panel](../capturas/02-panel.png) | ![Punto de venta](../capturas/03-punto-de-venta.png) |
 | **Mesas y comandas** | **Pantalla de cocina** |
-| ![Mesas](../docs/screenshots/23-mesas.png) | ![Cocina](../docs/screenshots/24-cocina.png) |
+| ![Mesas](../capturas/23-mesas.png) | ![Cocina](../capturas/24-cocina.png) |
 | **Cobro de una mesa por productos** | **Promociones y fidelización** |
-| ![Cobro dividido](../docs/screenshots/25-cobro-comanda.png) | ![Promociones](../docs/screenshots/26-promociones.png) |
+| ![Cobro dividido](../capturas/25-cobro-comanda.png) | ![Promociones](../capturas/26-promociones.png) |
 | **Compras a proveedores** | **Gastos y beneficio neto** |
-| ![Compras](../docs/screenshots/27-compras.png) | ![Gastos](../docs/screenshots/28-gastos-y-beneficio.png) |
+| ![Compras](../capturas/27-compras.png) | ![Gastos](../capturas/28-gastos-y-beneficio.png) |
 | **Alertas inteligentes** | **Análisis ABC** |
-| ![Alertas](../docs/screenshots/29-alertas.png) | ![ABC](../docs/screenshots/30-analisis-abc.png) |
+| ![Alertas](../capturas/29-alertas.png) | ![ABC](../capturas/30-analisis-abc.png) |
 | **Precios con margen objetivo** | **Informe semanal** |
-| ![Precios](../docs/screenshots/31-precios.png) | ![Informe semanal](../docs/screenshots/32-informe-semanal.png) |
+| ![Precios](../capturas/31-precios.png) | ![Informe semanal](../capturas/32-informe-semanal.png) |
 | **Historial** | **Agenda** |
-| ![Historial](../docs/screenshots/05-historial.png) | ![Agenda](../docs/screenshots/18-agenda.png) |
+| ![Historial](../capturas/05-historial.png) | ![Agenda](../capturas/18-agenda.png) |
 | **Cierre de caja** | **Equipo y seguridad** |
-| ![Caja](../docs/screenshots/19-cierre-de-caja.png) | ![Equipo](../docs/screenshots/22-equipo-y-seguridad.png) |
+| ![Caja](../capturas/19-cierre-de-caja.png) | ![Equipo](../capturas/22-equipo-y-seguridad.png) |
 
 En el móvil:
 
-<p><img src="../docs/screenshots/13-movil-acceso.png" width="240" alt="Acceso en móvil"> <img src="../docs/screenshots/11-movil-panel.png" width="240" alt="Panel en móvil"> <img src="../docs/screenshots/12-movil-vender.png" width="240" alt="Vender en móvil"></p>
+<p><img src="../capturas/13-movil-acceso.png" width="240" alt="Acceso en móvil"> <img src="../capturas/11-movil-panel.png" width="240" alt="Panel en móvil"> <img src="../capturas/12-movil-vender.png" width="240" alt="Vender en móvil"></p>
 
 ## Funcionalidades
 
@@ -141,7 +141,7 @@ segundos en despertar la primera vez; la app se reconecta sola.
 Para clientes de pago: la app en Frankfurt, junto a la base de Neon (también en Frankfurt), sin que se duerma y con
 cabeceras de seguridad. El `Dockerfile` de la raíz pone [Caddy](https://caddyserver.com) delante de Streamlit, que solo
 escucha dentro del contenedor, y añade HSTS, `X-Frame-Options`/`frame-ancestors` (nadie puede incrustar la app en otra
-web), una política de contenido (CSP) que solo deja cargar y enviar datos a la propia app, `nosniff`, `Referrer-Policy` y `Permissions-Policy`. La app no corre como administrador del sistema. La cookie
+web), una política de contenido (CSP) que solo deja cargar y enviar datos a la propia app y solo ejecuta sus propios scripts (por su huella SHA-256: un script inyectado no se ejecuta), `nosniff`, `Referrer-Policy` y `Permissions-Policy`. La app no corre como administrador del sistema. La cookie
 de sesión la escribe el propio servidor como **HttpOnly** (ningún script de la página puede leerla). **Para clientes
 reales usa solo este contenedor:** en Streamlit Community Cloud no hay Caddy, así que faltan esas cabeceras y la cookie
 de sesión la escribe la página.
@@ -418,6 +418,11 @@ que `/_stcore/health`, que dice «ok» aunque la base de datos esté caída y na
 
 Los cron de GitHub se retrasan a veces y se desactivan tras 60 días sin cambios en el repositorio: por eso el monitor
 externo es el principal. En un repositorio privado, desactiva este flujo (gasta minutos; ver `ops/REPOSITORIO.md`).
+
+**La web (nirkana.es):** el flujo **Web** (`ops/web_check.py`) la comprueba desde fuera cada día y tras cada cambio en
+`docs/`: que el dominio y `www` apunten a GitHub Pages, que el certificado HTTPS sea válido y le queden al menos 14
+días (GitHub lo renueva solo, pero no si el DNS cambia), que `http://` y `www.` lleven a `https://nirkana.es/` y que
+cada página responda. Si algo falla, el flujo sale en rojo y GitHub te avisa por email.
 
 ## Escalar
 

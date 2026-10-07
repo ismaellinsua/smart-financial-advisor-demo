@@ -103,6 +103,62 @@ def test_staff_sells_from_a_phone_and_a_reload_keeps_the_ticket(server, phone):
     phone.get_by_role("button", name="Nueva venta").wait_for(state="visible")
 
 
+
+def _production_policy() -> str:
+    import re
+
+    caddyfile = (Path(__file__).resolve().parents[2] / "ops" / "deploy" / "Caddyfile").read_text()
+    return re.search(r'Content-Security-Policy "([^"]+)"', caddyfile).group(1)
+
+
+def test_the_app_works_under_the_production_security_policy(server):
+    """The Content-Security-Policy of the container allows no inline script but Streamlit's and NirKanA's own (by
+    their hash): with that exact policy, every script of the app still runs and a foreign one does not."""
+    policy = _production_policy()
+    assert "'unsafe-inline'" not in policy.split("script-src", 1)[1].split(";", 1)[0]
+    with playwright.sync_playwright() as p:
+        executable = os.environ.get("E2E_CHROMIUM")
+        browser = p.chromium.launch(**({"executable_path": executable} if executable else {}))
+        context = browser.new_context(viewport=PHONE, is_mobile=True, has_touch=True)
+        page = context.new_page()
+        page.set_default_timeout(20_000)
+        refused = []
+        page.on("console", lambda m: refused.append(m.text) if "Content Security Policy" in m.text else None)
+
+        def with_policy(route):
+            if route.request.resource_type != "document":
+                return route.continue_()
+            response = route.fetch()
+            route.fulfill(response=response, headers={**response.headers, "content-security-policy": policy})
+
+        page.route("**/*", with_policy)
+        _sign_in(page, server)
+        assert any(c["name"].startswith("nk_sesion") for c in context.cookies())  # session_cookie ran
+        assert page.evaluate("!!document.querySelector('link[rel=manifest]') && window.__nkCloseMenu === true")
+        # A script that is not one of the app's is refused, so the policy is really in force.
+        page.evaluate("document.body.appendChild(Object.assign(document.createElement('script'), "
+                      "{textContent: 'window.__foreign = true'}))")
+        assert page.evaluate("window.__foreign") is None
+        refused.clear()
+
+        page.get_by_role("button", name="Añadir", disabled=False).first.click()  # one still in stock
+        page.get_by_role("button", name="Ver ticket y cobrar (1)").click()
+        page.get_by_role("button", name="Cobrar").first.click()
+        page.get_by_text("Venta registrada").wait_for()
+        page.get_by_role("button", name="Nueva venta").wait_for(state="visible")
+        ticket = None
+        for _ in range(40):  # the ticket preview is a frame that loads on its own
+            ticket = next((f for f in page.frames if f.query_selector("#nk-print")), None)
+            if ticket:
+                break
+            page.wait_for_timeout(250)
+        assert ticket is not None
+        ticket.evaluate("window.print = () => { window.__printed = true; }")
+        ticket.click("#nk-print")
+        assert ticket.evaluate("window.__printed") is True  # print_button ran inside the ticket
+        assert not refused, refused
+        browser.close()
+
 @pytest.fixture(scope="module")
 def multi_server(tmp_path_factory):
     """The app in multi-business mode over a fresh database, as the operator would run it."""

@@ -1,0 +1,34 @@
+# Checks the public website from outside every day: DNS pointing to GitHub Pages, a valid HTTPS certificate with time
+# left, http:// and www. redirecting to https://nirkana.es/, and every page of docs/ answering. A red run means the
+# site is broken or about to be (e.g. a certificate GitHub could not renew): GitHub emails the repository owner.
+name: Web
+
+on:
+  schedule:
+    - cron: "37 6 * * *"
+  push:
+    branches: [main]
+    paths: ["docs/**", "ops/web_check.py"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version-file: .python-version
+
+      # Right after a push, GitHub Pages takes a minute or two to publish.
+      - name: Esperar a la publicación
+        if: github.event_name == 'push'
+        run: sleep 180
+
+      - name: Comprobar nirkana.es
+        run: python ops/web_check.py

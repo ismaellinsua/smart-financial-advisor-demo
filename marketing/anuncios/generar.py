@@ -15,7 +15,7 @@ FORMSPREE_ID = "mbgdrbyg"  # el código de tu formulario de Formspree (lo que va
 WEB = "https://nirkana.es/"  # tu web; el aviso de privacidad está en WEB + "privacidad.html"
 
 AQUI = Path(__file__).resolve().parent
-CAPTURAS = AQUI.parents[1] / "docs" / "screenshots"
+CAPTURAS = AQUI.parents[1] / "capturas"
 SALIDA = AQUI / "img"
 
 FORMATOS = {  # nombre: (ancho, alto, uso)

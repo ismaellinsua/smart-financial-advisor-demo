@@ -4,6 +4,7 @@ import re
 from datetime import datetime
 from html import escape
 
+from .page_scripts import script_tag
 from .presets import CURRENCIES
 from .pricing import format_money
 
@@ -55,9 +56,9 @@ def receipt_text(sale: dict, settings: dict) -> str:
 def with_print_button(html: str) -> str:
     """The ticket preview with a button that opens the browser's print dialog (hidden on paper)."""
     button = ("<div class='no-print' style='position:sticky;top:0;z-index:2;background:#f5f7fa;padding:8px;"
-              "text-align:center'><button onclick='window.print()' style='font:600 15px Inter,Arial,sans-serif;"
+              "text-align:center'><button id='nk-print' style='font:600 15px Inter,Arial,sans-serif;"
               "padding:12px 28px;min-height:44px;border:0;border-radius:10px;background:#1F4E79;color:#fff;"
-              "cursor:pointer'>Imprimir ticket</button></div>")
+              "cursor:pointer'>Imprimir ticket</button></div>" + script_tag("print_button"))
     return (html.replace("</style>", "@media print { .no-print { display: none !important; } }</style>", 1)
                 .replace("<body>", "<body>" + button, 1))
 

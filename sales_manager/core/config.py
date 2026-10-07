@@ -76,6 +76,8 @@ SETTINGS: dict[str, Setting] = {
                                 secret=True, used_by="ops"),
     "operator_email": Setting("Email del operador para avisos: errores de la app en el momento, caídas y resúmenes."),
     "uptime_urls": Setting("Direcciones a vigilar, una por línea.", used_by="ops"),
+    "web_domain": Setting("Dominio de la web que comprueba ops/web_check.py (por defecto, el de docs/CNAME).",
+                          used_by="ops"),
     "capturas_solo": Setting("Rehacer solo una parte de las capturas (p. ej. autonomo).", used_by="ops"),
     # ---------------------------------------------------------------- tests
     "test_database_url": Setting("PostgreSQL desechable para las pruebas.", secret=True, used_by="test"),

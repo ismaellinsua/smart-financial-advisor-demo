@@ -21,7 +21,7 @@ from playwright.sync_api import sync_playwright
 from generar import CONTACTO, FORMSPREE_ID, LLAMADA, WEB, WHATSAPP
 
 AQUI = Path(__file__).resolve().parent
-CAPTURAS = AQUI.parents[1] / "docs" / "screenshots"
+CAPTURAS = AQUI.parents[1] / "capturas"
 DIR = AQUI / "3d"
 FPS, DURACION, MOMENTO_FOTO = 30, 12.0, 7.0
 

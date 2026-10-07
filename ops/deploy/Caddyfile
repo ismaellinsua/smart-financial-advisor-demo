@@ -15,8 +15,10 @@
 		# Only the app itself may frame its pages (Streamlit shows tickets in a same-origin frame): no clickjacking.
 		X-Frame-Options "SAMEORIGIN"
 		# Everything the app loads comes from itself (fonts and icons included): nothing can be fetched from or sent to
-		# another site. Streamlit needs inline scripts and styles, so a stricter script-src is not possible.
-		Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; frame-src 'self' data: blob:; worker-src 'self' blob:; manifest-src 'self'; frame-ancestors 'self'; base-uri 'self'; object-src 'none'; form-action 'self'"
+		# another site. Inline scripts run only if they are exactly Streamlit's own or NirKanA's (core/page_scripts.py),
+		# by their SHA-256: regenerate this script-src with `python -m core.page_scripts` (a test checks it). Inline
+		# styles stay allowed: Streamlit's components style themselves that way.
+		Content-Security-Policy "default-src 'self'; script-src 'self' 'sha256-THxz9J9+wf7rhwR2YkXJoSZ13UCmYyC+3lNDv2+8ugA=' 'sha256-s4I/ly6zj9O8+choLCFeGO90b2HpC7Il4mHMCUDWLFw=' 'sha256-sUmMISEb2bgdHu1I3D+98UWFNkm/34tulx//2d3qqqY=' 'sha256-5pHO7kaEvQgyljU73mXWjlsZRdjhP/NQN3FBODvW4CI=' 'sha256-xleTBcYjQuw1Roprsa71C1rkya312+Iag4FqbcY7umQ=' 'sha256-mD+Aoz1p7axXPYqgM3rUrfuNCDcfmuzcAyfW96FzJhw='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; frame-src 'self' data: blob:; worker-src 'self' blob:; manifest-src 'self'; frame-ancestors 'self'; base-uri 'self'; object-src 'none'; form-action 'self'"
 		Referrer-Policy "strict-origin-when-cross-origin"
 		Permissions-Policy "camera=(self), microphone=(), geolocation=(), payment=(), usb=()"
 		Cross-Origin-Opener-Policy "same-origin"
