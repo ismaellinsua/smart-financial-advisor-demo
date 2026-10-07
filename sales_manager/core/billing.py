@@ -156,7 +156,9 @@ class Stripe:
     def live(self) -> bool:
         return "_live_" in self.secret_key
 
-    def _call(self, method: str, path: str, params: dict | None = None, idempotency_key: str | None = None) -> dict:
+    def _raw(self, method: str, path: str, params: dict | None = None,
+             idempotency_key: str | None = None) -> tuple[int, dict]:
+        """Status and body of one call, without judging them. Raises BillingError only when Stripe can't be reached."""
         headers = {"Authorization": f"Bearer {self.secret_key}", "Stripe-Version": "2024-06-20"}
         url, data = f"{self.api}{path}", None
         encoded = urllib.parse.urlencode(_flatten(params or {}))
@@ -176,6 +178,10 @@ class Stripe:
             payload = json.loads(body or b"{}")
         except ValueError:
             payload = {}
+        return status, payload if isinstance(payload, dict) else {}
+
+    def _call(self, method: str, path: str, params: dict | None = None, idempotency_key: str | None = None) -> dict:
+        status, payload = self._raw(method, path, params, idempotency_key)
         if status >= 400:
             # Stripe's own message can name our price, account or parameters: it goes to the log, not to the business.
             error = payload.get("error") or {}

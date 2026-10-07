@@ -287,6 +287,12 @@ clics repetidos durante 15 minutos reciben la misma página de pago), así que n
 suscripciones cobrando, el registro del operador lo avisa (`suscripcion_duplicada`) para que canceles y reembolses
 una en Stripe. Cuando Stripe deja de cobrar por impago, los días de gracia se cuentan desde que terminó la
 suscripción, no desde el final del mes que no se pagó.
+**Comprobarlo:** en el panel de operador, **Configuración de Stripe → Comprobar ahora** revisa la clave (modo y si es
+restringida), el precio (que exista, sea mensual, en euros y diga si lleva IVA), los permisos de la clave (también la
+escritura en *Customers*, sin la que «Suscribirme» falla), el webhook y sus eventos, el portal de clientes, los
+códigos promocionales que regalan el servicio y que el servidor tenga `STRIPE_WEBHOOK_SECRET` y `STRIPE_SECRET_KEY`
+como variables de entorno. Solo lee: no crea nada en Stripe. Si algo sale en rojo o amarillo, dice qué cambiar.
+
 Cuando todo funcione en modo de prueba, repite los pasos 1-4 en **modo real** y cambia las claves.
 
 ## Copias de seguridad automáticas
