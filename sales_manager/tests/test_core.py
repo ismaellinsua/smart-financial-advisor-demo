@@ -1214,7 +1214,7 @@ def test_tickets_print_on_thermal_rolls_and_can_be_sent(store):
     store.save_settings({"receipt_paper": "58"})
     assert "size: 58mm auto" in receipt_html(sale, store.settings())
     printable = with_print_button(roll)
-    assert "window.print()" in printable and ".no-print { display: none !important; }" in printable
+    assert "window.print()" in printable and "onclick" not in printable and ".no-print { display: none !important; }" in printable
     text = receipt_text(sale, store.settings())
     assert sale["number"] in text and "Total:" in text and "<" not in text
     assert whatsapp_number("612 345 678") == "34612345678"

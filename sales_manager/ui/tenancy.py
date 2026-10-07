@@ -12,6 +12,7 @@ import pandas as pd
 import streamlit as st
 
 from core import billing
+from core.page_scripts import script_tag
 from core.security import new_totp_secret, totp_step, totp_uri
 from core.tenants import BILLING_ALERTS, CODE_RE, STATUSES, normalize_code
 from ui.auth import client_blocked_minutes, client_failed, client_key, client_succeeded
@@ -101,10 +102,7 @@ def _remembered() -> str:
 
 def _remember(code: str) -> None:
     """Only the business code (it is in the address anyway), for a year."""
-    st.html(f"""<script>
-document.cookie = "{REMEMBER_COOKIE}={code}; Path=/; Max-Age=31536000; SameSite=Lax"
-  + (location.protocol === "https:" ? "; Secure" : "");
-</script>""", unsafe_allow_javascript=True)
+    st.html(script_tag("remember_business", name=REMEMBER_COOKIE, code=code), unsafe_allow_javascript=True)
 
 
 def _choose_business(error: str = "") -> None:

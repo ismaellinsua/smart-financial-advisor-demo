@@ -19,10 +19,9 @@ if git rev-parse --verify --quiet origin/main >/dev/null; then
 else
   git checkout --quiet -B main               # first time: an empty repository
 fi
-# Everything from docs/ except what only the app's README uses (screenshots in PNG); what was removed from docs/ goes.
+# Everything from docs/ (the PNG screenshots live outside it, in capturas/); what was removed from docs/ goes.
 find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
 cp -R "$ROOT/docs/." ./
-rm -rf screenshots
 test -f CNAME && test -f index.html || { echo "ERROR: docs/ no tiene index.html y CNAME"; exit 1; }
 cat > README.md <<'README'
 # nirkana.es

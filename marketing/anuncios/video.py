@@ -153,7 +153,7 @@ if (!navigator.webdriver) {
 def captura(nombre, recorte, max_w, max_h):
     x, y, w, h = recorte
     escala = min(max_w / w, max_h / h)
-    src = f"../../../docs/screenshots/{nombre}"
+    src = f"../../../capturas/{nombre}"
     return (f'<div class="recorte" style="width:{round(w * escala)}px;height:{round(h * escala)}px">'
             f'<img src="{src}" style="width:{round(1440 * escala)}px;left:{round(-x * escala)}px;top:{round(-y * escala)}px" alt=""></div>')
 

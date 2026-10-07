@@ -10,6 +10,7 @@ import streamlit as st
 from core import logs, throttle
 from core.db import AuthError, Store
 from core.legal import DOCUMENTS, TERMS_VERSION, document_url
+from core.page_scripts import script_tag
 from core.security import check_secret_strength
 from ui.context import secrets_lookup, setting
 from ui.styles import page_header
@@ -107,24 +108,8 @@ def _write_cookie() -> None:
     if token is None and not clear:
         return
     value, age = (token, COOKIE_DAYS * 86400) if token else ("", 0)
-    # Inside the container the server writes it (ops/deploy/sessions.py): HttpOnly, so no script on the page can
-    # read it. Elsewhere (Streamlit Cloud, local runs) that service does not exist and the page writes it itself.
-    # Over HTTPS the name carries the __Host- prefix: the browser then refuses it unless it is Secure, for this
-    # exact host and path /, so no other subdomain or plain-HTTP page can plant or overwrite it.
-    st.html(f"""<script>
-(() => {{
-  const name = "{_cookie_name()}", secure = location.protocol === "https:";
-  const byPage = () => {{
-    document.cookie = (secure ? "__Host-" : "") + name + "={value}; Path=/; Max-Age={age}; SameSite=Strict"
-      + (secure ? "; Secure" : "");
-    if (secure) document.cookie = name + "=; Path=/; Max-Age=0; SameSite=Strict";  // the old, unprefixed one
-  }};
-  if (!secure) return byPage();
-  fetch("/_nk/sesion", {{method: "POST", credentials: "same-origin", headers: {{"Content-Type": "application/json"}},
-                        body: JSON.stringify({{name: name, token: "{value}"}})}})
-    .then((r) => {{ if (r.status !== 204) byPage(); }}).catch(byPage);
-}})();
-</script>""", unsafe_allow_javascript=True)
+    # HttpOnly from the server when it can, from the page otherwise: core/page_scripts.py, «session_cookie».
+    st.html(script_tag("session_cookie", name=_cookie_name(), value=value, age=age), unsafe_allow_javascript=True)
 
 
 def _remember(store: Store, user: dict) -> None:

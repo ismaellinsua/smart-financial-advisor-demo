@@ -10,6 +10,7 @@ from pathlib import Path
 
 import streamlit as st
 
+from core.page_scripts import script_tag
 from core.presets import PRESETS
 from core.security import ROLES
 from ui import (booking, pages, pages_billing, pages_intel, pages_management, pages_promos, pages_tables, pages_team,
@@ -142,19 +143,7 @@ if c.can_change("admin") and c.store.can_replace_data() and st.sidebar.button(
 nav = st.navigation(routes.with_fallbacks(sections, PAGES, routes.requested_path(),
                                           notice=billing_access.message if readonly else ""), expanded=True)
 # On phones the menu covers the screen: close it as soon as a page is chosen (Streamlit leaves it open).
-st.html("""<script>
-(() => {
-  if (window.__nkCloseMenu) return;
-  window.__nkCloseMenu = true;
-  document.addEventListener("click", (event) => {
-    if (window.innerWidth > 768 || !event.target.closest('[data-testid="stSidebarNav"] a')) return;
-    setTimeout(() => {
-      const close = document.querySelector('[data-testid="stSidebarCollapseButton"] button');
-      if (close) close.click();
-    }, 150);
-  }, true);
-})();
-</script>""", unsafe_allow_javascript=True)
+st.html(script_tag("close_menu"), unsafe_allow_javascript=True)
 if c.can("encargado") and not c.can("admin") and st.sidebar.button(
         "Verificación en dos pasos", icon=":material/verified_user:", width="stretch"):
     pages_team.two_factor_dialog()  # administrators have it in Equipo y seguridad

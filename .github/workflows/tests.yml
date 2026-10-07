@@ -107,6 +107,8 @@ jobs:
           echo "$headers" | grep -i "^Content-Security-Policy" | grep -q "frame-ancestors 'self'" \
             && echo "$headers" | grep -i "^Content-Security-Policy" | grep -q "connect-src 'self'" \
             || { echo "::error::La CSP no limita marcos o conexiones"; exit 1; }
+          ! echo "$headers" | grep -i "^Content-Security-Policy" | grep -oi "script-src[^;]*" | grep -q "unsafe-inline" \
+            || { echo "::error::La CSP permite cualquier script en línea"; exit 1; }
           ! echo "$headers" | grep -qi "^Server:" || { echo "::error::La cabecera Server delata el software"; exit 1; }
           test "$(docker exec app id -u)" != "0" || { echo "::error::La app corre como root"; exit 1; }
           # The sign-in cookie is written by the server, HttpOnly; another site cannot plant one.

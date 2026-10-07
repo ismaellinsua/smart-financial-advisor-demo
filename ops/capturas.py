@@ -3,8 +3,9 @@
     python ops/capturas.py postgresql://usuario:clave@localhost:5432/una_base_vacia
 
 The database must be one you can throw away: each business is created in its own schema and dropped at the end.
-Needs Playwright with Chromium (E2E_CHROMIUM may point at an installed browser). Writes docs/screenshots/*.png and
-the web versions in docs/assets/img (full .webp, 1200×750 «-c» preview, phone .webp, panel.webp and movil.webp).
+Needs Playwright with Chromium (E2E_CHROMIUM may point at an installed browser). Writes capturas/*.png for the README
+and the ads (outside docs/, so the web does not publish them) and the web versions in docs/assets/img (full .webp,
+1200×750 «-c» preview, phone .webp, panel.webp and movil.webp).
 """
 
 import os
@@ -23,7 +24,7 @@ sys.path.insert(0, str(ROOT / "sales_manager"))
 from core.db import Store  # noqa: E402
 
 APP = ROOT / "sales_manager" / "app.py"
-OUT = ROOT / "docs" / "screenshots"
+OUT = ROOT / "capturas"
 WEB = ROOT / "docs" / "assets" / "img"
 DESKTOP = {"width": 1440, "height": 900}
 PHONE = {"width": 390, "height": 844}
