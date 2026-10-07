@@ -261,41 +261,72 @@ Cuando todo funcione en modo de prueba, repite los pasos 1-4 en **modo real** y 
 
 ## Copias de seguridad automáticas
 
-Cada noche, GitHub Actions (gratis) hace una copia cifrada de la base de datos de cada negocio, la **restaura en una
-base de pruebas y comprueba** que tiene las mismas ventas, facturas y cierres que producción, y la guarda 30 días.
-Si algo falla, GitHub te avisa por email. Solo lee la base de producción: nunca la modifica.
+Cada noche (02:17 UTC), GitHub Actions hace una copia **cifrada** de cada negocio, la **restaura en una base de
+pruebas y comprueba** que tiene las mismas ventas, facturas y cierres que producción, la guarda 30 días y la anota en
+el **panel de operador** («Última copia verificada hace X h»). Solo lee producción: nunca la modifica.
 
-**Activarlas (una vez):** en GitHub, repositorio → **Settings → Secrets and variables → Actions → New repository
-secret**:
+**Nunca están apagadas sin que lo sepas:**
 
-| Secreto | Qué poner |
-|---|---|
-| `BACKUP_DATABASES` | Una línea por negocio: `nombre=postgresql://…` (la cadena de conexión de Neon). Ej.: `cafe-aurora=postgresql://usuario:clave@ep-xxxx.eu-central-1.aws.neon.tech/neondb?sslmode=require` |
-| `BACKUP_PASSPHRASE` | Una frase larga (32+ caracteres) para cifrar: las copias se guardan como artefactos de GitHub y esa frase es lo único que las protege. **Guárdala en tu gestor de contraseñas: sin ella las copias no se pueden abrir.** |
-| `BACKUP_S3_*` (opcional) | Para guardar además una copia fuera de GitHub (Cloudflare R2, Backblaze B2 o S3): `BACKUP_S3_BUCKET`, `BACKUP_S3_ACCESS_KEY_ID`, `BACKUP_S3_SECRET_ACCESS_KEY`, `BACKUP_S3_ENDPOINT` y `BACKUP_S3_REGION`. |
+- Sin configurar, la ejecución sale en **rojo** y GitHub te avisa por email cada noche. Solo la variable de Actions
+  `BACKUPS_DISABLED = true` las apaga, y eso tiene que ser una decisión consciente (una demo sin datos reales).
+- El panel de operador muestra la última copia verificada en verde, o un aviso en rojo si no hay ninguna o si la
+  última tiene más de 26 horas.
+- Si una noche falla, además del email de GitHub llega otro a `OPERATOR_EMAIL` (con los `SMTP_*` configurados).
 
-Después, en **Actions → Copias de seguridad → Run workflow**, lánzala una vez para comprobar que va.
+### Activarlas (10 minutos, una vez)
 
-**Mejor con un usuario de solo lectura:** ejecuta una vez `ops/deploy/roles.sql` (las instrucciones están en su
-cabecera). Crea el usuario `nirkana_backup`, que puede leer todos los negocios (también los que se den de alta después)
-pero no cambiar nada, y pon su cadena de conexión en `BACKUP_DATABASES` en lugar de la del propietario. El mismo script
-limita lo que puede durar una consulta o una espera de bloqueo del usuario de la app (10 s esperando un bloqueo, 60 s
-por consulta), para que una operación atascada nunca deje la caja esperando.
+1. **Usuario de solo lectura** (recomendado): ejecuta `ops/deploy/roles.sql` como dice su cabecera. Crea
+   `nirkana_backup`, que lee todos los negocios (también los que se den de alta después), no puede cambiar nada y
+   solo puede anotar en el panel que una copia se ha verificado.
+2. **Frase de cifrado:** genera una en tu ordenador y **guárdala en tu gestor de contraseñas** (sin ella las copias no
+   se pueden abrir, ni por ti):
 
-Cada negocio tiene dos archivos cifrados: `…dump.enc` (la base completa, con cuentas y registro de actividad) y
-`…db.enc` (la copia de la app, sin cuentas).
+   ```bash
+   python3 -c "import secrets; print(secrets.token_urlsafe(32))"
+   ```
+3. **Secretos** en GitHub → repositorio → **Settings → Secrets and variables → Actions → New repository secret**:
 
-**Recuperar datos:** descarga el artefacto de la ejecución que quieras (Actions → la ejecución → *Artifacts*) y:
+   | Secreto | Qué poner |
+   |---|---|
+   | `BACKUP_DATABASES` | Una línea por base: `nombre=postgresql://…`. Con el modo multinegocio basta una línea: cada negocio se copia por separado. Ej.: `nube=postgresql://nirkana_backup:clave@ep-xxxx.eu-central-1.aws.neon.tech/neondb?sslmode=require` |
+   | `BACKUP_PASSPHRASE` | La frase del paso 2 (32 caracteres o más). |
+   | `OPERATOR_EMAIL` y `SMTP_*` (opcional) | Para recibir también por email el aviso de una noche fallida. |
+   | `BACKUP_S3_*` (muy recomendable) | Una segunda copia fuera de GitHub, que además dura más de 30 días (Cloudflare R2, Backblaze B2 o S3): `BACKUP_S3_BUCKET`, `BACKUP_S3_ACCESS_KEY_ID`, `BACKUP_S3_SECRET_ACCESS_KEY`, `BACKUP_S3_ENDPOINT` y `BACKUP_S3_REGION`. Pon al *bucket* una regla de borrado a los 90 días o más. |
+4. **Probar:** Actions → **Copias de seguridad** → **Run workflow**. Debe salir en verde y el panel de operador debe
+   decir «Última copia verificada hace menos de una hora». Si algo falta, el primer paso («Comprobar la
+   configuración») dice qué. También puedes comprobarlo desde tu ordenador sin hacer copias:
 
-```bash
-export BACKUP_PASSPHRASE="tu frase"
-python ops/backup.py --decrypt cafe-aurora-20261004-0217.db.enc     # → Configuración → Restaurar, en un negocio sin ventas
-python ops/backup.py --decrypt cafe-aurora-20261004-0217.dump.enc   # todo, en una base nueva:
-pg_restore --no-owner --no-privileges --dbname="postgresql://…/base_nueva" cafe-aurora-20261004-0217.dump
-```
+   ```bash
+   export BACKUP_DATABASES="nube=postgresql://…" BACKUP_PASSPHRASE="tu frase"
+   python ops/backup.py --check
+   ```
 
-Mientras el repositorio sea público, cualquiera con cuenta de GitHub puede descargar los artefactos: están cifrados,
-pero es mejor hacer el repositorio privado.
+**Segunda red, sin hacer nada:** Neon guarda el historial de la base y permite volver a cualquier momento reciente
+(*Restore* / *Branches → New branch* desde una fecha y hora). Comprueba en tu plan cuántas horas o días cubre: sirve
+para un error de hace un rato; las copias nocturnas, para todo lo demás.
+
+### Recuperar datos
+
+Descarga el artefacto de la noche que quieras (Actions → la ejecución → *Artifacts*). Cada negocio tiene dos archivos
+cifrados: `…dump.enc` (completo: cuentas, registro de actividad, todo) y `…db.enc` (la copia de la app, sin cuentas).
+
+- **Un negocio que ha perdido o estropeado datos:** `python ops/backup.py --decrypt …db.enc` y, en la app, carga el
+  archivo en *Configuración → Restaurar* (en un negocio sin ventas).
+- **Desastre (la base entera):** crea una base **vacía** (en Neon, una rama o base nueva) y:
+
+  ```bash
+  export BACKUP_PASSPHRASE="tu frase" RESTORE_TARGET_URL="postgresql://…/base_vacia"
+  python ops/backup.py --restore nube-cafe-aurora-20261004-0217.dump.enc   # uno por negocio, y nube-operador-…
+  ```
+
+  El script se niega a restaurar sobre una base con datos (podrían ser más nuevos que la copia). La contraseña va
+  en una variable, no en la línea de comandos. Comprueba la base restaurada y, si está bien, apunta `DATABASE_URL`
+  a ella en Render.
+
+Mientras el repositorio sea público, cualquiera con cuenta de GitHub puede descargar los artefactos: están cifrados
+(AES-256, clave derivada con 600.000 iteraciones), pero es mejor hacer el repositorio privado. Si lo haces privado,
+ten en cuenta que el plan gratuito de GitHub tiene 500 MB para artefactos: con la copia en R2 o B2 puedes bajar la
+retención de los artefactos.
 
 ## Avisos por email
 
@@ -373,12 +404,12 @@ una app aparece el botón para despertarla, se resuelve pulsándolo.
    contenga una clave) y *Dependabot alerts*. El CI ya revisa todo el historial con gitleaks y las dependencias con
    pip-audit.
 3. **Producción declarada:** variable de Actions `PRODUCTION = true` (Settings → Secrets and variables → Actions →
-   Variables). Desde entonces, si faltan los secretos de copias o de vigilancia, esas ejecuciones salen en **rojo**
-   en vez de «sin configurar».
+   Variables). Desde entonces, si falta el secreto de vigilancia (`UPTIME_URLS`), esa ejecución sale en **rojo**. Las
+   copias de seguridad salen en rojo sin configurar siempre, sin necesidad de esta variable.
 4. **Volver atrás un despliegue:** en Render, *Events* → el despliegue anterior → *Rollback*. Los cambios de base de
    datos solo añaden (tablas, columnas, índices), así que la versión anterior sigue funcionando con la base ya
-   migrada. Si un cambio rompiera datos, se restaura la copia cifrada de la noche (`python ops/backup.py --decrypt` y
-   `pg_restore`, ver «Copias de seguridad automáticas»).
+   migrada. Si un cambio rompiera datos, se restaura la copia cifrada de la noche (`python ops/backup.py --restore`, ver
+   «Copias de seguridad automáticas → Recuperar datos»).
 5. **Autoría de los commits:** en GitHub → Settings → Emails, «Keep my email addresses private» y «Block command line
    pushes that expose my email», para que los commits nuevos usen la dirección `noreply` de GitHub.
 

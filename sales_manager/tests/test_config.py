@@ -20,7 +20,8 @@ def test_every_setting_read_in_the_code_is_listed():
         text = path.read_text()
         read |= {m.lower() for m in re.findall(r"os\.environ(?:\.get)?[\[(]\"([A-Z0-9_]+)\"", text)}
         read |= set(re.findall(r"\b(?:setting|config\.value|config\.flag|config\.integer|value)\(\"([a-z_]+)\"", text))
-    unlisted = read - set(config.SETTINGS) - {"tz", "path", "home"}
+    # The system's own (TZ, PATH, HOME) and GitHub Actions' (GITHUB_RUN_ID…) are not settings of the app.
+    unlisted = {name for name in read - set(config.SETTINGS) - {"tz", "path", "home"} if not name.startswith("github_")}
     assert not unlisted, f"Add these to core/config.py: {sorted(unlisted)}"
 
 

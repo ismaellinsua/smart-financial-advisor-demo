@@ -137,6 +137,7 @@ def operator_panel() -> None:
         return
     directory = get_directory()
     _operator_2fa_notice()
+    _backup_status(directory)
     _billing_alerts(directory)
     if st.button("Salir del panel", icon=":material/logout:"):
         st.session_state.pop("operator_since", None)
@@ -252,6 +253,11 @@ def _operator_login(expected: str) -> None:
             client_failed(key, store=directory)
             _time.sleep(1)
             st.error("Contraseña o código incorrectos." if totp_secret else "Contraseña incorrecta.")
+
+
+def _backup_status(directory) -> None:
+    fine, message = directory.backup_status()
+    (st.success if fine else st.error)(message, icon=":material/backup:" if fine else ":material/warning:")
 
 
 def _billing_alerts(directory) -> None:
