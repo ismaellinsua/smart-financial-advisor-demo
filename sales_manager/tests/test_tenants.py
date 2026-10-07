@@ -1,5 +1,6 @@
 """Several businesses in one database: each in its own schema, with nothing shared between them."""
 
+import os
 import threading
 import uuid
 from urllib.parse import urlsplit, urlunsplit
@@ -115,9 +116,42 @@ def test_scheduled_jobs_walk_every_active_business(directory):
     assert businesses_in(url) == [("cafe-aurora", "n_cafe_aurora")]
     assert businesses_in(PG_URL) == [("", None)]  # a single-business database
     script = Path(__file__).resolve().parents[2] / "ops" / "notify.py"
-    env = {"PATH": "/usr/bin:/bin", "NOTIFY_DATABASES": f"nube={url}"}
+    env = {"PATH": "/usr/bin:/bin", "NOTIFY_DATABASES": f"nube={url}",
+           **{k: v for k, v in os.environ.items() if k.startswith("COVERAGE_")}}  # measured in CI
     dry = subprocess.run([sys.executable, str(script)], capture_output=True, text=True, env=env)
     assert dry.returncode == 0 and "sin configurar" in dry.stdout  # no SMTP: nothing is sent, nothing fails
+
+
+def test_nightly_emails_walk_every_business_and_send_the_operator_the_errors(directory, monkeypatch):
+    import importlib.util
+    from pathlib import Path
+
+    import core.mailer
+
+    directory.create("cafe-aurora", "Café Aurora")
+    directory.create("tienda-sol", "Tienda Sol")
+    store = directory.store("tienda-sol")
+    try:
+        raise KeyError("precio")
+    except KeyError as exc:
+        ref = store.record_error(exc, page="Vender", username="ana")
+    store.close()
+    spec = importlib.util.spec_from_file_location("notify_script", Path(__file__).resolve().parents[2] / "ops" / "notify.py")
+    notify = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(notify)
+    sent = []
+
+    class FakeMailer:
+        def send(self, to, subject, text):
+            sent.append((to, subject, text))
+
+    monkeypatch.setattr(core.mailer.Mailer, "from_settings", classmethod(lambda cls, get=None: FakeMailer()))
+    monkeypatch.setenv("NOTIFY_DATABASES", f"nube={directory._url}")
+    monkeypatch.setenv("OPERATOR_EMAIL", "operador@example.com")
+    assert notify.main() == 0
+    to, subject, text = sent[-1]
+    assert to == "operador@example.com" and "1 negocio" in subject
+    assert f"nube-tienda-sol: 1 error(es). {ref} KeyError en Vender" in text and "cafe-aurora" not in text
 
 
 def test_operator_sign_in_throttle_is_shared_and_hashed(directory):

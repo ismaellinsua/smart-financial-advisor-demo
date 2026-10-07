@@ -83,8 +83,9 @@ jobs:
 
       - name: Tests (SQLite y PostgreSQL)
         working-directory: sales_manager
-        # Fails if coverage of core/ and ui/ drops below 80 % (it was 83 % when the gate was added).
-        run: python -m pytest -q -p no:cacheprovider --cov=core --cov=ui --cov-report=term --cov-fail-under=80
+        # Fails if coverage of core/, ui/ and the scheduled scripts in ops/ (followed into their own processes, see
+        # .coveragerc) drops below 85 %.
+        run: python -m pytest -q -p no:cacheprovider --cov=core --cov=ui --cov=../ops --cov-report=term --cov-fail-under=85
 
       # The image that goes to production: it must build, answer its health check and send the security headers.
       - name: Construir la imagen del contenedor
@@ -95,6 +96,8 @@ jobs:
           docker run -d --name app -p 8080:8080 -e APP_PASSWORD=ci-solo-prueba nirkana:ci
           for i in $(seq 1 60); do curl -sf http://localhost:8080/_stcore/health && break; sleep 1; done
           curl -sf http://localhost:8080/_stcore/health
+          # The external monitor's check: app and database (no database here, so the app alone).
+          test "$(curl -s http://localhost:8080/_nk/salud)" = "ok" || { echo "::error::/_nk/salud no responde ok"; exit 1; }
           headers=$(curl -sI http://localhost:8080/)
           echo "$headers"
           for h in "Strict-Transport-Security" "X-Frame-Options: SAMEORIGIN" "X-Content-Type-Options: nosniff" \

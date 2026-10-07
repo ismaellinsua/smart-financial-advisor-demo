@@ -19,18 +19,24 @@ class Targets:
 
     def __init__(self, backend, tmp_path):
         self.backend, self.tmp_path, self.schemas = backend, Path(tmp_path), []
+        self.roles = {}  # target → the role that may only touch its schema, as in production
 
     def new(self) -> str:
         if self.backend == "sqlite":
             return str(self.tmp_path / f"{uuid.uuid4().hex}.db")
         import psycopg
 
+        from core.engines import create_tenant_role
+
         schema = f"t_{uuid.uuid4().hex[:12]}"
         with psycopg.connect(PG_URL, autocommit=True) as conn:
             conn.execute(f"CREATE SCHEMA {schema}")
+            role = create_tenant_role(conn, schema)
         self.schemas.append(schema)
         sep = "&" if "?" in PG_URL else "?"
-        return f"{PG_URL}{sep}options=-csearch_path%3D{schema}"
+        target = f"{PG_URL}{sep}options=-csearch_path%3D{schema}"
+        self.roles[target] = role
+        return target
 
     def cleanup(self) -> None:
         if self.schemas:
@@ -39,6 +45,9 @@ class Targets:
             with psycopg.connect(PG_URL, autocommit=True) as conn:
                 for schema in self.schemas:
                     conn.execute(f"DROP SCHEMA {schema} CASCADE")
+                for role in self.roles.values():
+                    conn.execute(f'DROP OWNED BY "{role}"')
+                    conn.execute(f'DROP ROLE IF EXISTS "{role}"')
 
 
 @pytest.fixture(params=BACKENDS)
@@ -46,8 +55,11 @@ def make_store(request, tmp_path):
     targets = Targets(request.param, tmp_path)
     stores = []
 
-    def factory(target=None):
-        s = Store(target or targets.new())
+    def factory(target=None, owner=False):
+        """`owner`: as the schema's owner, for tests that rebuild an old database by hand (DDL)."""
+        target = target or targets.new()
+        role = None if owner else targets.roles.get(target)
+        s = Store(target, role=role)  # every other PostgreSQL test runs as a business's own role
         stores.append(s)
         return s
 

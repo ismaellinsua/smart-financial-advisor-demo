@@ -16,7 +16,7 @@ from . import clock, logs
 from .billing import (LIVE, PAID, TRIAL_DAYS, Access, BillingError, access, best_subscription, parse_when,
                       subscription_fields, utc_now)
 from .db import Store
-from .engines import secure_url, acquire_pool, release_pool
+from .engines import acquire_pool, create_tenant_role, release_pool, secure_url
 from .throttle import after_failure, blocked_minutes, key_hash
 from .security import hash_secret, is_safe_identifier, verify_secret
 
@@ -26,7 +26,7 @@ CODE_RE = re.compile(r"[a-z0-9](?:[a-z0-9-]{1,38}[a-z0-9])")
 STATUSES = {"activo": "Activo", "suspendido": "Suspendido"}
 TENANT_FIELDS = ("code, name, schema_name, status, contact, created_at, setup_used_at, billing_status, trial_ends, "
                  "period_end, cancel_at_period_end, stripe_customer, stripe_subscription, billing_exempt, "
-                 "billing_synced_at, billing_event_at, terms_version, terms_accepted_at, terms_accepted_by")
+                 "billing_synced_at, billing_event_at, terms_version, terms_accepted_at, terms_accepted_by, db_role")
 RESERVED = {"operador", "admin", "www", "app", "api", "nirkana"}
 
 DIRECTORY_SQL = f"""
@@ -53,6 +53,7 @@ ALTER TABLE {DIRECTORY_SCHEMA}.tenants ADD COLUMN IF NOT EXISTS billing_event_at
 ALTER TABLE {DIRECTORY_SCHEMA}.tenants ADD COLUMN IF NOT EXISTS terms_version TEXT NOT NULL DEFAULT '';
 ALTER TABLE {DIRECTORY_SCHEMA}.tenants ADD COLUMN IF NOT EXISTS terms_accepted_at TEXT NOT NULL DEFAULT '';
 ALTER TABLE {DIRECTORY_SCHEMA}.tenants ADD COLUMN IF NOT EXISTS terms_accepted_by TEXT NOT NULL DEFAULT '';
+ALTER TABLE {DIRECTORY_SCHEMA}.tenants ADD COLUMN IF NOT EXISTS db_role TEXT NOT NULL DEFAULT '';
 CREATE TABLE IF NOT EXISTS {DIRECTORY_SCHEMA}.stripe_events (
     id TEXT PRIMARY KEY,
     type TEXT NOT NULL,
@@ -81,7 +82,8 @@ CREATE TABLE IF NOT EXISTS {DIRECTORY_SCHEMA}.backup_runs (
     copies INTEGER NOT NULL,
     size_bytes BIGINT NOT NULL DEFAULT 0,
     detail TEXT NOT NULL DEFAULT ''
-)
+);
+ALTER TABLE {DIRECTORY_SCHEMA}.backup_runs ADD COLUMN IF NOT EXISTS offsite INTEGER NOT NULL DEFAULT 0
 """
 # The backups' read-only role (ops/deploy/roles.sql) may add a line here after a verified copy, and nothing else.
 BACKUP_ROLE = "nirkana_backup"
@@ -139,6 +141,38 @@ class Directory:
             # Stripe stops retrying an event after three days: ids older than that are never needed again.
             conn.execute(f"DELETE FROM {DIRECTORY_SCHEMA}.stripe_events WHERE received_at < %s",
                          ((utc_now() - timedelta(days=EVENTS_KEPT_DAYS)).isoformat(timespec="seconds"),))
+        self._give_roles()
+
+    def _role_for(self, schema: str) -> str:
+        """A database role that can only touch `schema` (core/engines.create_tenant_role), or "" when the database
+        user may not create roles: the business then works as before, isolated by its schema alone."""
+        import psycopg
+
+        try:
+            with self._connect() as conn:
+                return create_tenant_role(conn, schema)
+        except psycopg.errors.InsufficientPrivilege:
+            log.warning("tenant_role_unavailable schema=%s reason=cannot_create_roles", schema)
+            return ""
+
+    def _give_roles(self) -> None:
+        """Businesses created before roles existed get theirs (stops at the first refusal: it would repeat)."""
+        with self._connect() as conn:
+            pending = conn.execute(f"SELECT code, schema_name FROM {DIRECTORY_SCHEMA}.tenants WHERE db_role = '' "
+                                   "ORDER BY code").fetchall()
+        for row in pending:
+            role = self._role_for(row["schema_name"])
+            if not role:
+                return
+            with self._connect() as conn:
+                conn.execute(f"UPDATE {DIRECTORY_SCHEMA}.tenants SET db_role = %s WHERE code = %s", (role, row["code"]))
+
+    def role_isolation(self) -> tuple[int, int]:
+        """(businesses with their own database role, businesses without), for the operator panel."""
+        with self._connect() as conn:
+            row = conn.execute(f"SELECT COUNT(*) FILTER (WHERE db_role <> '') AS yes, "
+                               f"COUNT(*) FILTER (WHERE db_role = '') AS no FROM {DIRECTORY_SCHEMA}.tenants").fetchone()
+        return int(row["yes"]), int(row["no"])
 
     def _log(self, conn, action: str, detail: str = "") -> None:
         conn.execute(f"INSERT INTO {DIRECTORY_SCHEMA}.operator_log(happened_at, action, detail) VALUES (%s, %s, %s)",
@@ -169,6 +203,7 @@ class Directory:
         setup = secrets.token_hex(4).upper()
         with self._connect() as conn:
             conn.execute(f'CREATE SCHEMA IF NOT EXISTS "{schema}"')
+        role = self._role_for(schema)  # before the tables, so they are granted to it as they are created
         store = Store(self._url, schema=schema)  # creates every table of a business in its schema
         try:
             store.save_settings({"business_name": name})
@@ -177,9 +212,9 @@ class Directory:
         with self._connect() as conn:
             trial_ends = (utc_now() + timedelta(days=int(trial_days))).isoformat(timespec="seconds")
             conn.execute(f"INSERT INTO {DIRECTORY_SCHEMA}.tenants(code, name, schema_name, contact, setup_hash, "
-                         "created_at, trial_ends) VALUES (%s, %s, %s, %s, %s, %s, %s)",
+                         "created_at, trial_ends, db_role) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
                          (code, name, schema, str(contact or "")[:200], hash_secret(setup),
-                          clock.now().isoformat(timespec="seconds"), trial_ends))
+                          clock.now().isoformat(timespec="seconds"), trial_ends, role))
             self._log(conn, "negocio_creado", f"{code} · {name}")
         return setup
 
@@ -443,24 +478,28 @@ class Directory:
     def last_backup(self) -> dict | None:
         """The latest copy that was taken, restored in a scratch database and checked (ops/backup.py --record)."""
         with self._connect() as conn:
-            return conn.execute(f"SELECT finished_at, copies, size_bytes, detail FROM {DIRECTORY_SCHEMA}.backup_runs "
+            return conn.execute(f"SELECT finished_at, copies, size_bytes, detail, offsite FROM {DIRECTORY_SCHEMA}.backup_runs "
                                 "ORDER BY id DESC LIMIT 1").fetchone()
 
-    def backup_status(self, now: datetime | None = None) -> tuple[bool, str]:
-        """(fine, message) for the operator panel: a missed night is as visible as a failed one."""
+    def backup_status(self, now: datetime | None = None) -> tuple[str, str]:
+        """(level, message) for the operator panel: «falta» when there is no recent verified copy (a missed night is as
+        visible as a failed one), «aviso» when the only copy is GitHub's (30 days, one provider), else «ok»."""
         now, last = now or utc_now(), self.last_backup()
         if last is None:
-            return False, ("No hay ninguna copia de seguridad verificada. Configura las copias automáticas (README, "
-                           "«Copias de seguridad automáticas»): si se pierde la base de datos, se pierde todo.")
+            return "falta", ("No hay ninguna copia de seguridad verificada. Configura las copias automáticas (README, "
+                             "«Copias de seguridad automáticas»): si se pierde la base de datos, se pierde todo.")
         when = parse_when(last["finished_at"])
         hours = int((now - when).total_seconds() // 3600) if when else 9999
         size = f"{last['size_bytes'] / 1_048_576:.1f} MB"
         if when is None or now - when > BACKUP_MAX_AGE:
-            return False, (f"La última copia verificada es de hace {hours} h ({last['finished_at'][:16]} UTC): falta "
-                           "al menos una noche. Revisa «Actions → Copias de seguridad» en GitHub.")
+            return "falta", (f"La última copia verificada es de hace {hours} h ({last['finished_at'][:16]} UTC): falta "
+                             "al menos una noche. Revisa «Actions → Copias de seguridad» en GitHub.")
         ago = "hace menos de una hora" if hours < 1 else f"hace {hours} h"
-        return True, (f"Última copia verificada {ago}: {last['copies']} copias cifradas ({size}), "
-                      "restauradas y comprobadas.")
+        message = f"Última copia verificada {ago}: {last['copies']} copias cifradas ({size}), restauradas y comprobadas."
+        if not last.get("offsite"):
+            return "aviso", (message + " Solo se guardan en GitHub, 30 días: configura además la copia externa "
+                             "(BACKUP_S3_*, en R2 o B2) para tenerlas en otro proveedor y más tiempo.")
+        return "ok", message + " También hay copia externa."
 
     def billing_alerts(self, days: int = 30) -> list[dict]:
         """Money matters the operator must act on in Stripe (a business paying twice, refunds, disputes), once each
@@ -552,7 +591,7 @@ class Directory:
         tenant = self.get(code)
         if tenant is None:
             raise ValueError("Negocio no encontrado.")
-        return Store(self._url, schema=tenant["schema_name"])
+        return Store(self._url, schema=tenant["schema_name"], role=tenant["db_role"] or None)
 
 
 
@@ -570,14 +609,53 @@ def businesses_in(url: str) -> list[tuple[str, str | None]]:
     return [(r["code"], r["schema_name"]) for r in rows]
 
 
-def migrate_all(url: str) -> list[tuple[str, int]]:
+def _outdated(url: str, units: list[tuple[str, str | None]]) -> set:
+    """Schemas (None for a single-business database) whose tables are not at this version of the code, found with one
+    query for all of them instead of opening every business."""
+    import psycopg
+    from psycopg.rows import dict_row
+
+    from .db import SCHEMA_FINGERPRINT
+    from .schema import VERSIONED_MIGRATIONS
+
+    schemas = [schema or "public" for _, schema in units]
+    with psycopg.connect(secure_url(url), row_factory=dict_row, connect_timeout=30) as conn:
+        ready = {r["schema"] for r in conn.execute(
+            "SELECT table_schema AS schema FROM information_schema.tables WHERE table_schema = ANY(%s) "
+            "AND table_name IN ('schema_state', 'schema_migrations') GROUP BY table_schema HAVING COUNT(*) = 2",
+            (schemas,)).fetchall()}
+        parts = [f'SELECT %s AS schema, (SELECT value FROM "{s}".schema_state WHERE key = \'fingerprint\') AS f, '
+                 f'(SELECT MAX(version) FROM "{s}".schema_migrations) AS v'
+                 for s in schemas if s in ready and is_safe_identifier(s)]
+        current = set()
+        if parts:
+            params = [s for s in schemas if s in ready and is_safe_identifier(s)]
+            for row in conn.execute(" UNION ALL ".join(parts), params).fetchall():
+                if row["f"] == SCHEMA_FINGERPRINT and row["v"] == VERSIONED_MIGRATIONS[-1][0]:
+                    current.add(row["schema"])
+    return {schema for _, schema in units if (schema or "public") not in current}
+
+
+def migrate_all(url: str, workers: int = 4) -> list[tuple[str, int]]:
     """Bring every business on a database up to this version's schema, before the app serves anyone: a change
-    then fails at deploy time, in the log, instead of on some business's first visit. Returns (code, version)."""
-    done = []
-    for code, schema in businesses_in(url):
-        store = Store(url, schema=schema)  # sets up or migrates the schema; a no-op when it is current
+    then fails at deploy time, in the log, instead of on some business's first visit. Returns (code, version).
+    Only businesses that are behind are opened, a few at a time: a deploy without schema changes costs one query."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    from .schema import VERSIONED_MIGRATIONS
+
+    units = businesses_in(url)
+    behind = _outdated(url, units)
+
+    def migrate(unit):
+        code, schema = unit
+        if schema not in behind:
+            return code, VERSIONED_MIGRATIONS[-1][0]
+        store = Store(url, schema=schema)  # sets up or migrates the schema
         try:
-            done.append((code, store.schema_version()))
+            return code, store.schema_version()
         finally:
             store.close()
-    return done
+
+    with ThreadPoolExecutor(max_workers=max(1, workers)) as pool:
+        return list(pool.map(migrate, units))

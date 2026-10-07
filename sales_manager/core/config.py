@@ -27,9 +27,13 @@ SETTINGS: dict[str, Setting] = {
                             secret=True),
     "require_database": Setting("1 en servidores cuyo disco se borra al desplegar: sin database_url no arrancan."),
     "db_pool_size": Setting("Conexiones por base de datos que mantiene cada servidor (1-50).", "5"),
+    "tenant_cache_size": Setting("Negocios que cada servidor mantiene abiertos a la vez (10-100000); los que llevan más "
+                                 "tiempo sin usarse se cierran.", "1000"),
     "trusted_proxies": Setting("Redes de proxies propios con IP pública (separadas por comas), además de las privadas, "
                                "para saber la IP real de cada visitante."),
     "log_level": Setting("Detalle del registro del servidor: DEBUG, INFO, WARNING o ERROR.", "INFO"),
+    "log_format": Setting("Formato del registro del servidor: «texto» (para leerlo) o «json» (una línea JSON por "
+                          "evento, para enviarlo a un servicio de logs como Better Stack o Grafana).", "texto"),
     # ---------------------------------------------------------------- access
     "app_password": Setting("Prueba de propiedad al crear el primer administrador en una app publicada.", secret=True),
     "multi_tenant": Setting("true para servir varios negocios desde una app y una base de datos."),
@@ -57,17 +61,20 @@ SETTINGS: dict[str, Setting] = {
                          "https://nirkana.es). Con ella, cada negocio los acepta antes de usar la app."),
     "webhook_port": Setting("Puerto interno del servicio de webhooks.", "8502"),
     "sessions_port": Setting("Puerto interno del servicio que escribe la cookie de sesión HttpOnly.", "8503"),
+    "streamlit_port": Setting("Puerto interno de Streamlit en el contenedor (lo comprueba /_nk/salud).", "8501"),
     # ---------------------------------------------------------------- ops
     "backup_databases": Setting("Bases de datos a copiar, una por línea: nombre=postgresql://…", secret=True,
                                 used_by="ops"),
     "backup_passphrase": Setting("Frase con la que se cifran las copias de seguridad.", secret=True, used_by="ops"),
+    "backup_s3_bucket": Setting("Bucket de la copia externa (Cloudflare R2, Backblaze B2 o S3); con él, el panel de "
+                                "operador sabe que hay copia fuera de GitHub.", used_by="ops"),
     "restore_url": Setting("PostgreSQL de pruebas donde ensayar la restauración de una copia.", secret=True,
                            used_by="ops"),
     "restore_target_url": Setting("Base de datos vacía donde restaurar una copia completa (ops/backup.py --restore).",
                                   secret=True, used_by="ops"),
     "notify_databases": Setting("Bases de datos a las que enviar avisos (por defecto, las de las copias).",
                                 secret=True, used_by="ops"),
-    "operator_email": Setting("Email del operador para avisos de caídas y resúmenes.", used_by="ops"),
+    "operator_email": Setting("Email del operador para avisos: errores de la app en el momento, caídas y resúmenes."),
     "uptime_urls": Setting("Direcciones a vigilar, una por línea.", used_by="ops"),
     "capturas_solo": Setting("Rehacer solo una parte de las capturas (p. ej. autonomo).", used_by="ops"),
     # ---------------------------------------------------------------- tests

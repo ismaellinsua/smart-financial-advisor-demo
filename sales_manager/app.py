@@ -193,5 +193,15 @@ except Exception as exc:  # noqa: BLE001 - st.rerun/st.stop are BaseException an
         ref = "sin registrar"
     # The full detail stays in the server log («Manage app → Logs»), under the reference the person sees.
     log.exception("page_error ref=%s page=%s", ref, nav.title)
+    try:  # the operator hears about it now, by email (kind and place only, at most once an hour per error)
+        from core.alerts import error_happened
+        from core.store_errors import where_in_app
+        from ui.auth import mailer
+        from ui.context import setting, tenant_code
+
+        error_happened(mailer(), setting("operator_email"), tenant_code(), ref, type(exc).__name__,
+                       where_in_app(exc), nav.title)
+    except Exception:  # noqa: BLE001 - an alert must never hide the error from the person
+        log.exception("alert_failed ref=%s", ref)
     st.error(f"Algo ha fallado en esta pantalla. Queda registrado con la referencia **{ref}**: si se repite, "
              "escríbenos a nirkana.oficial@gmail.com con ella. Tus datos no se han perdido.", icon=":material/error:")

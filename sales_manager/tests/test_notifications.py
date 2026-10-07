@@ -1,5 +1,6 @@
 """Scheduled emails: only what each business asked for, once, and never in demonstration mode."""
 
+import os
 from datetime import datetime
 
 import pytest
@@ -94,7 +95,8 @@ def test_uptime_check_reports_an_app_that_does_not_answer(tmp_path):
     threading.Thread(target=server.serve_forever, daemon=True).start()
     up = f"http://127.0.0.1:{server.server_port}"
     script = Path(__file__).resolve().parents[2] / "ops" / "uptime.py"
-    env = {"PATH": "/usr/bin:/bin", "UPTIME_URLS": up}
+    env = {"PATH": "/usr/bin:/bin", "UPTIME_URLS": up,
+           **{k: v for k, v in os.environ.items() if k.startswith("COVERAGE_")}}  # measured in CI
     result = subprocess.run([sys.executable, str(script)], capture_output=True, text=True, env=env)
     assert result.returncode == 0 and "OK" in result.stdout
     env["UPTIME_URLS"] = f"{up}\nhttp://127.0.0.1:9"

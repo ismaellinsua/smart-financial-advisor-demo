@@ -1,0 +1,7 @@
+# Coverage for the CI gate (pytest --cov). The scripts in ops/ are run by the tests as separate processes (as the
+# scheduled jobs run them), so coverage follows them into those processes.
+[run]
+patch = subprocess
+omit =
+    # Screenshot generator for the website, run by hand.
+    */ops/capturas.py
