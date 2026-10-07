@@ -43,3 +43,8 @@ services:
         sync: false
       - key: APP_URL
         sync: false
+      # Where the legal texts are published (each business accepts them) and where error alerts go.
+      - key: TERMS_URL
+        sync: false
+      - key: OPERATOR_EMAIL
+        sync: false

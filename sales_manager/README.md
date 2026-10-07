@@ -391,6 +391,19 @@ Con el correo configurado, la pantalla de acceso ofrece al administrador recibir
 email del negocio para cambiar su contraseña: caduca en 15 minutos, sirve una vez, admite 5 intentos y como mucho se
 piden 3 por hora. La respuesta es la misma exista o no el usuario.
 
+## Salir a producción en 4 pasos
+
+1. **Secretos:** `python ops/preparar_produccion.py` genera en tu ordenador todo lo que hay que inventar
+   (`DATA_KEY`, `BACKUP_PASSPHRASE`, contraseña y verificación en dos pasos del operador, con su QR) y escribe
+   `.env.produccion` (git lo ignora) con cada valor agrupado por dónde va: Render, GitHub Secrets o GitHub Variables, y
+   huecos para lo que solo dan los proveedores (Neon, Stripe, SMTP, la copia externa). Nunca sobrescribe ese archivo:
+   `DATA_KEY` y `BACKUP_PASSPHRASE` no deben cambiar una vez en uso.
+2. **Despliegue:** Render → New → Blueprint con este repositorio (`render.yaml`) y pega los valores.
+3. **Comprobación:** `python ops/comprobar_produccion.py https://tu-app --web https://nirkana.es` revisa desde fuera
+   HTTPS, `/_nk/salud`, las cabeceras de seguridad, la CSP, la cookie de sesión, el webhook de Stripe y los textos
+   legales, y dice qué falla. No cambia ningún dato.
+4. **Repositorio:** protege `main` importando `ops/github/ruleset-main.json` (`ops/REPOSITORIO.md`, paso 1).
+
 ## Errores y caídas
 
 **Errores:** si una pantalla falla, la persona ve un aviso con una **referencia** (p. ej. `A3F09C`) en vez de un
