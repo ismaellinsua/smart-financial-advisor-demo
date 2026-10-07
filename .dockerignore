@@ -5,6 +5,7 @@
 **/.pytest_cache
 .ruff_cache
 docs
+capturas
 marketing
 sales_manager/data
 sales_manager/tests
