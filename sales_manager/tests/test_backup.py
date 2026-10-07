@@ -149,8 +149,8 @@ def test_only_a_verified_night_reaches_the_operator_panel(tmp_path):
     from core.tenants import Directory
 
     source, directory = _shared_source("backup_record")
-    fine, message = directory.backup_status()
-    assert not fine and "ninguna copia" in message  # a database that was never copied says so
+    level, message = directory.backup_status()
+    assert level == "falta" and "ninguna copia" in message  # a database that was never copied says so
 
     readonly = _backup_role(source)
     Directory(source)  # the app grants the backups' role its one table when it starts
@@ -168,8 +168,11 @@ def test_only_a_verified_night_reaches_the_operator_panel(tmp_path):
     assert noted.returncode == 0, noted.stderr
     last = directory.last_backup()
     assert last["copies"] == 3 and last["size_bytes"] > 0 and last["detail"].endswith("/dueno/nirkana/actions/runs/77")
-    fine, message = directory.backup_status()
-    assert fine and "hace menos de una hora" in message and "3 copias cifradas" in message
+    level, message = directory.backup_status()
+    assert level == "aviso" and "hace menos de una hora" in message and "3 copias cifradas" in message
+    assert "copia externa" in message  # only GitHub's artifacts: 30 days, one provider
+    assert _run(["--record", str(out)], {**env, "BACKUP_S3_BUCKET": "copias"}).returncode == 0
+    assert directory.backup_status()[0] == "ok"
 
     import psycopg
 
@@ -187,9 +190,9 @@ def test_a_missed_night_shows_red(tmp_path):
     with directory._connect() as conn:
         conn.execute("INSERT INTO nirkana_operador.backup_runs(finished_at, copies, size_bytes) VALUES (%s, 3, 1)",
                      ((utc_now() - timedelta(hours=30)).isoformat(timespec="seconds"),))
-    fine, message = directory.backup_status()
-    assert not fine and "hace 30 h" in message and "falta" in message
-    assert directory.backup_status(utc_now() - timedelta(hours=10))[0]
+    level, message = directory.backup_status()
+    assert level == "falta" and "hace 30 h" in message and "falta" in message
+    assert directory.backup_status(utc_now() - timedelta(hours=10))[0] != "falta"
 
 
 def test_restore_goes_only_into_an_empty_database(tmp_path):

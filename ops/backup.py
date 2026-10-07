@@ -289,6 +289,8 @@ def record(folder: Path) -> None:
     if os.environ.get("GITHUB_RUN_ID"):
         run_url = (f"{os.environ.get('GITHUB_SERVER_URL', 'https://github.com')}/"
                    f"{os.environ.get('GITHUB_REPOSITORY', '')}/actions/runs/{os.environ['GITHUB_RUN_ID']}")
+    # Recorded after the upload step: in the workflow a failed external copy stops the run before this.
+    offsite = 1 if os.environ.get("BACKUP_S3_BUCKET") else 0
     for base, url in databases().items():
         mine = [info for name, info in manifest["businesses"].items() if name == base or name.startswith(base + "-")]
         files = [f for info in mine for f in info["files"]]
@@ -303,8 +305,9 @@ def record(folder: Path) -> None:
                 continue
             with conn.transaction():
                 conn.execute("SET TRANSACTION READ WRITE")
-                conn.execute(f"INSERT INTO {DIRECTORY_SCHEMA}.backup_runs(finished_at, copies, size_bytes, detail) "
-                             "VALUES (%s, %s, %s, %s)", (manifest["verified_utc"], len(files), size, run_url))
+                conn.execute(f"INSERT INTO {DIRECTORY_SCHEMA}.backup_runs(finished_at, copies, size_bytes, detail, "
+                             "offsite) VALUES (%s, %s, %s, %s, %s)",
+                             (manifest["verified_utc"], len(files), size, run_url, offsite))
         print(f"{base}: copia verificada anotada ({len(files)} archivos)")
 
 

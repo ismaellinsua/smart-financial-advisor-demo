@@ -15,7 +15,8 @@ from core import billing
 from core.security import new_totp_secret, totp_step, totp_uri
 from core.tenants import BILLING_ALERTS, CODE_RE, STATUSES, normalize_code
 from ui.auth import client_blocked_minutes, client_failed, client_key, client_succeeded
-from ui.context import get_directory, multi_tenant, setting, stripe_client, trial_days
+from ui.context import (get_directory, multi_tenant, require_external_database, setting, stripe_client,
+                        trial_days)
 from ui.styles import page_header
 
 OPERATOR_SESSION_HOURS = 2
@@ -136,8 +137,18 @@ def operator_panel() -> None:
         _operator_login(expected)
         return
     directory = get_directory()
+    if not setting("operator_totp_secret") and require_external_database():
+        # On the real server the panel that controls every business never opens with a password alone.
+        st.error("El panel está bloqueado hasta activar la verificación en dos pasos: en el servidor, una contraseña "
+                 "sola no basta para controlar todos los negocios.", icon=":material/lock:")
+        _operator_2fa_notice()
+        if st.button("Salir", icon=":material/logout:"):
+            st.session_state.pop("operator_since", None)
+            st.rerun()
+        return
     _operator_2fa_notice()
     _backup_status(directory)
+    _role_isolation(directory)
     _billing_alerts(directory)
     if st.button("Salir del panel", icon=":material/logout:"):
         st.session_state.pop("operator_since", None)
@@ -288,9 +299,20 @@ def _stripe_setup() -> None:
             st.success("Stripe está listo para cobrar.")
 
 
+def _role_isolation(directory) -> None:
+    """Each business runs as its own database role; when the database user may not create roles, say so."""
+    with_role, without = directory.role_isolation()
+    if without:
+        st.warning(f"{without} negocio(s) sin rol propio en la base de datos: siguen aislados por su esquema, pero "
+                   "sin la segunda barrera. El usuario de la base de datos necesita permiso para crear roles "
+                   "(CREATEROLE; el propietario de Neon lo tiene). Al reiniciar la app se les asigna solo.",
+                   icon=":material/shield:")
+
+
 def _backup_status(directory) -> None:
-    fine, message = directory.backup_status()
-    (st.success if fine else st.error)(message, icon=":material/backup:" if fine else ":material/warning:")
+    level, message = directory.backup_status()
+    show = {"ok": st.success, "aviso": st.warning, "falta": st.error}[level]
+    show(message, icon=":material/backup:" if level == "ok" else ":material/warning:")
 
 
 def _billing_alerts(directory) -> None:

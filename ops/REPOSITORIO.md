@@ -62,8 +62,8 @@ Los minutos dan para lo esencial: los tests (unos 8 minutos por ejecución) y la
 150 al mes). Pero la **vigilancia de disponibilidad** se ejecuta cada 10 minutos: unas 4.300 ejecuciones al mes, más
 de lo que da el plan gratuito. Antes de hacerlo privado:
 
-- pon un monitor externo gratuito (UptimeRobot o Better Stack) que compruebe `https://tu-app/_stcore/health` cada
-  5 minutos y te avise por email, y
+- pon un monitor externo gratuito (UptimeRobot o Better Stack) que compruebe `https://tu-app/_nk/salud` cada
+  5 minutos (responde `ok` solo si la app y su base de datos funcionan) y te avise por email, y
 - desactiva el flujo en GitHub: Actions → **Disponibilidad** → `···` → **Disable workflow**.
 
 Para las copias, configura la copia externa (`BACKUP_S3_*`, README → «Copias de seguridad automáticas») y, si hace

@@ -76,9 +76,16 @@ class Store(UsersMixin, ThrottleMixin, DemoMixin, CatalogMixin, InvoicesMixin, A
         dropped."""
         return self.db.identity
 
-    def __init__(self, path=DEFAULT_DB_PATH, schema: str | None = None):
-        """`schema`: on PostgreSQL, the business's own schema when one database serves several businesses."""
+    def __init__(self, path=DEFAULT_DB_PATH, schema: str | None = None, role: str | None = None):
+        """`schema`: on PostgreSQL, the business's own schema when one database serves several businesses. `role`:
+        the database role that may only touch that schema; the schema is set up (and migrated) as its owner, and
+        everything after that runs as the role."""
         self.db = PostgresEngine(str(path), schema) if is_postgres(path) else SQLiteEngine(str(path))
+        self._set_up()
+        if role and isinstance(self.db, PostgresEngine):
+            self.db.use_role(role)
+
+    def _set_up(self) -> None:
         if self._schema_is_current():
             return  # one query instead of ~110: with a remote database each one is a round trip
         with self.db.tx() as cur:

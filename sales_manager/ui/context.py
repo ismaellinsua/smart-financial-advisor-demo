@@ -63,7 +63,12 @@ def _single_store() -> Store:
     return Store(url) if url else Store()
 
 
-@st.cache_resource(show_spinner="Conectando con tu negocio…", max_entries=200)
+def _release(store: Store) -> None:
+    store.close()  # the pool it shares stays open while any other business or the directory uses it
+
+
+@st.cache_resource(show_spinner="Conectando con tu negocio…", on_release=_release,
+                   max_entries=config.integer("tenant_cache_size", low=10, high=100_000))
 def _tenant_store(code: str) -> Store:
     return get_directory().store(code)
 

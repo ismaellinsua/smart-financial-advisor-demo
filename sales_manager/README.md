@@ -396,20 +396,48 @@ piden 3 por hora. La respuesta es la misma exista o no el usuario.
 **Errores:** si una pantalla falla, la persona ve un aviso con una **referencia** (p. ej. `A3F09C`) en vez de un
 error técnico, y queda registrado el tipo de error, la pantalla, el usuario y la línea del código donde ocurrió. Nunca
 se guarda el mensaje del error, porque puede contener datos de clientes o de ventas. El administrador los ve en
-**Equipo y seguridad → Errores de la app**, y el operador, en su panel (errores de 7 días por negocio). El detalle
-completo sigue en «Manage app → Logs» de Streamlit.
+**Equipo y seguridad → Errores de la app**, y el operador, en su panel (errores de 7 días por negocio).
 
-**Caídas:** el flujo **Disponibilidad** de GitHub Actions comprueba cada 10 minutos que cada app responde (con 3
-intentos antes de darla por caída). Si una no responde, la ejecución falla y GitHub avisa por email al dueño del
-repositorio. Secretos de Actions:
+**Aviso en el momento:** con `OPERATOR_EMAIL` y los `SMTP_*` en el servidor, cada error llega por email al operador al
+instante: negocio, referencia, tipo y línea del código (nunca datos). El mismo error no se repite más de una vez por
+hora, y nunca salen más de 20 avisos por hora.
+
+**Registro del servidor:** con `LOG_FORMAT=json`, cada línea es un objeto JSON con sus campos (`ref`, `page`,
+`tenant`…), listo para enviarlo a un servicio de logs (Better Stack, Grafana Cloud…) desde Render → *Log Streams*, y
+buscar o crear alertas allí.
+
+**Caídas:** usa un **monitor externo** gratuito (UptimeRobot o Better Stack) que compruebe cada 5 minutos
+`https://tu-app/_nk/salud`: responde `ok` solo si la app **y su base de datos** funcionan, y `no` (503) si no. Es mejor
+que `/_stcore/health`, que dice «ok» aunque la base de datos esté caída y nadie pueda vender. Como reserva, el flujo
+**Disponibilidad** de GitHub Actions hace lo mismo cada 10 minutos (usa `/_nk/salud` si existe):
 
 | Secreto | Qué poner |
 |---|---|
 | `UPTIME_URLS` | Una dirección por línea, p. ej. `https://app.nirkana.es` |
 | `OPERATOR_EMAIL` | Opcional: tu email, para recibir también el aviso de caída y, cada mañana, el resumen de errores de las últimas 24 h (necesita los `SMTP_*`). |
 
-En Streamlit Community Cloud las apps se duermen sin uso: la comprobación mira que el servidor responde. Si al abrir
-una app aparece el botón para despertarla, se resuelve pulsándolo.
+Los cron de GitHub se retrasan a veces y se desactivan tras 60 días sin cambios en el repositorio: por eso el monitor
+externo es el principal. En un repositorio privado, desactiva este flujo (gasta minutos; ver `ops/REPOSITORIO.md`).
+
+## Escalar
+
+Un servidor de Render *Starter* atiende con holgura decenas de negocios a la vez (cada clic cuesta entre 25 y 180 ms
+de servidor con 200.000 ventas). Cuando no baste (clics lentos en horas punta, CPU alta en el panel de Render):
+
+1. **Más CPU:** un plan mayor del mismo servicio. Es lo más sencillo.
+2. **Más instancias:** `numInstances` en `render.yaml` (o en el panel). Todo lo que una persona necesita vive en la
+   base de datos (sesión, ticket en curso, límites de intentos, avisos de Stripe, códigos del operador), así que si
+   al reconectar entra en otro servidor sigue donde estaba. Cada servidor solo guarda cachés de 2 a 90 segundos.
+3. **Conexiones:** cada servidor abre hasta `DB_POOL_SIZE` (5) conexiones. Con varias instancias usa la cadena
+   *pooled* de Neon (el host con `-pooler`).
+4. **Muchos negocios:** cada servidor mantiene abiertos hasta `TENANT_CACHE_SIZE` (1.000) negocios y cierra los que
+   llevan más tiempo sin usarse. Al desplegar solo se migran los negocios que no están al día (una consulta para
+   saber cuáles, y 4 a la vez).
+
+**Aislamiento entre negocios:** cada negocio tiene su esquema y además su propio rol de base de datos (`nk_<huella de la base de datos>_n_…`), que
+solo puede leer y escribir ese esquema: aunque una consulta nombrara otro negocio, PostgreSQL la rechazaría. La app
+crea los roles sola si el usuario de la base de datos puede crear roles (`CREATEROLE`, el propietario de Neon
+puede); si no, cada negocio sigue aislado por su esquema y el panel de operador lo avisa.
 
 ## Seguridad
 

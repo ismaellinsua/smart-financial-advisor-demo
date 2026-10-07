@@ -42,7 +42,7 @@ def test_many_small_amounts_add_up_exactly(shop):
 
 
 def test_old_postgres_database_becomes_exact_once(make_store):
-    s = make_store()
+    s = make_store(owner=True)  # rebuilds an old database by hand (DDL), as the schema's owner
     if not s.db.real.startswith("NUMERIC"):
         pytest.skip("SQLite has no exact decimal type")
     s.load_preset("retail", with_demo_sales=True)
@@ -183,7 +183,7 @@ def test_locations_and_suppliers_are_real_foreign_keys(make_store):
 def test_old_databases_get_the_foreign_keys_once(make_store):
     """A PostgreSQL database from before keeps working and gains the keys at its next start (migration 2)."""
     target = make_store.targets.new()
-    shop = make_store(target)
+    shop = make_store(target, owner=True)  # rebuilds an old database by hand (DDL)
     if not shop.db.for_update:
         pytest.skip("SQLite cannot add foreign keys to existing tables")
     with shop.db.tx() as cur:  # make it look like a database from before
@@ -218,7 +218,7 @@ def test_only_known_states_and_roles_are_stored(make_store):
 
 def test_old_databases_get_the_checks_once(make_store):
     target = make_store.targets.new()
-    shop = make_store(target)
+    shop = make_store(target, owner=True)  # rebuilds an old database by hand (DDL)
     if not shop.db.for_update:
         pytest.skip("SQLite cannot add checks to existing tables")
     with shop.db.tx() as cur:  # a database from before: no checks, and one odd old row

@@ -8,7 +8,8 @@ services:
     plan: starter
     healthCheckPath: /_stcore/health
     autoDeploy: false
-    # One instance: sign-in throttling and short caches live in the app's memory (audit A7).
+    # Sessions, tickets in progress, sign-in limits and Stripe notices live in the database, so more instances
+    # can be added when one is not enough (README, «Escalar»); each one keeps only caches of 2-90 seconds.
     numInstances: 1
     envVars:
       - key: DATABASE_URL

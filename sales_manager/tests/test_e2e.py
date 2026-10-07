@@ -155,7 +155,10 @@ def _fresh_operator_code() -> str:
 def _operator(page, base, code=None):
     """Open the operator panel, signing in when needed (visiting a business in the same tab ends that session)."""
     page.goto(f"{base}/?operador", wait_until="networkidle")
-    if page.get_by_role("textbox", name="Contraseña de operador").count():
+    login = page.get_by_role("textbox", name="Contraseña de operador")
+    # Streamlit draws after the page loads: wait for the sign-in or the panel before deciding which one this is.
+    login.or_(page.get_by_text("Dar de alta un negocio")).first.wait_for()
+    if login.count():
         page.get_by_role("textbox", name="Contraseña de operador").fill("operador-de-prueba-2026")
         second_step = page.get_by_role("textbox", name="Código de tu app de autenticación")
         if second_step.count():  # only when the server has OPERATOR_TOTP_SECRET
@@ -362,6 +365,7 @@ def test_unpaid_business_can_only_look_up_until_it_subscribes(billing_server):
         page.reload(wait_until="networkidle")
         page.get_by_text("puedes consultar y descargar tus datos").first.wait_for()
         nav = page.get_by_test_id("stSidebarNav")
+        nav.get_by_text("Historial").wait_for()  # the menu is drawn after the page
         assert nav.get_by_text("Suscripción").count() and nav.get_by_text("Historial").count()
         assert not nav.get_by_text("Vender").count() and not nav.get_by_text("Configuración").count()
         page.goto(f"{base}/vender?negocio=cafe-pago", wait_until="networkidle")  # typing the address won't do
