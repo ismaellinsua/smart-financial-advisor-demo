@@ -61,6 +61,8 @@ SETTINGS: dict[str, Setting] = {
     "backup_passphrase": Setting("Frase con la que se cifran las copias de seguridad.", secret=True, used_by="ops"),
     "restore_url": Setting("PostgreSQL de pruebas donde ensayar la restauración de una copia.", secret=True,
                            used_by="ops"),
+    "restore_target_url": Setting("Base de datos vacía donde restaurar una copia completa (ops/backup.py --restore).",
+                                  secret=True, used_by="ops"),
     "notify_databases": Setting("Bases de datos a las que enviar avisos (por defecto, las de las copias).",
                                 secret=True, used_by="ops"),
     "operator_email": Setting("Email del operador para avisos de caídas y resúmenes.", used_by="ops"),

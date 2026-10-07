@@ -37,3 +37,15 @@ $$;
 ALTER DEFAULT PRIVILEGES FOR ROLE :app_role GRANT USAGE ON SCHEMAS TO nirkana_backup;
 ALTER DEFAULT PRIVILEGES FOR ROLE :app_role GRANT SELECT ON TABLES TO nirkana_backup;
 ALTER DEFAULT PRIVILEGES FOR ROLE :app_role GRANT SELECT ON SEQUENCES TO nirkana_backup;
+
+-- 3. After a copy has been restored and checked, the backup job notes it (ops/backup.py --record) so the operator
+--    panel can show the last verified night. That one table is the only thing the backups' role may write; the app
+--    also grants it when it starts, so the order in which this script and the app first run does not matter.
+DO $$
+BEGIN
+  IF to_regclass('nirkana_operador.backup_runs') IS NOT NULL THEN
+    GRANT INSERT ON nirkana_operador.backup_runs TO nirkana_backup;
+    GRANT USAGE ON SEQUENCE nirkana_operador.backup_runs_id_seq TO nirkana_backup;
+  END IF;
+END
+$$;

@@ -1,5 +1,7 @@
 # Daily encrypted backups of every business database, with a restore drill. Set up in README («Copias de
-# seguridad automáticas»). GitHub emails the repository owner if a run fails.
+# seguridad automáticas»). GitHub emails the repository owner if a run fails, and OPERATOR_EMAIL gets an email too.
+# Without its secrets the run fails: backups that are silently off look exactly like backups that work. Only the
+# repository variable BACKUPS_DISABLED = true (a deliberate choice, e.g. a demo with no real data) turns them off.
 name: Copias de seguridad
 
 on:
@@ -32,17 +34,17 @@ jobs:
         options: >-
           --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 12
     steps:
-      # With the repository variable PRODUCTION = true (Settings → Secrets and variables → Actions → Variables), a
-      # missing secret turns the run red: in production las copias de seguridad must never be silently off.
-      - name: Producción sin configurar
-        if: vars.PRODUCTION == 'true' && env.BACKUP_DATABASES == ''
-        run: |
-          echo "::error::PRODUCTION=true pero faltan los secretos de las copias de seguridad."
-          exit 1
-
-      - name: Sin configurar todavía
+      - name: Configuración
         if: env.BACKUP_DATABASES == ''
-        run: echo "::notice::Copias desactivadas hasta definir los secretos BACKUP_DATABASES y BACKUP_PASSPHRASE."
+        env:
+          DISABLED: ${{ vars.BACKUPS_DISABLED }}
+        run: |
+          if [ "$DISABLED" = "true" ]; then
+            echo "::warning::Copias desactivadas a propósito (variable BACKUPS_DISABLED = true). No se copia nada."
+            exit 0
+          fi
+          echo "::error::No hay copias de seguridad: faltan los secretos BACKUP_DATABASES y BACKUP_PASSPHRASE (README, «Copias de seguridad automáticas»)."
+          exit 1
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         if: env.BACKUP_DATABASES != ''
@@ -67,6 +69,10 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq postgresql-client-17
           echo /usr/lib/postgresql/17/bin >> "$GITHUB_PATH"
+
+      - name: Comprobar la configuración
+        if: env.BACKUP_DATABASES != ''
+        run: python ops/backup.py --check
 
       - name: Copias cifradas
         if: env.BACKUP_DATABASES != ''
@@ -99,3 +105,19 @@ jobs:
           if [ -n "$BACKUP_S3_ENDPOINT" ]; then endpoint=(--endpoint-url "$BACKUP_S3_ENDPOINT"); fi
           aws s3 cp backups/ "s3://$BACKUP_S3_BUCKET/$(date -u +%Y/%m/%d)/" --recursive \
             --exclude "*" --include "*.enc" "${endpoint[@]}"
+
+      # Last, once the copies are stored: the operator panel shows this night as verified.
+      - name: Anotar la copia verificada
+        if: env.BACKUP_DATABASES != ''
+        run: python ops/backup.py --record backups
+
+      - name: Avisar por email del fallo
+        if: failure() && env.BACKUP_DATABASES != ''
+        env:
+          OPERATOR_EMAIL: ${{ secrets.OPERATOR_EMAIL }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          SMTP_FROM: ${{ secrets.SMTP_FROM }}
+        run: python ops/backup.py --alert "Ejecución ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
