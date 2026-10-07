@@ -9,6 +9,7 @@ import streamlit as st
 
 from core import logs, throttle
 from core.db import AuthError, Store
+from core.legal import DOCUMENTS, TERMS_VERSION, document_url
 from core.security import check_secret_strength
 from ui.context import secrets_lookup, setting
 from ui.styles import page_header
@@ -149,6 +150,54 @@ def _sign_in(store: Store, user: dict, secret: str | None = None) -> None:
     st.rerun()
 
 
+def _terms_pending() -> tuple[str, str] | None:
+    """(business, website) when this business's administrator has to accept the current conditions and data
+    processing agreement: only with several businesses in one app and once the texts are published (`terms_url`)."""
+    from ui.context import multi_tenant, tenant_code
+
+    base, code = setting("terms_url"), tenant_code() if multi_tenant() else ""
+    if not (base and code):
+        return None
+    from ui.tenancy import tenant_info
+
+    tenant = tenant_info(code)
+    if tenant is None or tenant.get("terms_version") == TERMS_VERSION:
+        return None
+    return code, base
+
+
+def _terms_label(base: str) -> str:
+    links = " y el ".join(f"[{title}]({document_url(base, name)})" for name, title in DOCUMENTS.items())
+    return f"He leído y acepto las {links} (versión {TERMS_VERSION}), en nombre del negocio."
+
+
+def _record_terms(business: str, username: str, store: Store) -> None:
+    from ui.context import get_directory
+    from ui.tenancy import tenant_info
+
+    get_directory().accept_terms(business, TERMS_VERSION, username)
+    store.audit(username, "condiciones_aceptadas", f"versión {TERMS_VERSION}")
+    tenant_info.clear()
+
+
+def _accept_terms(store: Store, user: dict, business: str, base: str) -> None:
+    """A new version of the terms: the administrator accepts it before carrying on (the rest of the team is not
+    stopped)."""
+    _, center, _ = st.columns([1, 2, 1])
+    with center:
+        page_header("Condiciones del servicio", "Hemos actualizado las condiciones del servicio o el contrato de "
+                    "encargado del tratamiento. Léelas y acéptalas para seguir usando la app.", eyebrow="NirKanA")
+        with st.form("accept_terms"):
+            agreed = st.checkbox(_terms_label(base))
+            if st.form_submit_button("Aceptar y continuar", type="primary", width="stretch"):
+                if not agreed:
+                    st.error("Marca la casilla para aceptarlas.")
+                    return
+                _record_terms(business, user["username"], store)
+                st.rerun()
+        st.caption("Si no estás de acuerdo, escríbenos a nirkana.oficial@gmail.com antes de aceptarlas.")
+
+
 def setup_code() -> str:
     """One-time code for creating the first administrator when no `app_password` is configured.
 
@@ -201,6 +250,8 @@ def _bootstrap(store: Store) -> None:
             secret = st.text_input("Contraseña", type="password", max_chars=128,
                                    help="Al menos 8 caracteres, con letras y números o símbolos.")
             repeat = st.text_input("Repite la contraseña", type="password", max_chars=128)
+            terms = _terms_pending() if business else None
+            agreed = st.checkbox(_terms_label(terms[1])) if terms else True
             if st.form_submit_button("Crear administrador", type="primary", width="stretch"):
                 key = SETUP_KEY + client_key()
                 if minutes := client_blocked_minutes(key, store=store):
@@ -214,6 +265,9 @@ def _bootstrap(store: Store) -> None:
                 if secret != repeat:
                     st.error("Las contraseñas no coinciden.")
                     return
+                if not agreed:
+                    st.error("Para crear la cuenta tienes que aceptar las condiciones y el contrato de encargado.")
+                    return
                 if store.has_users():  # someone else finished first
                     st.rerun()
                 try:
@@ -224,6 +278,8 @@ def _bootstrap(store: Store) -> None:
                 client_succeeded(key, store=store)
                 if business:
                     get_directory().mark_setup_used(business)
+                    if terms:
+                        _record_terms(business, username.strip().lower(), store)
                 st.session_state[NEW_CODES] = store.create_recovery_codes(uid)
                 _sign_in(store, store.authenticate(username, secret))
 
@@ -437,6 +493,9 @@ def require_user(store: Store, settings: dict) -> dict | None:
                 return None
             if st.session_state.get(MUST_CHANGE):
                 _force_change(store, user)
+                return None
+            if user["role"] == "admin" and (pending := _terms_pending()):
+                _accept_terms(store, user, *pending)
                 return None
             if flash := st.session_state.pop("recovery_flash", None):
                 st.success(flash)

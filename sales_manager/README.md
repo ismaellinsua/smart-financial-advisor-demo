@@ -209,6 +209,36 @@ grupo de conexiones por base de datos (`DB_POOL_SIZE`, 5 por defecto).
 
 Sin `multi_tenant`, la app funciona como siempre: un negocio por app.
 
+## Textos legales (modo multinegocio)
+
+Para vender el servicio hacen falta tres textos, ya redactados en `legal/` como **borrador para que lo revise un
+abogado**, ajustados a lo que la app hace de verdad (prueba gratuita, cobro con Stripe, 7 días de gracia, solo
+consulta sin borrar datos, exportaciones, plazos de borrado, subencargados y medidas de seguridad):
+
+| Texto | Para qué |
+|---|---|
+| `aviso-legal.html` | Datos del titular que exige la LSSI (nombre, NIF, domicilio, email). |
+| `condiciones.html` | Condiciones del servicio que acepta cada negocio. |
+| `encargado.html` | Contrato de encargado del tratamiento (RGPD art. 28): qué datos tratas por cuenta de cada negocio, subencargados, brechas, fin del servicio y medidas de seguridad. |
+
+**Publicarlos:**
+
+1. Copia `legal/datos.example.json` a `legal/datos.json` (no se sube al repositorio) y rellena lo que pone
+   `PENDIENTE`: nombre, NIF, domicilio, fecha y el proveedor de email que uses. Revisa la lista de subencargados:
+   deja solo los que uses de verdad.
+2. `python ops/legal.py --check` dice qué falta; `python ops/legal.py` escribe las páginas en `docs/` y añade los
+   enlaces «Aviso legal» y «Condiciones del servicio» al pie de toda la web. Con un hueco sin rellenar no escribe nada.
+3. Sube los cambios de `docs/` y define `TERMS_URL = https://nirkana.es` en el servidor (Render). Desde entonces, al
+   crear su administrador cada negocio acepta las condiciones y el contrato de encargado, y el panel de operador
+   muestra qué versión aceptó y cuándo.
+
+**Cambiar los textos:** edita `legal/`, sube `TERMS_VERSION` en `sales_manager/core/legal.py` y vuelve a
+publicar. El administrador de cada negocio tendrá que aceptar la nueva versión al entrar (el resto del equipo sigue
+trabajando). Las condiciones prometen avisar con 30 días de antelación de los cambios importantes.
+
+El aviso de privacidad de la web (`docs/privacidad.html`) ya explica también los datos que NirKanA trata de los
+negocios clientes (cuenta, cobro, soporte).
+
 ## Cobrar el servicio con Stripe (modo multinegocio)
 
 Mientras no haya claves de Stripe, nadie paga y todo funciona como siempre. Con ellas:
@@ -257,6 +287,12 @@ clics repetidos durante 15 minutos reciben la misma página de pago), así que n
 suscripciones cobrando, el registro del operador lo avisa (`suscripcion_duplicada`) para que canceles y reembolses
 una en Stripe. Cuando Stripe deja de cobrar por impago, los días de gracia se cuentan desde que terminó la
 suscripción, no desde el final del mes que no se pagó.
+**Comprobarlo:** en el panel de operador, **Configuración de Stripe → Comprobar ahora** revisa la clave (modo y si es
+restringida), el precio (que exista, sea mensual, en euros y diga si lleva IVA), los permisos de la clave (también la
+escritura en *Customers*, sin la que «Suscribirme» falla), el webhook y sus eventos, el portal de clientes, los
+códigos promocionales que regalan el servicio y que el servidor tenga `STRIPE_WEBHOOK_SECRET` y `STRIPE_SECRET_KEY`
+como variables de entorno. Solo lee: no crea nada en Stripe. Si algo sale en rojo o amarillo, dice qué cambiar.
+
 Cuando todo funcione en modo de prueba, repite los pasos 1-4 en **modo real** y cambia las claves.
 
 ## Copias de seguridad automáticas
@@ -396,6 +432,10 @@ una app aparece el botón para despertarla, se resuelve pulsándolo.
 **Lo que no depende de la app:** la seguridad de la cuenta de Streamlit y de GitHub (activa la verificación en dos pasos en ambas), la de Neon y la custodia de los *Secrets*. En la versión gratuita de Streamlit sin base de datos externa, un reinicio borra datos **y cuentas**: para un equipo real usa Neon.
 
 ### Repositorio y despliegue (ajustes que solo puede hacer el dueño)
+
+La guía completa, en orden, está en [`ops/REPOSITORIO.md`](../ops/REPOSITORIO.md): proteger `main`, separar la web
+en su propio repositorio sin que nirkana.es se caiga (`ops/separar_web.sh`), hacer privado este (y qué cambia en los
+minutos de Actions) y, si quieres, limpiar el historial (`ops/limpiar_historial.sh`). Resumen:
 
 1. **Proteger `main`** (Settings → Rules → Rulesets → New branch ruleset, objetivo `main`): exigir pull request,
    exigir que pase la comprobación **Tests**, y bloquear *force push* y borrado. Así nada llega a producción sin

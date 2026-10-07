@@ -173,11 +173,14 @@ def operator_panel() -> None:
         overview["pago"] = [billing.STATUS_LABELS["cortesia"] if exempt else billing.STATUS_LABELS.get(status, status)
                             for status, exempt in zip(overview["billing_status"], overview["billing_exempt"])]
         overview["hasta"] = [(end or trial)[:10] for end, trial in zip(overview["period_end"], overview["trial_ends"])]
-        st.dataframe(overview[["code", "name", "estado", "pago", "hasta", "administrador", "users", "sales",
+        overview["condiciones"] = [f"v. {v} ({at[:10]})" if v else "Pendientes"
+                                   for v, at in zip(overview["terms_version"], overview["terms_accepted_at"])]
+        st.dataframe(overview[["code", "name", "estado", "pago", "hasta", "administrador", "condiciones", "users", "sales",
                                "last_sale", "errors", "contact", "created_at"]], hide_index=True, width="stretch",
                      column_config={"code": "Código", "name": "Nombre", "estado": "Estado", "pago": "Suscripción",
                                     "hasta": "Prueba o periodo hasta (UTC)",
-                                    "administrador": "Administrador", "users": "Personas", "sales": "Ventas",
+                                    "administrador": "Administrador", "condiciones": "Condiciones aceptadas",
+                                    "users": "Personas", "sales": "Ventas",
                                     "last_sale": "Última venta", "errors": "Errores 7 días",
                                     "contact": "Contacto", "created_at": "Alta"})
         if stripe_client() is None:
@@ -220,6 +223,8 @@ def operator_panel() -> None:
                     tenant_info.clear()
                     st.rerun()
 
+    _stripe_setup()
+
     with st.expander("Registro del operador"):
         st.dataframe(pd.DataFrame(directory.log()), hide_index=True, width="stretch")
 
@@ -253,6 +258,34 @@ def _operator_login(expected: str) -> None:
             client_failed(key, store=directory)
             _time.sleep(1)
             st.error("Contraseña o código incorrectos." if totp_secret else "Contraseña incorrecta.")
+
+
+def _stripe_setup() -> None:
+    """Checks the Stripe account against what the app needs, without creating anything there."""
+    import os
+
+    from core.stripe_check import MISSING, OK, UNKNOWN, WARN, diagnose
+
+    with st.expander("Configuración de Stripe", icon=":material/fact_check:"):
+        stripe = stripe_client()
+        if stripe is None:
+            st.caption("Cobro desactivado: define STRIPE_SECRET_KEY y STRIPE_PRICE_ID para comprobarlo.")
+            return
+        st.caption("Revisa la clave, el precio y su IVA, los permisos, el webhook, el portal de clientes y los códigos "
+                   "promocionales. Solo lee: no crea nada en Stripe.")
+        if not st.button("Comprobar ahora", icon=":material/fact_check:"):
+            return
+        icons = {OK: ":material/check_circle:", WARN: ":material/warning:", MISSING: ":material/error:",
+                 UNKNOWN: ":material/help:"}
+        show = {OK: st.success, WARN: st.warning, MISSING: st.error, UNKNOWN: st.info}
+        with st.spinner("Preguntando a Stripe…"):
+            checks = diagnose(stripe, setting("app_url"), setting("stripe_webhook_secret"),
+                              bool(os.environ.get("STRIPE_SECRET_KEY")))
+        for check in checks:
+            show[check.level](f"**{check.title}**" + (f"  \n{check.detail}" if check.detail else ""),
+                              icon=icons[check.level])
+        if not any(c.level in (MISSING, WARN) for c in checks):
+            st.success("Stripe está listo para cobrar.")
 
 
 def _backup_status(directory) -> None:
