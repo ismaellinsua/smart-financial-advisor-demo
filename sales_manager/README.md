@@ -433,6 +433,10 @@ una app aparece el botón para despertarla, se resuelve pulsándolo.
 
 ### Repositorio y despliegue (ajustes que solo puede hacer el dueño)
 
+La guía completa, en orden, está en [`ops/REPOSITORIO.md`](../ops/REPOSITORIO.md): proteger `main`, separar la web
+en su propio repositorio sin que nirkana.es se caiga (`ops/separar_web.sh`), hacer privado este (y qué cambia en los
+minutos de Actions) y, si quieres, limpiar el historial (`ops/limpiar_historial.sh`). Resumen:
+
 1. **Proteger `main`** (Settings → Rules → Rulesets → New branch ruleset, objetivo `main`): exigir pull request,
    exigir que pase la comprobación **Tests**, y bloquear *force push* y borrado. Así nada llega a producción sin
    pasar los tests.

@@ -2,6 +2,7 @@
 
     python ops/legal.py              # legal/datos.json → docs/aviso-legal.html, condiciones.html, encargado.html
     python ops/legal.py --check      # only say what is missing
+    python ops/legal.py --docs ../nirkana-web   # publish into the website's own repository instead of docs/
 
 The texts live in legal/ with gaps ({{nif}}, {{domicilio}}…); the owner's data goes in legal/datos.json (start from
 legal/datos.example.json). Nothing is written while a gap or a «PENDIENTE» remains: a legal page with a placeholder
@@ -100,6 +101,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--check", action="store_true", help="solo comprobar qué falta")
     parser.add_argument("--data", type=Path, default=ROOT / "legal" / "datos.json")
+    parser.add_argument("--docs", type=Path, default=ROOT / "docs",
+                        help="carpeta de la web (por defecto docs/; tras separar la web, la del repositorio nirkana-web)")
     args = parser.parse_args()
     try:
         if args.check:
@@ -108,8 +111,10 @@ def main() -> int:
             render(json.loads(args.data.read_text()))
             print("Todo listo para publicar.")
         else:
-            for path in publish(args.data, ROOT / "docs"):
-                print(f"Escrito {path.relative_to(ROOT)}")
+            if not (args.docs / "index.html").exists():
+                raise LegalError(f"{args.docs} no parece la web (no tiene index.html).")
+            for path in publish(args.data, args.docs):
+                print(f"Escrito {path}")
             print(f"Versión de las condiciones: {TERMS_VERSION}. Para que cada negocio las acepte, define "
                   "TERMS_URL (p. ej. https://nirkana.es) en el servidor.")
     except LegalError as exc:
