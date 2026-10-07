@@ -118,8 +118,14 @@ def test_the_app_works_under_the_production_security_policy(server):
     assert "'unsafe-inline'" not in policy.split("script-src", 1)[1].split(";", 1)[0]
     with playwright.sync_playwright() as p:
         executable = os.environ.get("E2E_CHROMIUM")
-        browser = p.chromium.launch(**({"executable_path": executable} if executable else {}))
-        context = browser.new_context(viewport=PHONE, is_mobile=True, has_touch=True)
+        # The policy is added by answering the page from the test (route.fulfill), so Chromium no longer knows it came
+        # from 127.0.0.1, takes it for a public site and, with Local Network Access checks (recent Chromium), refuses
+        # its connection to the local server. In production page and connection come from the same public server:
+        # that check is not what this test is about, so the page is allowed to reach the local network.
+        browser = p.chromium.launch(**({"executable_path": executable} if executable else {}), args=[
+            "--disable-features=LocalNetworkAccessChecks,LocalNetworkAccessChecksWebSockets"])
+        context = browser.new_context(viewport=PHONE, is_mobile=True, has_touch=True,
+                                      permissions=["local-network-access"])
         page = context.new_page()
         page.set_default_timeout(20_000)
         refused, seen = [], []
