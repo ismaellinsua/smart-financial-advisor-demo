@@ -122,8 +122,10 @@ def test_the_app_works_under_the_production_security_policy(server):
         context = browser.new_context(viewport=PHONE, is_mobile=True, has_touch=True)
         page = context.new_page()
         page.set_default_timeout(20_000)
-        refused = []
+        refused, seen = [], []
         page.on("console", lambda m: refused.append(m.text) if "Content Security Policy" in m.text else None)
+        page.on("console", lambda m: seen.append(f"{m.type}: {m.text}"))
+        page.on("pageerror", lambda e: seen.append(f"pageerror: {e}"))
 
         def with_policy(route):
             if route.request.resource_type != "document":
@@ -132,7 +134,11 @@ def test_the_app_works_under_the_production_security_policy(server):
             route.fulfill(response=response, headers={**response.headers, "content-security-policy": policy})
 
         page.route("**/*", with_policy)
-        _sign_in(page, server)
+        try:
+            _sign_in(page, server)
+        except playwright.Error as exc:  # say what the browser saw: a blocked script names itself in the console
+            body = page.evaluate("document.body ? document.body.innerText.slice(0, 500) : ''")
+            raise AssertionError(f"{exc}\nConsole: {seen[-30:]}\nPage: {body!r}") from None
         assert any(c["name"].startswith("nk_sesion") for c in context.cookies())  # session_cookie ran
         assert page.evaluate("!!document.querySelector('link[rel=manifest]') && window.__nkCloseMenu === true")
         # A script that is not one of the app's is refused, so the policy is really in force.
