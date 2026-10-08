@@ -39,6 +39,21 @@ Con solo el email, el formulario abre el programa de correo del visitante con el
 Cuando la app esté publicada (p. ej. en `https://app.nirkana.es`), pon su dirección en `assets/site.js`:
 `const APP_URL = "https://app.nirkana.es";`. Aparece «Entrar» en el menú; vacío, no se muestra.
 
+### Botón «Probar NirKanA» (prueba gratuita de 24 horas)
+
+Mientras `TRIAL_URL` esté vacío, la web enseña «Quiero NirKanA» (lleva al formulario de contacto) y nunca enlaza a
+una prueba que aún no funciona. Cuando la prueba esté publicada (p. ej. en `https://prueba.nirkana.es`), pon en
+`assets/site.js`:
+
+```js
+const TRIAL_URL = "https://prueba.nirkana.es";
+```
+
+y aparecen solos «Probar gratis» en la cabecera, «Probar NirKanA gratis» en la portada y en cada página de sector,
+el primer paso «Pruébala gratis», la pregunta «¿Puedo probarla antes de decidir?» y el enlace del bloque de contacto.
+«Quiero NirKanA» y «Contactar» siguen llevando al formulario y al email. Si GoatCounter está activo, cuenta cuántas
+personas abren la prueba.
+
 ### Contar visitas sin cookies (GoatCounter)
 
 La web puede contar visitas, páginas vistas y formularios enviados **sin cookies ni datos personales**, así que no

@@ -70,7 +70,8 @@
         <a class="login" id="app-link" href="#" hidden>Entrar</a>
       </nav>
       <div class="bar-end">
-        <a class="btn small magnet" href="/#contacto">Pide una demo</a>
+        <a class="btn small magnet only-trial" data-trial href="/#contacto">Probar gratis</a>
+        <a class="btn small magnet no-trial" href="/#contacto">Quiero NirKanA</a>
         <button class="menu-btn" type="button" aria-controls="menu" aria-expanded="false" aria-label="Abrir el menú">
           <svg class="ic"><use href="#i-menu"/></svg></button>
       </div>
@@ -84,8 +85,10 @@
         <h1>Programa de facturación y agenda para autónomos</h1>
         <p class="sub">Organiza tus citas, cóbralas al terminar y emite la factura con los datos fiscales del cliente sin rellenar papeles.</p>
         <div class="cta-row">
-          <a class="btn magnet" href="/#contacto">Pide tu demo gratuita <svg class="ic"><use href="#i-arrow"/></svg></a>
-          <a class="btn ghost" href="/#recorrido">Ver la app por dentro</a>
+          <a class="btn magnet only-trial" data-trial href="/#contacto">Probar NirKanA gratis <svg class="ic"><use href="#i-arrow"/></svg></a>
+          <a class="btn ghost only-trial" href="/#contacto">Quiero NirKanA</a>
+          <a class="btn magnet no-trial" href="/#contacto">Quiero NirKanA <svg class="ic"><use href="#i-arrow"/></svg></a>
+          <a class="btn ghost no-trial" href="/#recorrido">Ver la app por dentro</a>
         </div>
       </div>
     </section>
@@ -164,8 +167,15 @@
     <section class="band">
       <div class="wrap center-cta">
         <h2>¿Lo vemos con tu negocio?</h2>
-        <p class="sub">Una demo de 20 minutos con tus productos y tu forma de trabajar. Gratis y sin compromiso.</p>
-        <a class="btn magnet" href="/#contacto">Pide tu demo gratuita <svg class="ic"><use href="#i-arrow"/></svg></a>
+        <p class="sub only-trial">Pruébala gratis 24 horas con un negocio de ejemplo, sin tarjeta. Si te encaja, te la
+          dejamos lista con tus productos.</p>
+        <p class="sub no-trial">Cuéntanos tu negocio y te la dejamos lista con tus productos y tu forma de trabajar.
+          Sin compromiso.</p>
+        <div class="cta-row">
+          <a class="btn magnet only-trial" data-trial href="/#contacto">Probar NirKanA gratis <svg class="ic"><use href="#i-arrow"/></svg></a>
+          <a class="btn ghost only-trial" href="/#contacto">Quiero NirKanA</a>
+          <a class="btn magnet no-trial" href="/#contacto">Quiero NirKanA <svg class="ic"><use href="#i-arrow"/></svg></a>
+        </div>
       </div>
     </section>
   </main>
@@ -195,7 +205,8 @@
       </nav>
       <nav aria-label="Contacto y legal">
         <b>Contacto</b>
-        <a href="/#contacto">Pedir una demo</a>
+        <a class="only-trial" data-trial href="/#contacto">Probar gratis</a>
+        <a href="/#contacto">Contactar</a>
         <a href="/#preguntas">Preguntas frecuentes</a>
         <a href="/privacidad.html">Aviso de privacidad</a>
       </nav>

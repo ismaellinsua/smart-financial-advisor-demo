@@ -10,10 +10,14 @@ const CONTACT = {
   // Formspree form id (the part after https://formspree.io/f/). Empty: the form sends the request by WhatsApp.
   formspreeId: "mbgdrbyg",
 };
-const MESSAGE = "Hola, me interesa NirKanA para mi negocio. ¿Podemos ver una demo?";
+const MESSAGE = "Hola, quiero NirKanA para mi negocio. ¿Hablamos?";
 
 // Address of the app for existing customers (e.g. "https://app.nirkana.es"). Empty: no «Entrar» link is shown.
 const APP_URL = "";
+
+// Address of the free 24-hour trial (e.g. "https://prueba.nirkana.es"). Empty: the «Probar NirKanA» buttons stay hidden
+// and «Quiero NirKanA» takes their place, so the page never links to a trial that is not running yet.
+const TRIAL_URL = "";
 
 // Visit counter (GoatCounter): your site code, e.g. "nirkana" for nirkana.goatcounter.com. Empty: nothing is counted.
 // No cookies, nothing stored on the visitor's device, no third-party script; visitors who ask not to be tracked
@@ -48,7 +52,7 @@ const ANALYTICS = { goatcounter: "" };
     `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   const mailLink = document.getElementById("email-link");
   if (mailLink && email) {
-    mailLink.href = mailto("Demo de NirKanA", MESSAGE);
+    mailLink.href = mailto("Quiero NirKanA", MESSAGE);
     mailLink.hidden = false;
   }
   if (phone.length >= 8) {
@@ -63,6 +67,15 @@ const ANALYTICS = { goatcounter: "" };
   if (appLink && /^https:\/\/[a-z0-9.-]+(\/.*)?$/i.test(APP_URL)) {
     appLink.href = APP_URL;
     appLink.hidden = false;
+  }
+
+  // ------------------------------------------------------------ «Probar NirKanA»: the free 24-hour trial
+  if (/^https:\/\/[a-z0-9.-]+(\/.*)?$/i.test(TRIAL_URL)) {
+    for (const link of document.querySelectorAll("a[data-trial]")) {
+      link.href = TRIAL_URL;
+      link.addEventListener("click", () => countVisit("prueba-abierta", "Clic en Probar NirKanA", true));
+    }
+    document.documentElement.classList.add("has-trial"); // site.css swaps «Quiero NirKanA» for «Probar NirKanA»
   }
 
   // ------------------------------------------------------------ menu on small screens
@@ -118,7 +131,7 @@ const ANALYTICS = { goatcounter: "" };
         const text = `${MESSAGE}\n\nNombre: ${fields.nombre}\nNegocio: ${fields.negocio} (${fields.tipo})\n` +
           `Email: ${fields.email}\nTeléfono: ${fields.telefono || "-"}\n\n${fields.mensaje}`;
         if (phone.length < 8 && email) {
-          window.location.href = mailto(`Demo de NirKanA · ${fields.negocio}`, text);
+          window.location.href = mailto(`Quiero NirKanA · ${fields.negocio}`, text);
           say(`Se ha abierto tu correo con el mensaje preparado. Si no se abre, escríbenos a ${email}.`, "ok");
           lastSent = Date.now();
           return;
@@ -139,7 +152,7 @@ const ANALYTICS = { goatcounter: "" };
         const id = encodeURIComponent(CONTACT.formspreeId);
         const res = await fetch(`https://formspree.io/f/${id}`, {
           method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" },
-          body: JSON.stringify({ ...fields, _subject: `Demo de NirKanA · ${fields.negocio}` }),
+          body: JSON.stringify({ ...fields, _subject: `Quiero NirKanA · ${fields.negocio}` }),
           credentials: "omit", referrerPolicy: "strict-origin-when-cross-origin",
         });
         if (!res.ok) throw new Error(String(res.status));

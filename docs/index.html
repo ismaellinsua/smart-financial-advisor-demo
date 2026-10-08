@@ -87,7 +87,8 @@
         <a class="login" id="app-link" href="#" hidden>Entrar</a>
       </nav>
       <div class="bar-end">
-        <a class="btn small magnet" href="#contacto">Pide una demo</a>
+        <a class="btn small magnet only-trial" data-trial href="#contacto">Probar gratis</a>
+        <a class="btn small magnet no-trial" href="#contacto">Quiero NirKanA</a>
         <button class="menu-btn" type="button" aria-controls="menu" aria-expanded="false" aria-label="Abrir el menú">
           <svg class="ic"><use href="#i-menu"/></svg></button>
       </div>
@@ -105,9 +106,12 @@
         <p class="lead">Para <strong>restaurantes, tiendas, autónomos y tiendas online</strong>. Cobra, controla tu stock, tu
           caja y tu equipo, y ve en las alertas lo que va mal antes de que vaya a más. En el móvil, la tablet o el ordenador.</p>
         <div class="cta">
-          <a class="btn magnet" href="#contacto">Pide tu demo gratuita <svg class="ic"><use href="#i-arrow"/></svg></a>
-          <a class="btn ghost magnet" href="#recorrido">Ver la app por dentro</a>
+          <a class="btn magnet only-trial" data-trial href="#contacto">Probar NirKanA gratis <svg class="ic"><use href="#i-arrow"/></svg></a>
+          <a class="btn ghost magnet only-trial" href="#contacto">Quiero NirKanA</a>
+          <a class="btn magnet no-trial" href="#contacto">Quiero NirKanA <svg class="ic"><use href="#i-arrow"/></svg></a>
+          <a class="btn ghost magnet no-trial" href="#recorrido">Ver la app por dentro</a>
         </div>
+        <p class="cta-note only-trial">24 horas gratis, sin tarjeta, con un negocio de ejemplo listo para usar.</p>
       </div>
 
       <div class="wrap scene" data-tilt aria-label="La app en ordenador y móvil">
@@ -516,7 +520,7 @@
               <b id="r-year">4.920 €</b>
             </div>
             <p class="fine">Estimación orientativa, no una garantía. <a href="#supuestos">Cómo lo calculamos</a>.
-              NirKanA cuesta desde 20 € al mes; en la demo vemos el plan que encaja con tu negocio.</p>
+              NirKanA cuesta desde 20 € al mes; escríbenos y te decimos el plan que encaja con tu negocio.</p>
           </div>
         </div>
         <details class="assume" id="supuestos">
@@ -524,7 +528,7 @@
           <p>Suponemos que NirKanA automatiza una parte del tiempo que dedicas a caja, stock e informes (entre el 35 % y el
             50 % según el sector) y que evita una pequeña parte de las ventas que hoy se pierden por descuadres, productos
             agotados o errores de cobro (entre el 0,4 % y el 1 % de tus ventas). Son supuestos prudentes: cada negocio es
-            distinto y en la demo lo calculamos con tus datos.</p>
+            distinto y, si nos escribes, lo calculamos con tus datos.</p>
         </details>
       </div>
     </section>
@@ -564,8 +568,9 @@
           <p class="sub">Te acompaño en todo el proceso. No necesitas saber de informática.</p>
         </div>
         <ol class="timeline">
-          <li data-reveal><span class="n">1</span><b>Demo personalizada</b><span>20 minutos para ver tu negocio y enseñarte
-            cómo quedaría con tus productos. Sin compromiso.</span></li>
+          <li data-reveal><span class="n">1</span><b class="only-trial">Pruébala gratis</b><b class="no-trial">Cuéntanos tu negocio</b><span class="only-trial">24 horas con un negocio de ejemplo lleno de ventas, caja y clientes. Sin tarjeta y sin
+            compromiso.</span><span class="no-trial">Escríbenos y vemos juntos cómo quedaría con tus productos. Sin
+            compromiso.</span></li>
           <li data-reveal><span class="n">2</span><b>La preparamos juntos</b><span>Catálogo, precios, impuestos, equipo y
             datos fiscales. En un par de horas.</span></li>
           <li data-reveal><span class="n">3</span><b>Vendes desde el primer día</b><span>Tu equipo entra con su PIN y
@@ -610,8 +615,14 @@
           </details>
           <details>
             <summary>¿Cuánto cuesta?</summary>
-            <p>Desde 20 € al mes. El precio final depende de las funciones que necesites: en la demo te digo
+            <p>Desde 20 € al mes. El precio final depende de las funciones que necesites: escríbenos y te digo
               exactamente cuánto sería para tu negocio, sin compromiso.</p>
+          </details>
+          <details class="only-trial">
+            <summary>¿Puedo probarla antes de decidir?</summary>
+            <p>Sí. La prueba gratuita dura 24 horas, no pide tarjeta y empieza con un negocio de ejemplo con ventas,
+              caja, clientes y equipo, para que veas cómo funciona todo. Si te encaja, nos escribes y la dejamos lista
+              con tus datos.</p>
           </details>
           <details>
             <summary>¿Me ayudas a ponerla en marcha?</summary>
@@ -628,9 +639,11 @@
         <div class="contact-card">
           <div class="contact-copy">
             <p class="eyebrow">Siguiente paso</p>
-            <h2>Vamos a ver tu negocio en NirKanA</h2>
-            <p class="lead-sm">Una demo de 20 minutos con tus productos y tu forma de trabajar. Te digo exactamente qué
-              cambiaría para ti, sin compromiso.</p>
+            <h2>¿Quieres NirKanA para tu negocio?</h2>
+            <p class="lead-sm">Cuéntame tu negocio y te la dejo lista con tus productos, tu equipo y tus datos fiscales. Te
+              digo exactamente qué cambiaría para ti y cuánto costaría, sin compromiso.</p>
+            <p class="try only-trial">¿Prefieres verla antes? <a data-trial href="#contacto">Pruébala gratis 24 horas</a>,
+              sin tarjeta.</p>
             <ul class="ticks light">
               <li><svg class="ic"><use href="#i-check"/></svg>Gratis y sin compromiso</li>
               <li><svg class="ic"><use href="#i-check"/></svg>Con tus productos reales</li>
@@ -638,7 +651,7 @@
             </ul>
             <div class="direct">
               <a class="btn ghost" id="whatsapp-link" href="#contacto" hidden rel="noopener noreferrer" target="_blank"><svg class="ic"><use href="#i-chat"/></svg>Hablar por WhatsApp</a>
-              <a class="btn ghost" id="email-link" href="#contacto" hidden><svg class="ic"><use href="#i-chat"/></svg>Escribir por email</a>
+              <a class="btn ghost" id="email-link" href="#contacto" hidden><svg class="ic"><use href="#i-chat"/></svg>Contactar por email</a>
             </div>
             <noscript><p class="note">Activa JavaScript para enviar el formulario.</p></noscript>
           </div>
@@ -669,7 +682,7 @@
             <label class="check"><input type="checkbox" name="consentimiento" required>
               <span>Acepto que se usen estos datos solo para responder a mi solicitud, según el
                 <a href="privacidad.html">aviso de privacidad</a>.</span></label>
-            <button class="btn magnet" type="submit">Pedir mi demo <svg class="ic"><use href="#i-arrow"/></svg></button>
+            <button class="btn magnet" type="submit">Quiero NirKanA <svg class="ic"><use href="#i-arrow"/></svg></button>
             <p class="status" id="form-status" role="status" aria-live="polite"></p>
           </form>
         </div>
@@ -702,7 +715,8 @@
       </nav>
       <nav aria-label="Contacto y legal">
         <b>Contacto</b>
-        <a href="#contacto">Pedir una demo</a>
+        <a class="only-trial" data-trial href="#contacto">Probar gratis</a>
+        <a href="#contacto">Contactar</a>
         <a href="#preguntas">Preguntas frecuentes</a>
         <a href="privacidad.html">Aviso de privacidad</a>
       </nav>

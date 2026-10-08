@@ -176,6 +176,9 @@ section { padding: clamp(72px, 10vw, 136px) 0; }
 .lead { font-size: clamp(1.1rem, 1.8vw, 1.32rem); color: #C6D2EE; max-width: 60ch; margin: 0 auto; line-height: 1.6; }
 .lead strong { color: #fff; font-weight: 700; }
 .cta { display: flex; flex-wrap: wrap; justify-content: center; gap: .8rem; margin: 2.2rem 0 0; }
+/* «Probar NirKanA» appears only once TRIAL_URL is set in site.js; until then «Quiero NirKanA» takes its place. */
+html:not(.has-trial) .only-trial, html.has-trial .no-trial { display: none !important; }
+.cta-note { margin: 1rem 0 0; color: #AEBBDA; font-size: .92rem; }
 .hero .btn.ghost { color: #EAF0FF; border-color: rgba(234, 240, 255, .35); backdrop-filter: blur(6px); }
 
 .scene { perspective: 1600px; margin-top: clamp(48px, 7vw, 88px); max-width: 1040px; }
@@ -421,6 +424,7 @@ section { padding: clamp(72px, 10vw, 136px) 0; }
   font-size: 1.3rem; background: var(--grad); box-shadow: 0 14px 28px -12px rgba(59, 91, 253, .9), 0 0 0 8px var(--surface); position: relative; }
 .timeline b { display: block; font-size: 1.2rem; margin-bottom: .4rem; }
 .timeline span:last-child { color: var(--muted); }
+.timeline span.only-trial, .timeline span.no-trial { color: var(--muted); }
 @media (max-width: 760px) { .timeline { grid-template-columns: 1fr; gap: 36px; } .timeline::before { display: none; } }
 
 /* ------------------------------------------------------------------ FAQ */
@@ -450,6 +454,8 @@ details p { color: var(--muted); margin: .8rem 0 0; max-width: 64ch; }
 .lead-sm { color: #C6D2EE; font-size: 1.1rem; }
 .contact-card .btn.ghost { color: #EAF0FF; }
 .direct { display: flex; flex-wrap: wrap; gap: .7rem; }
+.try { color: #C6D2EE; margin: .2rem 0 1.2rem; }
+.try a { color: #8FE9DB; font-weight: 700; }
 @media (max-width: 900px) { .contact-card { grid-template-columns: 1fr; } }
 .form { background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: 20px; padding: clamp(20px, 3vw, 32px);
   box-shadow: 0 40px 80px -30px rgba(0, 0, 0, .7); display: grid; gap: 14px; }
@@ -529,6 +535,7 @@ details p { color: var(--muted); margin: .8rem 0 0; max-width: 64ch; }
 @media (max-width: 860px) { .shots { grid-template-columns: 1fr; } }
 .center-cta { text-align: center; }
 .center-cta .sub { margin-inline: auto; margin-bottom: 1.6rem; }
+.center-cta .cta-row { justify-content: center; margin-top: 0; }
 .subpage .sub a, .subpage .faq-side a { color: var(--brand-text); }
 
 .panel-copy .more { display: inline-flex; align-items: center; gap: .4rem; margin: .2rem 0 1.2rem; font-weight: 700;
