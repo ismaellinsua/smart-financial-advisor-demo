@@ -72,12 +72,26 @@ def phone(server):
         browser.close()
 
 
+def _idle(page, timeout=30.0):
+    """Streamlit runs the whole script again after each click and only then swaps in the new page; some clicks chain a
+    second run a moment after the first. On a busy machine (CI, where coverage also slows the server down) a click that
+    lands while a run is going hits an element about to be replaced and is lost. Wait until the app has been idle for
+    half a second before the next click."""
+    deadline, calm = time.monotonic() + timeout, 0
+    while calm < 5:
+        state = page.evaluate("document.querySelector('[data-test-script-state]')?.dataset.testScriptState")
+        calm = calm + 1 if state == "notRunning" else 0
+        assert time.monotonic() < deadline, f"the app did not finish its run (state: {state})"
+        page.wait_for_timeout(100)
+
+
 def _sign_in(page, base):
     page.goto(base, wait_until="networkidle")
     page.get_by_label("Usuario", exact=True).fill("marta")
     page.get_by_label("PIN o contraseña").fill("583920")
     page.get_by_role("button", name="Entrar").click()
     page.get_by_text("Punto de venta").first.wait_for()
+    _idle(page)
 
 
 def test_staff_sells_from_a_phone_and_a_reload_keeps_the_ticket(server, phone):
@@ -154,8 +168,14 @@ def test_the_app_works_under_the_production_security_policy(server):
         refused.clear()
 
         page.get_by_role("button", name="Añadir", disabled=False).first.click()  # one still in stock
-        page.get_by_role("button", name="Ver ticket y cobrar (1)").click()
-        page.get_by_role("button", name="Cobrar").first.click()
+        to_ticket = page.get_by_role("button", name="Ver ticket y cobrar (1)")
+        to_ticket.wait_for()
+        _idle(page)
+        to_ticket.click()
+        charge = page.get_by_role("button", name="Cobrar").first
+        charge.wait_for(state="visible")
+        _idle(page)
+        charge.click()
         page.get_by_text("Venta registrada").wait_for()
         page.get_by_role("button", name="Nueva venta").wait_for(state="visible")
         ticket = None
