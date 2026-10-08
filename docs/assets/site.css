@@ -544,3 +544,14 @@ details p { color: var(--muted); margin: .8rem 0 0; max-width: 64ch; }
 .panel-copy .more { display: inline-flex; align-items: center; gap: .4rem; margin: .2rem 0 1.2rem; font-weight: 700;
   color: var(--brand-text); text-decoration: none; }
 .panel-copy .more:hover { text-decoration: underline; }
+
+/* Professional finishing: consistent keyboard access, touch targets and motion preferences. */
+::selection { background: var(--brand); color: #fff; }
+a, button, input, textarea, select { -webkit-tap-highlight-color: transparent; }
+@media (pointer: coarse) {
+  .menu-btn, .theme-btn, .top nav a { min-height: 44px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
