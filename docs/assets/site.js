@@ -70,6 +70,7 @@ const ANALYTICS = { goatcounter: "" };
   const appLink = document.getElementById("app-link");
   if (appLink && /^https:\/\/[a-z0-9.-]+(\/.*)?$/i.test(APP_URL)) {
     appLink.href = APP_URL;
+    appLink.rel = "noopener noreferrer";
     appLink.hidden = false;
   }
 
@@ -77,6 +78,7 @@ const ANALYTICS = { goatcounter: "" };
   if (/^https:\/\/[a-z0-9.-]+(\/.*)?$/i.test(TRIAL_URL)) {
     for (const link of document.querySelectorAll("a[data-trial]")) {
       link.href = TRIAL_URL;
+      link.rel = "noopener noreferrer";
       link.addEventListener("click", () => countVisit("prueba-abierta", "Clic en Probar NirKanA", true));
     }
     document.documentElement.classList.add("has-trial"); // site.css swaps «Quiero NirKanA» for «Probar NirKanA»
