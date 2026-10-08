@@ -135,6 +135,7 @@ const ANALYTICS = { goatcounter: "" };
       if (Date.now() - lastSent < 30000) { say("Ya hemos recibido tu mensaje. Gracias.", "ok"); return; }
 
       const fields = {
+        solicitud: clean(data.get("solicitud"), 60),
         nombre: clean(data.get("nombre"), 80), negocio: clean(data.get("negocio"), 100),
         tipo: clean(data.get("tipo"), 40), email: clean(data.get("email"), 120),
         telefono: clean(data.get("telefono"), 20), mensaje: clean(data.get("mensaje"), 1500),
@@ -142,10 +143,10 @@ const ANALYTICS = { goatcounter: "" };
       const button = form.querySelector("button[type=submit]");
 
       if (!CONTACT.formspreeId) { // no form service configured: send the request by WhatsApp or email instead
-        const text = `${MESSAGE}\n\nNombre: ${fields.nombre}\nNegocio: ${fields.negocio} (${fields.tipo})\n` +
+        const text = `${MESSAGE}\n\nSolicitud: ${fields.solicitud}\nNombre: ${fields.nombre}\nNegocio: ${fields.negocio} (${fields.tipo})\n` +
           `Email: ${fields.email}\nTeléfono: ${fields.telefono || "-"}\n\n${fields.mensaje}`;
         if (phone.length < 8 && email) {
-          window.location.href = mailto(`Quiero NirKanA · ${fields.negocio}`, text);
+          window.location.href = mailto(`${fields.solicitud} · NirKanA · ${fields.negocio}`, text);
           say(`Se ha abierto tu correo con el mensaje preparado. Si no se abre, escríbenos a ${email}.`, "ok");
           lastSent = Date.now();
           return;
@@ -166,7 +167,7 @@ const ANALYTICS = { goatcounter: "" };
         const id = encodeURIComponent(CONTACT.formspreeId);
         const res = await fetch(`https://formspree.io/f/${id}`, {
           method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" },
-          body: JSON.stringify({ ...fields, _subject: `Quiero NirKanA · ${fields.negocio}` }),
+          body: JSON.stringify({ ...fields, _subject: `${fields.solicitud} · NirKanA · ${fields.negocio}` }),
           credentials: "omit", referrerPolicy: "strict-origin-when-cross-origin",
         });
         if (!res.ok) throw new Error(String(res.status));
