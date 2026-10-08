@@ -19,6 +19,10 @@ const APP_URL = "";
 // and «Quiero NirKanA» takes their place, so the page never links to a trial that is not running yet.
 const TRIAL_URL = "";
 
+// Address of the offline demo, a page of this same site (the built NirKanA-demo.html lives at /demo/index.html). It is a
+// business with example data that anyone can open without signing up. Empty: no «Ver la demo» link is shown.
+const DEMO_URL = "/demo/";
+
 // Visit counter (GoatCounter): your site code, e.g. "nirkana" for nirkana.goatcounter.com. Empty: nothing is counted.
 // No cookies, nothing stored on the visitor's device, no third-party script; visitors who ask not to be tracked
 // (Do Not Track or Global Privacy Control) are not counted.
@@ -76,6 +80,16 @@ const ANALYTICS = { goatcounter: "" };
       link.addEventListener("click", () => countVisit("prueba-abierta", "Clic en Probar NirKanA", true));
     }
     document.documentElement.classList.add("has-trial"); // site.css swaps «Quiero NirKanA» for «Probar NirKanA»
+  }
+
+  // ------------------------------------------------------------ «Ver la demo»: the example business, no sign-up
+  if (/^\/[a-z0-9\/_-]*$/i.test(DEMO_URL) || /^https:\/\/[a-z0-9.-]+(\/.*)?$/i.test(DEMO_URL)) {
+    for (const link of document.querySelectorAll("a[data-demo]")) {
+      const sector = link.getAttribute("data-demo"); // a sector opens straight on that kind of business
+      link.href = sector ? `${DEMO_URL}?negocio=${encodeURIComponent(sector)}` : DEMO_URL;
+      link.addEventListener("click", () => countVisit("demo-abierta", "Clic en Ver la demo", true));
+    }
+    document.documentElement.classList.add("has-demo"); // site.css shows the demo links
   }
 
   // ------------------------------------------------------------ menu on small screens
