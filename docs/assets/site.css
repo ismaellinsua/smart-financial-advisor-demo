@@ -544,3 +544,40 @@ details p { color: var(--muted); margin: .8rem 0 0; max-width: 64ch; }
 .panel-copy .more { display: inline-flex; align-items: center; gap: .4rem; margin: .2rem 0 1.2rem; font-weight: 700;
   color: var(--brand-text); text-decoration: none; }
 .panel-copy .more:hover { text-decoration: underline; }
+
+/* Professional finishing: consistent keyboard access, touch targets and motion preferences. */
+::selection { background: var(--brand); color: #fff; }
+a, button, input, textarea, select { -webkit-tap-highlight-color: transparent; }
+@media (pointer: coarse) {
+  .menu-btn, .theme-btn, .top nav a { min-height: 44px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
+
+/* NirKanA premium enterprise refinement — preserves brand colours, content and layout. */
+:root {
+  --bg: #F4F6FA;
+  --surface-2: #EBEFF7;
+  --ink: #111B2E;
+  --line: #DDE4EF;
+  --shadow-sm: 0 2px 5px rgba(14,23,38,.035), 0 16px 36px -22px rgba(14,23,38,.20);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --bg: #090F1B; --surface-2: #152138; --line: #29364D; }
+}
+:root[data-theme="dark"] { --bg: #090F1B; --surface-2: #152138; --line: #29364D; }
+body { letter-spacing: -.008em; }
+h1, h2, h3 { letter-spacing: -.038em; }
+h1 { letter-spacing: -.05em; }
+.eyebrow { letter-spacing: .13em; }
+.btn { transition: transform .18s ease, box-shadow .18s ease, background-color .18s ease, border-color .18s ease; }
+@media (hover: hover) and (pointer: fine) {
+  .btn:hover { transform: translateY(-2px); }
+}
+:focus-visible { outline-offset: 4px; }
+@media (prefers-reduced-motion: reduce) {
+  .btn { transition: none; }
+  .btn:hover { transform: none; }
+}
