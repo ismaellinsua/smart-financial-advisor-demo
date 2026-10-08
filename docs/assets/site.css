@@ -178,6 +178,9 @@ section { padding: clamp(72px, 10vw, 136px) 0; }
 .cta { display: flex; flex-wrap: wrap; justify-content: center; gap: .8rem; margin: 2.2rem 0 0; }
 /* «Probar NirKanA» appears only once TRIAL_URL is set in site.js; until then «Quiero NirKanA» takes its place. */
 html:not(.has-trial) .only-trial, html.has-trial .no-trial { display: none !important; }
+/* «Ver la demo» appears once DEMO_URL is set in site.js (it always is on this site); .no-demo is the fallback without it. */
+html:not(.has-demo) .only-demo, html.has-demo .no-demo { display: none !important; }
+@media (max-width: 760px) { .demo-head { display: none !important; } } /* on phones the demo is in the menu */
 .cta-note { margin: 1rem 0 0; color: #AEBBDA; font-size: .92rem; }
 .hero .btn.ghost { color: #EAF0FF; border-color: rgba(234, 240, 255, .35); backdrop-filter: blur(6px); }
 

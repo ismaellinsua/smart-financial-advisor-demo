@@ -6,6 +6,7 @@ frecuentes y contacto. Está en esta carpeta `docs/`:
 | Archivo | Qué es |
 |---|---|
 | `index.html` | La página principal |
+| `demo/index.html` | La demo: NirKanA entera con un negocio de ejemplo, en un solo archivo (ver «La demo») |
 | `privacidad.html` | Aviso de privacidad (RGPD) |
 | `tpv-restaurantes/`, `tpv-tiendas/`, `programa-facturacion-autonomos/`, `tpv-tienda-online/` | Una página por sector, para buscadores (están en `sitemap.xml`) |
 | `404.html` | Lo que ve quien abre una dirección que no existe |
@@ -53,6 +54,19 @@ y aparecen solos «Probar gratis» en la cabecera, «Probar NirKanA gratis» en 
 el primer paso «Pruébala gratis», la pregunta «¿Puedo probarla antes de decidir?» y el enlace del bloque de contacto.
 «Quiero NirKanA» y «Contactar» siguen llevando al formulario y al email. Si GoatCounter está activo, cuenta cuántas
 personas abren la prueba.
+
+### La demo («Probar la demo»)
+
+`demo/index.html` es **NirKanA entera en un solo archivo** (la app con un negocio de ejemplo: bar, tienda, peluquería o
+tienda online). La web enseña «Probar la demo» en la cabecera, la portada, el bloque de contacto, las preguntas y cada
+página de sector, que abre directamente ese tipo de negocio (`/demo/?negocio=hosteleria`, `tienda`, `servicios` u
+`online`). No hace falta registrarse ni hay servidor detrás: los datos son inventados y se quedan en el navegador.
+
+- El archivo viene de `nirkana-app` (`demo/`, ver su `LEEME.md`). Para actualizarlo tras cambiar la app:
+  `python demo/exportar.py && node demo/construir.mjs` y copiar `demo/dist/NirKanA-demo.html` a `docs/demo/index.html`
+  (la CI de `nirkana-app` también lo guarda como descarga).
+- La dirección está en `DEMO_URL` (`assets/site.js`); si la dejas vacía, los enlaces a la demo desaparecen.
+- No sale en Google (`noindex`) ni en `sitemap.xml`.
 
 ### Contar visitas sin cookies (GoatCounter)
 
