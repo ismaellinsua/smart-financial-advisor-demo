@@ -1273,3 +1273,16 @@ def test_spanish_tax_ids_are_checked():
     assert "letra" in tax_id_problem("12345678A")
     assert "control" in tax_id_problem("B12345678")
     assert "No parece" in tax_id_problem("hola")
+
+
+
+def test_demo_cash_can_fund_refunds_larger_than_cash_receipts(make_store, monkeypatch):
+    # This date/seed previously produced a negative cash count for ecommerce on SQLite and PostgreSQL.
+    monkeypatch.setattr(clock, "now", lambda: datetime(2026, 10, 10, 13, 0))
+    store = make_store()
+    store.load_preset("ecommerce")
+    closings = store.cash_closings()
+    assert len(closings) == 5
+    assert (closings["counted_cash"] >= 0).all()
+    assert (closings["expected_cash"] >= 150).all()
+    assert closings["difference"].abs().max() <= 5
