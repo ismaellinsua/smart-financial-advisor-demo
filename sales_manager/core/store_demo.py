@@ -147,8 +147,12 @@ class DemoMixin:
         # Closed tills for the last few days, with the small differences real counts have.
         for days_ago in range(5, 0, -1):
             day = (now - timedelta(days=days_ago)).date()
-            expected = 150 + self.day_summary(day)["cash"]
-            self.close_cash(day, 150, round(expected + rng.choice([0, 0, 0, -2.5, 1.2, 5]), 2),
+            net_cash = self.day_summary(day)["cash"]
+            # Fictitious refunds can exceed cash receipts (e.g. an online card sale refunded in cash).
+            # Seed enough opening cash to fund them; never manufacture a negative physical cash count.
+            opening = round(150 + max(0, -net_cash), 2)
+            expected = opening + net_cash
+            self.close_cash(day, opening, round(expected + rng.choice([0, 0, 0, -2.5, 1.2, 5]), 2),
                             when=datetime.combine(day, time(21, 30)))
 
         agenda = preset.get("agenda")
@@ -218,3 +222,4 @@ class DemoMixin:
                     customer_name="" if known else rng.choice(walk_ins),
                     notes=notes, allow_overlap=not agenda["single"],
                 )
+
