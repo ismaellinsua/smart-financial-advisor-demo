@@ -90,7 +90,7 @@
       <div class="bar-end">
         <a class="btn small ghost magnet only-demo demo-head" data-demo href="/demo/">Ver la demo</a>
         <a class="btn small magnet only-trial" data-trial href="#contacto">Probar gratis</a>
-        <a class="btn small magnet no-trial" href="#contacto">Quiero NirKanA</a>
+        <a class="btn small magnet no-trial" href="#contacto">Contactar</a>
         <button class="menu-btn" type="button" aria-controls="menu" aria-expanded="false" aria-label="Abrir el menú">
           <svg class="ic"><use href="#i-menu"/></svg></button>
       </div>
@@ -102,22 +102,32 @@
     <section class="hero" id="inicio">
       <canvas class="orb" aria-hidden="true"></canvas>
       <div class="spot" aria-hidden="true"></div>
-      <div class="wrap hero-copy">
-        <p class="pill"><span class="live"></span>TPV y gestión de ventas para negocios en España</p>
+      <div class="wrap hero-layout">
+      <div class="hero-copy">
+        <p class="pill"><span class="live" aria-hidden="true"></span>Tu negocio, conectado</p>
         <h1>De libreta a datos<br><span class="grad">en un día.</span></h1>
-        <p class="lead">Para <strong>restaurantes, tiendas, autónomos y tiendas online</strong>. Cobra, controla tu stock, tu
-          caja y tu equipo, y ve en las alertas lo que va mal antes de que vaya a más. En el móvil, la tablet o el ordenador.</p>
+        <p class="lead">Ventas, caja, stock y equipo, <strong>en un mismo sitio</strong>. Entiende cómo va tu negocio y
+          trabaja desde el móvil, la tablet o el ordenador.</p>
         <div class="cta">
           <a class="btn magnet only-trial" data-trial href="#contacto">Probar NirKanA gratis <svg class="ic"><use href="#i-arrow"/></svg></a>
           <a class="btn ghost magnet only-trial" href="#contacto">Quiero NirKanA</a>
-          <a class="btn magnet no-trial" href="#contacto">Quiero NirKanA <svg class="ic"><use href="#i-arrow"/></svg></a>
-          <a class="btn ghost magnet no-trial no-demo" href="#recorrido">Ver la app por dentro</a>
-          <a class="btn ghost magnet no-trial only-demo" data-demo href="/demo/">Probar la demo</a>
+          <a class="btn magnet no-trial only-demo" data-demo href="/demo/">Explorar la demo <svg class="ic"><use href="#i-arrow"/></svg></a>
+          <a class="btn magnet no-trial no-demo" href="#recorrido">Ver la app por dentro <svg class="ic"><use href="#i-arrow"/></svg></a>
+          <a class="btn ghost magnet no-trial" href="#contacto">Hablar de mi negocio</a>
         </div>
         <p class="cta-note only-trial">24 horas gratis, sin tarjeta, con un negocio de ejemplo listo para usar.</p>
+        <p class="cta-note no-trial only-demo">Sin registro · Datos ficticios · A tu ritmo</p>
+        <nav class="hero-sectors" aria-label="Encuentra tu tipo de negocio">
+          <span>Hecha para tu día a día</span>
+          <a href="#sectores" data-tab="tab-rest"><svg class="ic"><use href="#i-utensils"/></svg>Restaurantes</a>
+          <a href="#sectores" data-tab="tab-shop"><svg class="ic"><use href="#i-bag"/></svg>Comercios</a>
+          <a href="#sectores" data-tab="tab-pro"><svg class="ic"><use href="#i-briefcase"/></svg>Autónomos y servicios</a>
+          <a href="#sectores" data-tab="tab-web"><svg class="ic"><use href="#i-box"/></svg>Tiendas online</a>
+        </nav>
       </div>
 
-      <div class="wrap scene" data-tilt aria-label="La app en ordenador y móvil">
+      <div class="scene" data-tilt aria-label="La app en ordenador y móvil">
+        <p class="preview-label"><span>Así se ve NirKanA</span><span>Datos de ejemplo</span></p>
         <div class="stage">
           <div class="glow" aria-hidden="true"></div>
           <figure class="screen">
@@ -131,6 +141,7 @@
           <div class="chip c2" aria-hidden="true"><i class="dot red"></i><span>Solomillo se agota en 1 día</span></div>
           <div class="chip c3" aria-hidden="true"><i class="dot green"></i><span>Mesa 4 cobrada · 86,40 €</span></div>
         </div>
+      </div>
       </div>
 
       <div class="wrap stats">
@@ -756,3 +767,4 @@
      aria-label="Escribir por WhatsApp"><svg class="ic" aria-hidden="true"><use href="#i-chat"/></svg></a>
 </body>
 </html>
+
