@@ -125,7 +125,7 @@ section { padding: clamp(72px, 10vw, 136px) 0; }
 .bar-end { display: flex; align-items: center; gap: .5rem; }
 .bar-end .btn { white-space: nowrap; }
 @media (max-width: 400px) { .bar { gap: .5rem; } .bar-end .btn.small { padding-inline: .9rem; } .menu-btn { width: 40px; height: 40px; } }
-@media (max-width: 359px) { .brand .name { display: none; } } /* the logo alone keeps the bar on one line */
+@media (max-width: 389px) { .brand .name { display: none; } } /* the logo alone keeps the bar on one line (360 and 375 px phones) */
 .menu-btn { display: none; place-items: center; width: 44px; height: 44px; border-radius: 12px; cursor: pointer;
   background: transparent; border: 1px solid var(--line); color: inherit; }
 .menu-btn .ic { width: 22px; height: 22px; }
