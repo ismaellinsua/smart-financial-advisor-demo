@@ -70,6 +70,7 @@ const ANALYTICS = { goatcounter: "" };
   const appLink = document.getElementById("app-link");
   if (appLink && /^https:\/\/[a-z0-9.-]+(\/.*)?$/i.test(APP_URL)) {
     appLink.href = APP_URL;
+    appLink.rel = "noopener noreferrer";
     appLink.hidden = false;
   }
 
@@ -77,6 +78,7 @@ const ANALYTICS = { goatcounter: "" };
   if (/^https:\/\/[a-z0-9.-]+(\/.*)?$/i.test(TRIAL_URL)) {
     for (const link of document.querySelectorAll("a[data-trial]")) {
       link.href = TRIAL_URL;
+      link.rel = "noopener noreferrer";
       link.addEventListener("click", () => countVisit("prueba-abierta", "Clic en Probar NirKanA", true));
     }
     document.documentElement.classList.add("has-trial"); // site.css swaps «Quiero NirKanA» for «Probar NirKanA»
@@ -107,7 +109,7 @@ const ANALYTICS = { goatcounter: "" };
       if (e.key === "Escape" && top.classList.contains("open")) { setMenu(false); menuBtn.focus(); }
     });
     document.addEventListener("click", (e) => { if (!top.contains(e.target)) setMenu(false); });
-    window.matchMedia("(min-width: 921px)").addEventListener("change", (e) => { if (e.matches) setMenu(false); });
+    window.matchMedia("(min-width: 1181px)").addEventListener("change", (e) => { if (e.matches) setMenu(false); });
   }
 
   // ------------------------------------------------------------ contact form
@@ -135,6 +137,7 @@ const ANALYTICS = { goatcounter: "" };
       if (Date.now() - lastSent < 30000) { say("Ya hemos recibido tu mensaje. Gracias.", "ok"); return; }
 
       const fields = {
+        solicitud: clean(data.get("solicitud"), 60),
         nombre: clean(data.get("nombre"), 80), negocio: clean(data.get("negocio"), 100),
         tipo: clean(data.get("tipo"), 40), email: clean(data.get("email"), 120),
         telefono: clean(data.get("telefono"), 20), mensaje: clean(data.get("mensaje"), 1500),
@@ -142,10 +145,10 @@ const ANALYTICS = { goatcounter: "" };
       const button = form.querySelector("button[type=submit]");
 
       if (!CONTACT.formspreeId) { // no form service configured: send the request by WhatsApp or email instead
-        const text = `${MESSAGE}\n\nNombre: ${fields.nombre}\nNegocio: ${fields.negocio} (${fields.tipo})\n` +
+        const text = `${MESSAGE}\n\nSolicitud: ${fields.solicitud}\nNombre: ${fields.nombre}\nNegocio: ${fields.negocio} (${fields.tipo})\n` +
           `Email: ${fields.email}\nTeléfono: ${fields.telefono || "-"}\n\n${fields.mensaje}`;
         if (phone.length < 8 && email) {
-          window.location.href = mailto(`Quiero NirKanA · ${fields.negocio}`, text);
+          window.location.href = mailto(`${fields.solicitud} · NirKanA · ${fields.negocio}`, text);
           say(`Se ha abierto tu correo con el mensaje preparado. Si no se abre, escríbenos a ${email}.`, "ok");
           lastSent = Date.now();
           return;
@@ -166,7 +169,7 @@ const ANALYTICS = { goatcounter: "" };
         const id = encodeURIComponent(CONTACT.formspreeId);
         const res = await fetch(`https://formspree.io/f/${id}`, {
           method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" },
-          body: JSON.stringify({ ...fields, _subject: `Quiero NirKanA · ${fields.negocio}` }),
+          body: JSON.stringify({ ...fields, _subject: `${fields.solicitud} · NirKanA · ${fields.negocio}` }),
           credentials: "omit", referrerPolicy: "strict-origin-when-cross-origin",
         });
         if (!res.ok) throw new Error(String(res.status));
@@ -240,6 +243,15 @@ const ANALYTICS = { goatcounter: "" };
       panel.hidden = !on;
       if (on && !reduceMotion) { panel.classList.remove("enter"); void panel.offsetWidth; panel.classList.add("enter"); }
     });
+    // Keep the selected sector visible without scrolling the document away from the visitor.
+    const strip = tab.closest('[role="tablist"]');
+    if (strip) {
+      const selected = tab.getBoundingClientRect();
+      const viewport = strip.getBoundingClientRect();
+      const shift = selected.left < viewport.left ? selected.left - viewport.left
+        : selected.right > viewport.right ? selected.right - viewport.right : 0;
+      if (shift) strip.scrollBy({ left: shift, behavior: reduceMotion ? "instant" : "smooth" });
+    }
     if (focus) tab.focus();
   };
   tabs.forEach((tab, i) => {
@@ -247,6 +259,9 @@ const ANALYTICS = { goatcounter: "" };
     tab.addEventListener("keydown", (e) => {
       const step = { ArrowRight: 1, ArrowLeft: -1 }[e.key];
       if (step) { e.preventDefault(); selectTab(tabs[(i + step + tabs.length) % tabs.length], true); }
+      if (e.key === "Home" || e.key === "End") {
+        e.preventDefault(); selectTab(e.key === "Home" ? tabs[0] : tabs[tabs.length - 1], true);
+      }
     });
   });
   document.querySelectorAll("[data-tab]").forEach((link) => {
@@ -259,8 +274,12 @@ const ANALYTICS = { goatcounter: "" };
     const main = big.querySelector(".main");
     const label = big.querySelector(".chrome > span");
     panel.querySelectorAll(".thumbs button").forEach((btn) => {
+      btn.setAttribute("aria-pressed", String(btn.classList.contains("on")));
       btn.addEventListener("click", () => {
-        panel.querySelectorAll(".thumbs button").forEach((b) => b.classList.toggle("on", b === btn));
+        panel.querySelectorAll(".thumbs button").forEach((b) => {
+          b.classList.toggle("on", b === btn);
+          b.setAttribute("aria-pressed", String(b === btn));
+        });
         big.dataset.full = btn.dataset.full;
         main.classList.add("swap");
         setTimeout(() => {
@@ -516,3 +535,4 @@ const ANALYTICS = { goatcounter: "" };
     btn.addEventListener("pointerleave", () => btn.classList.remove("pull"));
   });
 })();
+
