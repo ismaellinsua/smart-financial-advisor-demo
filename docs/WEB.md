@@ -82,6 +82,25 @@ necesita banner de cookies. Hasta que pongas tu código no cuenta nada.
 Solo cuenta en `nirkana.es` (no en copias locales) y no cuenta a quien tenga activado «no rastrear» en su navegador.
 El aviso de privacidad ya lo explica.
 
+## Las capturas y los textos: solo lo que la app hace
+
+Las imágenes de `assets/img/` son capturas de la **app real** (la demo es su front-end con datos inventados), no
+dibujos. Se regeneran con un script, así que no pueden enseñar una pantalla que el producto no tenga:
+
+```bash
+python ops/capturas_web.py    # necesita Playwright con Chromium y Pillow; usa docs/demo/index.html
+```
+
+Tras actualizar `docs/demo/index.html` con una versión nueva de la app, ejecútalo y revisa las imágenes antes de
+publicar. Cada vez que cambies un texto de la web, `node --test tests/web-claims.test.mjs` comprueba que no vuelve a
+prometer lo que NirKanA no hace (informes semanales en PDF, precios recomendados, verificación en dos pasos, conexión
+automática con Shopify…), que no hay cifras de clientes ni certificaciones, que VERI*FACTU no se presenta como
+cumplido, que todas las imágenes y enlaces existen y que los datos estructurados (JSON-LD) son válidos y coinciden
+con las preguntas visibles. La CI lo ejecuta en cada cambio de `docs/`.
+
+`docs/caja/` es la «caja sin conexión» de la versión anterior (Streamlit); no está enlazada desde la web y lleva
+`noindex`. Se conserva porque `sales_manager/` aún la genera.
+
 ## Publicarla gratis con GitHub Pages
 
 1. En GitHub, abre el repositorio → **Settings → Pages**.

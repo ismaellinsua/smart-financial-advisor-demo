@@ -6,10 +6,10 @@
   <meta http-equiv="Content-Security-Policy"
         content="default-src 'self'; img-src 'self' data: https://*.goatcounter.com; style-src 'self'; script-src 'self'; connect-src https://formspree.io; form-action https://formspree.io; base-uri 'none'; object-src 'none'; upgrade-insecure-requests">
   <meta name="referrer" content="strict-origin-when-cross-origin">
-  <title>Gestión de ventas y stock para tiendas online · NirKanA</title>
-  <meta name="description" content="Gestiona tu tienda online y tu tienda física con un solo stock: exporta el catálogo a Shopify o WooCommerce, importa los pedidos y analiza tus márgenes.">
-  <meta property="og:title" content="Gestión de ventas y stock para tiendas online · NirKanA">
-  <meta property="og:description" content="Gestiona tu tienda online y tu tienda física con un solo stock: exporta el catálogo a Shopify o WooCommerce, importa los pedidos y analiza tus márgenes.">
+  <title>Gestión de tiendas online: stock, ventas y márgenes · NirKanA</title>
+  <meta name="description" content="Gestión de tu tienda online: catálogo con stock, importación desde Excel o CSV, márgenes por producto y pedidos registrados como ventas.">
+  <meta property="og:title" content="Gestión de tiendas online: stock, ventas y márgenes · NirKanA">
+  <meta property="og:description" content="Gestión de tu tienda online: catálogo con stock, importación desde Excel o CSV, márgenes por producto y pedidos registrados como ventas.">
   <meta property="og:type" content="website">
   <meta property="og:image" content="https://nirkana.es/assets/img/og.jpg">
   <meta property="og:image:width" content="1200">
@@ -26,6 +26,9 @@
   <link rel="canonical" href="https://nirkana.es/tpv-tienda-online/">
   <script type="application/ld+json">
   {"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "NirKanA", "item": "https://nirkana.es/"}, {"@type": "ListItem", "position": 2, "name": "Tiendas online", "item": "https://nirkana.es/tpv-tienda-online/"}]}
+  </script>
+  <script type="application/ld+json">
+  {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "¿Se conecta automáticamente con Shopify o WooCommerce?", "acceptedAnswer": {"@type": "Answer", "text": "No. Hoy no hay conexión automática: importas tu lista de productos desde un Excel o CSV y registras los pedidos como ventas. Si necesitas una integración concreta, cuéntanos cuál y la estudiamos."}}, {"@type": "Question", "name": "¿Puedo vender también en una tienda física?", "acceptedAnswer": {"@type": "Answer", "text": "Sí. El TPV y tu catálogo comparten productos y stock."}}, {"@type": "Question", "name": "¿Qué columnas reconoce la importación?", "acceptedAnswer": {"@type": "Answer", "text": "Nombre, código, código de barras, categoría, precio (o PVP con IVA), IVA, coste, stock y stock mínimo. Descargas una plantilla de ejemplo y ves una vista previa antes de guardar."}}]}
   </script>
 </head>
 <body class="subpage">
@@ -84,8 +87,8 @@
     <section class="sub-hero">
       <div class="wrap">
         <nav class="crumbs" aria-label="Estás en"><a href="/">NirKanA</a> <span aria-hidden="true">›</span> Tiendas online</nav>
-        <h1>Ventas y stock de tu tienda online, en un solo sitio</h1>
-        <p class="sub">Exporta el catálogo a Shopify o WooCommerce, importa los pedidos y lleva el stock y los márgenes de la web y la tienda física juntos.</p>
+        <h1>Stock, ventas y márgenes de tu tienda online, en un solo sitio</h1>
+        <p class="sub">Sube tu catálogo desde Excel o CSV, registra cada pedido como una venta y lleva el stock y los márgenes de la web y de la tienda física juntos.</p>
         <div class="cta-row">
           <a class="btn magnet only-trial" data-trial href="/#contacto">Probar NirKanA gratis <svg class="ic"><use href="#i-arrow"/></svg></a>
           <a class="btn ghost only-trial" href="/#contacto">Quiero NirKanA</a>
@@ -104,17 +107,17 @@
         </div>
         <div class="feats">
           <article class="feat"><span class="ico"><svg class="ic"><use href="#i-box"/></svg></span>
-            <h3>Catálogo para tu web</h3><p>Descarga el catálogo en el formato de Shopify o WooCommerce, con precios con IVA y stock.</p></article>
+            <h3>Catálogo con stock</h3><p>Productos con código, código de barras, precio, coste y stock en un solo sitio.</p></article>
           <article class="feat"><span class="ico"><svg class="ic"><use href="#i-download"/></svg></span>
-            <h3>Importa los pedidos</h3><p>Exporta los pedidos de la tienda e impórtalos: cada pedido cobrado es una venta y descuenta stock.</p></article>
+            <h3>Importa desde Excel o CSV</h3><p>Sube tu lista de productos o clientes y mira qué se creará o se actualizará antes de guardar nada.</p></article>
           <article class="feat"><span class="ico"><svg class="ic"><use href="#i-chart"/></svg></span>
-            <h3>Análisis ABC</h3><p>Descubre qué productos sostienen tu negocio y cuáles apenas se venden.</p></article>
+            <h3>Margen por producto</h3><p>Cada producto muestra su margen y el coste se actualiza solo al recibir pedidos.</p></article>
           <article class="feat"><span class="ico"><svg class="ic"><use href="#i-bolt"/></svg></span>
-            <h3>Precios por margen</h3><p>Te propone el precio de cada producto según el margen que quieres ganar.</p></article>
-          <article class="feat"><span class="ico"><svg class="ic"><use href="#i-bell"/></svg></span>
-            <h3>Alertas</h3><p>Te avisa de productos a punto de agotarse, márgenes que bajan y ventas que caen.</p></article>
+            <h3>Reposición</h3><p>Ves qué se agota y cuánto pedir, y creas el pedido al proveedor con un clic.</p></article>
+          <article class="feat"><span class="ico"><svg class="ic"><use href="#i-bag"/></svg></span>
+            <h3>Envíos y servicios</h3><p>Cobra los envíos y otros servicios como un producto más, sin stock.</p></article>
           <article class="feat"><span class="ico"><svg class="ic"><use href="#i-users"/></svg></span>
-            <h3>Clientes que no vuelven</h3><p>Detecta a quien deja de comprar y prepárale un mensaje para reactivarlo.</p></article>
+            <h3>Clientes y puntos</h3><p>Ficha de cada cliente con lo que compra y puntos de fidelidad.</p></article>
         </div>
       </div>
     </section>
@@ -128,16 +131,16 @@
         </div>
         <div class="shots">
           <figure class="shot">
-            <img src="/assets/img/shots/analisis-abc-c.webp" width="1200" height="750" alt="Análisis ABC del catálogo en NirKanA" loading="lazy">
-            <figcaption>Análisis ABC del catálogo</figcaption>
+            <img src="/assets/img/shots/productos-c.webp" width="1200" height="750" alt="Catálogo de productos en NirKanA" loading="lazy">
+            <figcaption>Catálogo con precio, coste y stock</figcaption>
           </figure>
           <figure class="shot">
-            <img src="/assets/img/shots/precios-c.webp" width="1200" height="750" alt="Precios recomendados por margen en NirKanA" loading="lazy">
-            <figcaption>Precios recomendados por margen</figcaption>
+            <img src="/assets/img/shots/resumen-c.webp" width="1200" height="750" alt="Resumen de ventas en NirKanA" loading="lazy">
+            <figcaption>Resumen de ventas</figcaption>
           </figure>
           <figure class="shot">
-            <img src="/assets/img/shots/panel-c.webp" width="1200" height="750" alt="Panel de ventas en NirKanA" loading="lazy">
-            <figcaption>Panel de ventas</figcaption>
+            <img src="/assets/img/shots/resultados-c.webp" width="1200" height="750" alt="Resultados del periodo en NirKanA" loading="lazy">
+            <figcaption>Beneficio, gastos e IVA del trimestre</figcaption>
           </figure>
         </div>
       </div>
@@ -152,16 +155,16 @@
         </div>
         <div class="faq-list">
           <details>
-            <summary>¿Se conecta automáticamente con Shopify?</summary>
-            <p>Funciona con archivos: descargas el catálogo para subirlo a tu tienda e importas el archivo de pedidos que exporta la tienda.</p>
-          </details>
-          <details>
-            <summary>¿Sirve con otras plataformas?</summary>
-            <p>Sí. Para otras tiendas hay una plantilla CSV con las columnas que necesita.</p>
+            <summary>¿Se conecta automáticamente con Shopify o WooCommerce?</summary>
+            <p>No. Hoy no hay conexión automática: importas tu lista de productos desde un Excel o CSV y registras los pedidos como ventas. Si necesitas una integración concreta, cuéntanos cuál y la estudiamos.</p>
           </details>
           <details>
             <summary>¿Puedo vender también en una tienda física?</summary>
-            <p>Sí. El TPV y la tienda online comparten productos y stock.</p>
+            <p>Sí. El TPV y tu catálogo comparten productos y stock.</p>
+          </details>
+          <details>
+            <summary>¿Qué columnas reconoce la importación?</summary>
+            <p>Nombre, código, código de barras, categoría, precio (o PVP con IVA), IVA, coste, stock y stock mínimo. Descargas una plantilla de ejemplo y ves una vista previa antes de guardar.</p>
           </details>
         </div>
       </div>

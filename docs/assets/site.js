@@ -311,36 +311,27 @@ const ANALYTICS = { goatcounter: "" };
     lightbox.addEventListener("click", (e) => { if (e.target === lightbox) lightbox.close(); });
   }
 
-  // ------------------------------------------------------------ value calculator (estimates, no prices)
-  // Share of admin time automated and share of sales recovered from mistakes, by sector. Kept deliberately modest.
-  const SECTORS = {
-    restaurant: { save: 0.5, leak: 0.01 },
-    retail: { save: 0.45, leak: 0.008 },
-    services: { save: 0.35, leak: 0.004 },
-    online: { save: 0.4, leak: 0.006 },
-  };
+  // ------------------------------------------------------------ cost-of-time calculator
+  // Every figure comes from the visitor's own inputs (hours, value of an hour, share they think they could save);
+  // nothing here is a claim about what NirKanA saves.
   const euros = (v) => `${String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ".")} €`;
   const calc = document.getElementById("calc");
   if (calc) {
     const $ = (id) => document.getElementById(id);
     const ranges = calc.querySelectorAll('input[type="range"]');
     const update = () => {
-      const s = SECTORS[$("c-type").value] || SECTORS.restaurant;
-      const sales = Number($("c-sales").value), hours = Number($("c-hours").value), rate = Number($("c-rate").value);
+      const hours = Number($("c-hours").value), rate = Number($("c-rate").value), share = Number($("c-share").value) / 100;
       ranges.forEach((r) => r.style.setProperty("--fill", `${((r.value - r.min) / (r.max - r.min)) * 100}%`));
-      $("o-sales").textContent = euros(sales);
       $("o-hours").textContent = `${hours} h`;
       $("o-rate").textContent = euros(rate);
-      const saved = hours * 4.33 * s.save;
-      const timeValue = saved * rate;
-      const loss = sales * s.leak;
-      $("r-hours").textContent = `${Math.round(saved)} h`;
-      $("r-time").textContent = euros(timeValue);
-      $("r-loss").textContent = euros(loss);
-      $("r-year").textContent = euros((timeValue + loss) * 12);
+      $("o-share").textContent = `${Math.round(share * 100)} %`;
+      const month = hours * 4.33;
+      $("r-hours").textContent = `${Math.round(month)} h`;
+      $("r-time").textContent = euros(month * rate);
+      $("r-saved").textContent = `${Math.round(month * share)} h`;
+      $("r-year").textContent = euros(month * share * rate * 12);
     };
     calc.addEventListener("input", update);
-    $("c-type").addEventListener("change", (e) => suggestType(e.target.selectedOptions[0]?.textContent.trim()));
     calc.addEventListener("submit", (e) => e.preventDefault());
     update();
   }
