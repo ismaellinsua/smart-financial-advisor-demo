@@ -9,8 +9,6 @@ Every shot is taken at noon in Madrid on the same day, so a rerun gives the same
 
 import io
 import os
-import re
-import sys
 from datetime import datetime
 from pathlib import Path
 
