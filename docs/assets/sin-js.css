@@ -1,0 +1,9 @@
+/* Only loaded when JavaScript is off (<noscript> in each page).
+   The pages are served with class="js" on <html> so that the header and the buttons are laid out right on the first
+   paint, without the shift a script-added class would cause. Without JavaScript the section links must stay in the
+   header and the menu button, which could not open anything, must stay hidden. */
+@media (max-width: 1180px) {
+  html.js .top nav { display: flex; order: 3; flex-basis: 100%; flex-wrap: wrap; gap: .6rem 1.2rem; }
+  html.js .menu-btn { display: none; }
+  html.js .bar { flex-wrap: wrap; padding-block: 12px; }
+}

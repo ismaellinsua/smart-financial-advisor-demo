@@ -125,7 +125,7 @@ section { padding: clamp(72px, 10vw, 136px) 0; }
 .bar-end { display: flex; align-items: center; gap: .5rem; }
 .bar-end .btn { white-space: nowrap; }
 @media (max-width: 400px) { .bar { gap: .5rem; } .bar-end .btn.small { padding-inline: .9rem; } .menu-btn { width: 40px; height: 40px; } }
-@media (max-width: 359px) { .brand .name { display: none; } } /* the logo alone keeps the bar on one line */
+@media (max-width: 389px) { .brand .name { display: none; } } /* the logo alone keeps the bar on one line (360 and 375 px phones) */
 .menu-btn { display: none; place-items: center; width: 44px; height: 44px; border-radius: 12px; cursor: pointer;
   background: transparent; border: 1px solid var(--line); color: inherit; }
 .menu-btn .ic { width: 22px; height: 22px; }
@@ -214,6 +214,8 @@ html:not(.has-demo) .only-demo, html.has-demo .no-demo { display: none !importan
 .chrome i:nth-child(2) { background: #FEBC2E; }
 .chrome i:nth-child(3) { background: #28C840; }
 .chrome > span { margin-left: 10px; }
+/* The title of a screenshot that is a button comes from CSS, so the visible text of the button is just «Ampliar» and its name can contain it. */
+.chrome[data-title]::after { content: attr(data-title); margin-left: 10px; }
 .phone { position: absolute; width: 23%; right: -4%; bottom: -10%; margin: 0; border-radius: 26px; overflow: hidden;
   border: 6px solid #0B1220; background: #0B1220; transform: translateZ(120px); box-shadow: 0 40px 60px -20px rgba(0, 0, 0, .8); }
 .chip { position: absolute; display: flex; align-items: center; gap: .55rem; padding: .65rem .9rem; border-radius: 14px;

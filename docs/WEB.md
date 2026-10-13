@@ -22,18 +22,31 @@ Todo está al principio de `assets/site.js`:
 const CONTACT = {
   email: "nirkana.oficial@gmail.com",  // botón «Escribir por email» y respaldo del formulario
   whatsapp: "",      // tu número con prefijo y solo cifras, p. ej. "34600111222"
-  formspreeId: "",   // el código de tu formulario de Formspree
+  formspreeId: "mbgdrbyg",   // el código de tu formulario de Formspree (ya puesto)
 };
 ```
 
-Con solo el email, el formulario abre el programa de correo del visitante con el mensaje ya escrito. Mejor aún:
+El formulario **ya está conectado** a tu formulario de Formspree (`mbgdrbyg`): cada solicitud sale del navegador del visitante
+directamente a Formspree (sin cookies, solo los campos del formulario) y Formspree te la reenvía **al correo con el que creaste
+la cuenta**. Probado en navegador con un Formspree simulado: envía los campos esperados (el `email` del visitante queda como
+dirección de respuesta), enseña «¡Gracias!…» si sale bien y, si falla, un mensaje con tu email de respaldo.
 
-- **WhatsApp:** pon tu número y aparece el botón «Hablar por WhatsApp» con un mensaje preparado.
-- **Formulario:** con `formspreeId`, los mensajes te llegan a tu correo sin que tu dirección aparezca en la web.
-  Sin él, el formulario prepara el mensaje en WhatsApp (si hay número) o en el correo. Para activarlo:
-  1. Crea una cuenta gratuita en [formspree.io](https://formspree.io) con tu email.
-  2. Crea un formulario (**New form**) y copia el código que aparece en la dirección `https://formspree.io/f/XXXXXXX`.
-  3. Pega solo `XXXXXXX` en `formspreeId`.
+### Comprobar que te llegan los mensajes (2 minutos, cuando la web esté publicada)
+
+Desde aquí no se puede ver tu cuenta de Formspree, así que esta comprobación la haces tú **una vez**:
+
+1. Abre `https://nirkana.es`, rellena el formulario con un email tuyo distinto y envíalo.
+2. **La primera vez** Formspree te manda un correo para **confirmar el formulario**: ábrelo (mira también en *spam*) y pulsa el
+   enlace. Hasta entonces no reenvía nada.
+3. Vuelve a enviar otro mensaje de prueba: debe llegar a tu bandeja con el nombre, el negocio y el mensaje.
+4. En formspree.io → tu formulario → **Settings** comprueba que el correo de destino es `nirkana.oficial@gmail.com` (puedes
+   añadir más destinatarios) y, si quieres, limita el formulario a tu dominio (*Restrict to domain*: `nirkana.es`).
+5. El plan gratuito tiene un tope mensual de envíos: míralo en tu cuenta. Si se agota, los visitantes ven el mensaje de error
+   con tu email de respaldo, así que no pierdes el contacto.
+
+Si dejas `formspreeId` vacío, el formulario prepara el mensaje en WhatsApp (si hay número) o en el correo del visitante.
+Para usar **otro** formulario: crea uno en [formspree.io](https://formspree.io) (**New form**), copia el código de
+`https://formspree.io/f/XXXXXXX` y pega solo `XXXXXXX` en `formspreeId`.
 
 ### Enlace «Entrar» para tus clientes
 
@@ -82,6 +95,25 @@ necesita banner de cookies. Hasta que pongas tu código no cuenta nada.
 Solo cuenta en `nirkana.es` (no en copias locales) y no cuenta a quien tenga activado «no rastrear» en su navegador.
 El aviso de privacidad ya lo explica.
 
+## Las capturas y los textos: solo lo que la app hace
+
+Las imágenes de `assets/img/` son capturas de la **app real** (la demo es su front-end con datos inventados), no
+dibujos. Se regeneran con un script, así que no pueden enseñar una pantalla que el producto no tenga:
+
+```bash
+python ops/capturas_web.py    # necesita Playwright con Chromium y Pillow; usa docs/demo/index.html
+```
+
+Tras actualizar `docs/demo/index.html` con una versión nueva de la app, ejecútalo y revisa las imágenes antes de
+publicar. Cada vez que cambies un texto de la web, `node --test tests/web-claims.test.mjs` comprueba que no vuelve a
+prometer lo que NirKanA no hace (informes semanales en PDF, precios recomendados, verificación en dos pasos, conexión
+automática con Shopify…), que no hay cifras de clientes ni certificaciones, que VERI*FACTU no se presenta como
+cumplido, que todas las imágenes y enlaces existen y que los datos estructurados (JSON-LD) son válidos y coinciden
+con las preguntas visibles. La CI lo ejecuta en cada cambio de `docs/`.
+
+`docs/caja/` es la «caja sin conexión» de la versión anterior (Streamlit); no está enlazada desde la web y lleva
+`noindex`. Se conserva porque `sales_manager/` aún la genera.
+
 ## Publicarla gratis con GitHub Pages
 
 1. En GitHub, abre el repositorio → **Settings → Pages**.
@@ -97,11 +129,49 @@ El aviso de privacidad ya lo explica.
 
 También puedes subir la carpeta `docs/` tal cual a Netlify, Cloudflare Pages o cualquier alojamiento estático.
 
+## Aviso legal (cuando tengas tus datos)
+
+La web todavía **no tiene aviso legal**: la ley (LSSI-CE, art. 10) pide que quien tiene una web con actividad económica
+publique su nombre, NIF, domicilio y email. Todo está listo para generarlo el día que tengas esos datos, y mientras
+tanto no se publica nada con huecos:
+
+1. `cp legal/datos.example.json legal/datos.json` (ese archivo no se sube a Git) y rellena `titular`, `nif`, `domicilio`
+   y `fecha` (la de publicación). El resto ya está: `email`, `web` y `url_condiciones` (las condiciones que aceptan los
+   clientes son las de la app, `https://app.nirkana.es/legal/condiciones.html`).
+2. `python ops/legal.py --check` dice qué falta; mientras falte algo o quede un «PENDIENTE», no escribe nada.
+3. `python ops/legal.py` crea `docs/aviso-legal.html`, añade «Aviso legal» al pie de todas las páginas y completa el
+   párrafo «Responsable» de `privacidad.html` con el mismo titular, NIF y domicilio (y su fecha de actualización).
+4. Pruebas (`node --test tests/web-boundaries.test.mjs tests/web-claims.test.mjs`), subir los cambios y pedir a tu
+   gestoría que lea el texto: es un modelo estándar, no asesoramiento jurídico.
+
+Por defecto solo se publica el aviso legal. `legal/condiciones.html` y `legal/encargado.html` son de la app anterior
+(un único medio de pago, prueba «de la duración que te indiquemos», copias diarias prometidas): no los publiques con
+`--todas` mientras la app de venta tenga los suyos (`nirkana-app/app/static/legal/`), para que nadie vea dos textos
+distintos.
+
 ## Seguridad
 
 - Sin cookies, analítica, publicidad ni código de terceros: nada que rastree a tus visitantes.
 - Política de seguridad de contenidos (CSP): solo se ejecuta el código propio de la web y el formulario solo puede
-  enviar a Formspree.
+  enviar a Formspree (la página también puede leer sus propios archivos, p. ej. `robots.txt`, que las herramientas de
+  medición piden desde la propia página).
 - Formulario con límites de longitud, validación, casilla de consentimiento y un campo trampa contra robots.
 - El único dato de contacto publicado es el email de contacto; los mensajes llegan por Formspree, WhatsApp o email.
 - Los enlaces externos se abren sin pasar datos de la página (`noopener`, `noreferrer`).
+
+## Rendimiento
+
+Medido con Lighthouse 12.8 (móvil, red y CPU simuladas) contra una copia local, 13 de octubre de 2026: las cinco páginas
+sacan 100 en accesibilidad, buenas prácticas y SEO; rendimiento 99–100, sin desplazamientos de diseño (CLS 0) y con
+menos de 10 ms de bloqueo en la portada. Son medidas de laboratorio: en tu conexión y tu móvil el resultado variará.
+
+Tres cosas lo mantienen así y conviene no deshacerlas:
+
+- **Las clases `js` y `has-demo` van en la etiqueta `<html>` de cada página.** Si las añadiera solo el script, los botones
+  y el menú cambiarían después de pintar y la página «saltaría». Si algún día activas la prueba de 24 horas (`TRIAL_URL`
+  en `site.js`), añade también `has-trial`; `tests/web-boundaries.test.mjs` avisa si no coinciden. Para quien navega sin
+  JavaScript, `<noscript>` carga `assets/sin-js.css`, que devuelve el menú de secciones al encabezado.
+- **La esfera de partículas dibuja por grupos, a 30 imágenes por segundo y con un lienzo acotado**: antes pintaba 1.300
+  trazos por imagen y bloqueaba el móvil más de un segundo en total.
+- **El título de las capturas ampliables (`data-title`) sale del CSS**, para que el texto visible del botón sea solo
+  «Ampliar» y su nombre accesible («Ampliar captura: …») lo contenga.

@@ -1,10 +1,10 @@
 <!doctype html>
-<html lang="es">
+<html lang="es" class="js has-demo">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Security-Policy"
-        content="default-src 'self'; img-src 'self' data: https://*.goatcounter.com; style-src 'self'; script-src 'self'; connect-src https://formspree.io; form-action https://formspree.io; base-uri 'none'; object-src 'none'; upgrade-insecure-requests">
+        content="default-src 'self'; img-src 'self' data: https://*.goatcounter.com; style-src 'self'; script-src 'self'; connect-src 'self' https://formspree.io; form-action https://formspree.io; base-uri 'none'; object-src 'none'; upgrade-insecure-requests">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <title>NirKanA · TPV y programa de gestión para negocios</title>
   <meta name="description" content="TPV y programa de gestión para restaurantes, tiendas, autónomos y tiendas online: cobra, controla stock, caja y equipo y factura con IVA. Sin instalar nada.">
@@ -14,7 +14,7 @@
   <meta property="og:image" content="https://nirkana.es/assets/img/og.jpg">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
-  <meta property="og:image:alt" content="Panel de ventas de NirKanA">
+  <meta property="og:image:alt" content="Resumen de ventas de NirKanA">
   <meta property="og:locale" content="es_ES">
   <meta property="og:site_name" content="NirKanA">
   <meta property="og:url" content="https://nirkana.es/">
@@ -23,6 +23,7 @@
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
   <link rel="stylesheet" href="assets/site.css">
+  <noscript><link rel="stylesheet" href="assets/sin-js.css"></noscript>
   <script src="assets/site.js" defer></script>
 
   <link rel="canonical" href="https://nirkana.es/">
@@ -31,7 +32,7 @@
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
     "name": "NirKanA",
-    "description": "TPV y programa de gestión para restaurantes, tiendas, autónomos y tiendas online: cobro, stock, caja, facturas, equipo y alertas.",
+    "description": "TPV y programa de gestión para restaurantes, tiendas, autónomos y tiendas online: cobro, stock, caja, facturas, equipo y reposición.",
     "url": "https://nirkana.es/",
     "applicationCategory": "BusinessApplication",
     "operatingSystem": "Web",
@@ -43,6 +44,9 @@
   </script>
   <script type="application/ld+json">
   {"@context": "https://schema.org", "@type": "Organization", "name": "NirKanA", "url": "https://nirkana.es/", "logo": "https://nirkana.es/assets/apple-touch-icon.png", "email": "nirkana.oficial@gmail.com", "contactPoint": {"@type": "ContactPoint", "contactType": "sales", "email": "nirkana.oficial@gmail.com", "availableLanguage": "es", "areaServed": "ES"}}
+  </script>
+  <script type="application/ld+json">
+  {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "¿Tengo que instalar algo?", "acceptedAnswer": {"@type": "Answer", "text": "No. Funciona en el navegador del móvil, la tablet o el ordenador, y puedes añadirla a la pantalla de inicio como si fuera una app."}}, {"@type": "Question", "name": "¿Pueden usarla varios empleados a la vez?", "acceptedAnswer": {"@type": "Answer", "text": "Sí. Cada persona entra con su usuario y su PIN, ve solo lo que le corresponde según su rol y todo lo que hace queda firmado."}}, {"@type": "Question", "name": "¿Qué pasa con mis datos?", "acceptedAnswer": {"@type": "Answer", "text": "Se guardan en una base de datos en la nube, con conexión cifrada y separados de los de otros negocios. Puedes descargar una copia completa de tus datos cuando quieras: son tuyos."}}, {"@type": "Question", "name": "¿Puedo pasarle los datos a mi gestoría?", "acceptedAnswer": {"@type": "Answer", "text": "Sí. Ventas, facturas, gastos, compras, productos, clientes y cierres de caja se descargan en Excel, y Resultados te da el resumen de IVA del trimestre. Las facturas se imprimen o se guardan en PDF desde el navegador."}}, {"@type": "Question", "name": "¿Y si mi negocio cambia o tengo varios tipos de venta?", "acceptedAnswer": {"@type": "Answer", "text": "Puedes cambiar el tipo de negocio y la plantilla en cualquier momento, y activar o desactivar funciones como la agenda o las mesas."}}, {"@type": "Question", "name": "¿Cuánto cuesta?", "acceptedAnswer": {"@type": "Answer", "text": "Desde 20 € al mes. El precio final depende de las funciones que necesites: escríbenos y te digo exactamente cuánto sería para tu negocio, sin compromiso. Se paga por transferencia bancaria o con tarjeta (Stripe), como prefieras."}}, {"@type": "Question", "name": "¿Y si no hay internet?", "acceptedAnswer": {"@type": "Answer", "text": "Si ese dispositivo ya ha abierto la app con conexión, puede seguir cobrando: las ventas se guardan en él y se envían solas al volver la red. Mientras tanto no hay stock actualizado de otros dispositivos ni descuentos por puntos."}}, {"@type": "Question", "name": "¿Qué impresoras y lectores admite?", "acceptedAnswer": {"@type": "Answer", "text": "Imprime tickets desde el navegador. La conexión directa con impresoras térmicas y lectores de códigos depende del modelo y del navegador: lo probamos contigo antes de que te decidas."}}, {"@type": "Question", "name": "¿Cumple con VERI*FACTU?", "acceptedAnswer": {"@type": "Answer", "text": "NirKanA ya registra cada ticket y factura de forma encadenada y genera el código QR, pero todavía no afirmamos conformidad con el sistema de la Agencia Tributaria: seguimos con las pruebas y la revisión. Si lo necesitas para tu negocio, escríbenos y te contamos cómo está."}}, {"@type": "Question", "name": "¿Me ayudas a ponerla en marcha?", "acceptedAnswer": {"@type": "Answer", "text": "Sí. Configuramos juntos tu catálogo, tu equipo y tus datos fiscales para que empieces a vender cuanto antes."}}]}
   </script>
 </head>
 <body>
@@ -132,12 +136,12 @@
           <div class="glow" aria-hidden="true"></div>
           <figure class="screen">
             <div class="chrome" aria-hidden="true"><i></i><i></i><i></i><span>nirkana · panel</span></div>
-            <img src="assets/img/panel.webp" width="1100" height="725" fetchpriority="high" alt="Panel de ventas con facturación, ventas diarias y lo más vendido">
+            <img src="assets/img/panel.webp" width="1100" height="725" fetchpriority="high" alt="Resumen de NirKanA con ventas por día, lo más vendido y la reposición">
           </figure>
           <figure class="phone">
             <img src="assets/img/movil.webp" width="360" height="779" alt="La misma app en un móvil">
           </figure>
-          <div class="chip c1" aria-hidden="true"><b>Lunes</b><span>tu informe semanal, listo</span></div>
+          <div class="chip c1" aria-hidden="true"><b>Cierre de caja</b><span>con el descuadre a la vista</span></div>
           <div class="chip c2" aria-hidden="true"><i class="dot red"></i><span>Solomillo se agota en 1 día</span></div>
           <div class="chip c3" aria-hidden="true"><i class="dot green"></i><span>Mesa 4 cobrada · 86,40 €</span></div>
         </div>
@@ -145,10 +149,10 @@
       </div>
 
       <div class="wrap stats">
-        <div><b data-count="4">4</b><span>sectores con plantilla propia</span></div>
-        <div><b data-count="25+">25+</b><span>funciones en una sola app</span></div>
+        <div><b data-count="4">4</b><span>tipos de negocio con plantilla propia</span></div>
         <div><b data-count="3">3</b><span>roles para tu equipo</span></div>
-        <div><b>24 h</b><span>para ponerla en marcha</span></div>
+        <div><b>IVA</b><span>por producto: 21, 10, 4 o 0 %</span></div>
+        <div><b>Sin red</b><span>sigue cobrando si se cae internet</span></div>
       </div>
     </section>
 
@@ -187,10 +191,10 @@
             <h3>Con NirKanA</h3>
             <ul>
               <li><svg class="ic"><use href="#i-check"/></svg>Vendes, cobras y facturas desde el mismo sitio</li>
-              <li><svg class="ic"><use href="#i-check"/></svg>Te avisa días antes de quedarte sin lo que más vendes</li>
-              <li><svg class="ic"><use href="#i-check"/></svg>Cierre de caja guiado y firmado, con el descuadre a la vista</li>
+              <li><svg class="ic"><use href="#i-check"/></svg>Ves qué se va a agotar y cuánto pedir, antes de que falte</li>
+              <li><svg class="ic"><use href="#i-check"/></svg>Cierre de caja contado a ciegas, con el descuadre a la vista</li>
               <li><svg class="ic"><use href="#i-check"/></svg>Cada venta queda firmada por quien la hizo</li>
-              <li><svg class="ic"><use href="#i-check"/></svg>Precios recomendados según tus márgenes reales</li>
+              <li><svg class="ic"><use href="#i-check"/></svg>El margen de cada producto y el beneficio del periodo, siempre a mano</li>
             </ul>
           </div>
         </div>
@@ -217,11 +221,11 @@
         <div class="panel" role="tabpanel" id="p-rest" aria-labelledby="tab-rest">
           <div class="panel-copy">
             <h3>Sala, cocina y caja, conectadas</h3>
-            <p>Abre mesas, toma comandas desde el móvil y la cocina las ve al instante. Al cobrar, divide la cuenta o
+            <p>Abre mesas, toma comandas desde el móvil y la cocina las ve en su pantalla. Al cobrar, divide la cuenta o
               mezcla efectivo y tarjeta sin hacer cuentas.</p>
             <ul class="ticks">
               <li><svg class="ic"><use href="#i-check"/></svg>Plano de mesas con comandas abiertas</li>
-              <li><svg class="ic"><use href="#i-check"/></svg>Pantalla de cocina en tiempo real</li>
+              <li><svg class="ic"><use href="#i-check"/></svg>Pantalla de cocina que se actualiza sola</li>
               <li><svg class="ic"><use href="#i-check"/></svg>Cuenta dividida y pago mixto</li>
               <li><svg class="ic"><use href="#i-check"/></svg>Happy hour y promociones automáticas</li>
             </ul>
@@ -229,11 +233,11 @@
             <div class="thumbs" aria-label="Pantallas de restaurante">
               <button class="on" data-src="assets/img/shots/mesas-c.webp" data-full="assets/img/shots/mesas.webp" data-alt="Plano de mesas"><img src="assets/img/shots/mesas-c.webp" alt="" loading="lazy" width="1200" height="750"><span>Mesas</span></button>
               <button data-src="assets/img/shots/cocina-c.webp" data-full="assets/img/shots/cocina.webp" data-alt="Pantalla de cocina"><img src="assets/img/shots/cocina-c.webp" alt="" loading="lazy" width="1200" height="750"><span>Cocina</span></button>
-              <button data-src="assets/img/shots/cobro-comanda-c.webp" data-full="assets/img/shots/cobro-comanda.webp" data-alt="Cobro de una comanda"><img src="assets/img/shots/cobro-comanda-c.webp" alt="" loading="lazy" width="1200" height="750"><span>Cobro</span></button>
+              <button data-src="assets/img/shots/cobro-mesa-c.webp" data-full="assets/img/shots/cobro-mesa.webp" data-alt="Cobro de una mesa"><img src="assets/img/shots/cobro-mesa-c.webp" alt="" loading="lazy" width="1200" height="750"><span>Cobro</span></button>
             </div>
           </div>
-          <button class="browser zoomable" data-full="assets/img/shots/mesas.webp" aria-label="Ampliar captura">
-            <span class="chrome" aria-hidden="true"><i></i><i></i><i></i><span>nirkana · mesas</span></span>
+          <button class="browser zoomable" data-full="assets/img/shots/mesas.webp" aria-label="Ampliar captura: Plano de mesas">
+            <span class="chrome" aria-hidden="true" data-title="nirkana · mesas"><i></i><i></i><i></i></span>
             <img class="main" src="assets/img/shots/mesas-c.webp" width="1200" height="750" alt="Plano de mesas" loading="lazy">
             <span class="zoom-hint"><svg class="ic"><use href="#i-zoom"/></svg>Ampliar</span>
           </button>
@@ -242,24 +246,24 @@
         <div class="panel" role="tabpanel" id="p-shop" aria-labelledby="tab-shop" hidden>
           <div class="panel-copy">
             <h3>Vende rápido y no te quedes sin stock</h3>
-            <p>Cobra en segundos buscando por nombre o código, y deja que la app calcule qué reponer según lo que
-              realmente vendes. El pedido al proveedor sale con un clic.</p>
+            <p>Cobra en segundos buscando por nombre o código, y mira qué reponer según lo que has vendido en el último mes.
+              El pedido al proveedor sale con un clic.</p>
             <ul class="ticks">
               <li><svg class="ic"><use href="#i-check"/></svg>TPV rápido con control de inventario</li>
-              <li><svg class="ic"><use href="#i-check"/></svg>Reposición inteligente según la demanda</li>
+              <li><svg class="ic"><use href="#i-check"/></svg>Reposición: qué pedir según lo que vendes</li>
               <li><svg class="ic"><use href="#i-check"/></svg>Compras y proveedores con coste actualizado</li>
               <li><svg class="ic"><use href="#i-check"/></svg>Devoluciones y puntos para clientes fieles</li>
             </ul>
             <a class="more" href="/tpv-tiendas/">Todo sobre el TPV para tiendas <svg class="ic"><use href="#i-arrow"/></svg></a>
             <div class="thumbs" aria-label="Pantallas de tienda">
-              <button class="on" data-src="assets/img/shots/punto-de-venta-c.webp" data-full="assets/img/shots/punto-de-venta.webp" data-alt="Punto de venta"><img src="assets/img/shots/punto-de-venta-c.webp" alt="" loading="lazy" width="1200" height="750"><span>Vender</span></button>
-              <button data-src="assets/img/shots/reposicion-c.webp" data-full="assets/img/shots/reposicion.webp" data-alt="Reposición inteligente"><img src="assets/img/shots/reposicion-c.webp" alt="" loading="lazy" width="1200" height="750"><span>Reposición</span></button>
+              <button class="on" data-src="assets/img/shots/vender-c.webp" data-full="assets/img/shots/vender.webp" data-alt="Vender"><img src="assets/img/shots/vender-c.webp" alt="" loading="lazy" width="1200" height="750"><span>Vender</span></button>
+              <button data-src="assets/img/shots/reposicion-c.webp" data-full="assets/img/shots/reposicion.webp" data-alt="Reposición"><img src="assets/img/shots/reposicion-c.webp" alt="" loading="lazy" width="1200" height="750"><span>Reposición</span></button>
               <button data-src="assets/img/shots/compras-c.webp" data-full="assets/img/shots/compras.webp" data-alt="Compras y proveedores"><img src="assets/img/shots/compras-c.webp" alt="" loading="lazy" width="1200" height="750"><span>Compras</span></button>
             </div>
           </div>
-          <button class="browser zoomable" data-full="assets/img/shots/punto-de-venta.webp" aria-label="Ampliar captura">
-            <span class="chrome" aria-hidden="true"><i></i><i></i><i></i><span>nirkana · vender</span></span>
-            <img class="main" src="assets/img/shots/punto-de-venta-c.webp" width="1200" height="750" alt="Punto de venta" loading="lazy">
+          <button class="browser zoomable" data-full="assets/img/shots/vender.webp" aria-label="Ampliar captura: Pantalla de venta con el ticket">
+            <span class="chrome" aria-hidden="true" data-title="nirkana · vender"><i></i><i></i><i></i></span>
+            <img class="main" src="assets/img/shots/vender-c.webp" width="1200" height="750" alt="Pantalla de venta con el ticket" loading="lazy">
             <span class="zoom-hint"><svg class="ic"><use href="#i-zoom"/></svg>Ampliar</span>
           </button>
         </div>
@@ -267,23 +271,23 @@
         <div class="panel" role="tabpanel" id="p-pro" aria-labelledby="tab-pro" hidden>
           <div class="panel-copy">
             <h3>Tu agenda, tus cobros y tus facturas</h3>
-            <p>Organiza citas sin solapes y cóbralas con un toque cuando termines. Emite la factura en PDF con los datos
-              fiscales del cliente y olvídate del papeleo.</p>
+            <p>Organiza citas sin solapes y cóbralas con un toque cuando termines. Emite la factura con los datos fiscales
+              del cliente y guárdala en PDF o imprímela.</p>
             <ul class="ticks">
               <li><svg class="ic"><use href="#i-check"/></svg>Agenda de citas sin solapes</li>
               <li><svg class="ic"><use href="#i-check"/></svg>Cobro de la cita con un toque</li>
-              <li><svg class="ic"><use href="#i-check"/></svg>Facturas en PDF con numeración propia</li>
-              <li><svg class="ic"><use href="#i-check"/></svg>Seguimiento de clientes que no vuelven</li>
+              <li><svg class="ic"><use href="#i-check"/></svg>Facturas con numeración propia, para imprimir o guardar en PDF</li>
+              <li><svg class="ic"><use href="#i-check"/></svg>Clientes que llevan un mes sin venir, a un toque de WhatsApp</li>
             </ul>
             <a class="more" href="/programa-facturacion-autonomos/">Todo sobre el programa para autónomos <svg class="ic"><use href="#i-arrow"/></svg></a>
             <div class="thumbs" aria-label="Pantallas de autónomo">
               <button class="on" data-src="assets/img/shots/agenda-c.webp" data-full="assets/img/shots/agenda.webp" data-alt="Agenda de citas"><img src="assets/img/shots/agenda-c.webp" alt="" loading="lazy" width="1200" height="750"><span>Agenda</span></button>
-              <button data-src="assets/img/shots/emitir-factura-c.webp" data-full="assets/img/shots/emitir-factura.webp" data-alt="Emitir factura"><img src="assets/img/shots/emitir-factura-c.webp" alt="" loading="lazy" width="1200" height="750"><span>Factura</span></button>
-              <button data-src="assets/img/shots/demo-autonomo-c.webp" data-full="assets/img/shots/demo-autonomo.webp" data-alt="Panel de un autónomo"><img src="assets/img/shots/demo-autonomo-c.webp" alt="" loading="lazy" width="1200" height="750"><span>Panel</span></button>
+              <button data-src="assets/img/shots/factura-c.webp" data-full="assets/img/shots/factura.webp" data-alt="Factura"><img src="assets/img/shots/factura-c.webp" alt="" loading="lazy" width="1200" height="750"><span>Factura</span></button>
+              <button data-src="assets/img/shots/clientes-c.webp" data-full="assets/img/shots/clientes.webp" data-alt="Clientes"><img src="assets/img/shots/clientes-c.webp" alt="" loading="lazy" width="1200" height="750"><span>Clientes</span></button>
             </div>
           </div>
-          <button class="browser zoomable" data-full="assets/img/shots/agenda.webp" aria-label="Ampliar captura">
-            <span class="chrome" aria-hidden="true"><i></i><i></i><i></i><span>nirkana · agenda</span></span>
+          <button class="browser zoomable" data-full="assets/img/shots/agenda.webp" aria-label="Ampliar captura: Agenda de citas">
+            <span class="chrome" aria-hidden="true" data-title="nirkana · agenda"><i></i><i></i><i></i></span>
             <img class="main" src="assets/img/shots/agenda-c.webp" width="1200" height="750" alt="Agenda de citas" loading="lazy">
             <span class="zoom-hint"><svg class="ic"><use href="#i-zoom"/></svg>Ampliar</span>
           </button>
@@ -291,25 +295,25 @@
 
         <div class="panel" role="tabpanel" id="p-web" aria-labelledby="tab-web" hidden>
           <div class="panel-copy">
-            <h3>Márgenes claros en cada producto</h3>
-            <p>Ve qué productos sostienen tu negocio y cuáles te cuestan dinero. NirKanA te propone precios según tu
-              margen objetivo y te avisa cuando un cliente deja de comprar.</p>
+            <h3>Stock, ventas y márgenes en un solo sitio</h3>
+            <p>Lleva el catálogo de tu tienda online junto al de tu tienda física: sube tu lista de productos desde Excel,
+              registra cada pedido como una venta y mira qué te deja margen.</p>
             <ul class="ticks">
-              <li><svg class="ic"><use href="#i-check"/></svg>Ventas por canal y forma de pago</li>
-              <li><svg class="ic"><use href="#i-check"/></svg>Análisis ABC de tu catálogo</li>
-              <li><svg class="ic"><use href="#i-check"/></svg>Precios recomendados por margen</li>
-              <li><svg class="ic"><use href="#i-check"/></svg>Clientes que dejan de comprar</li>
+              <li><svg class="ic"><use href="#i-check"/></svg>Importa productos y clientes desde Excel o CSV, con vista previa</li>
+              <li><svg class="ic"><use href="#i-check"/></svg>Stock que baja con cada venta y avisa al agotarse</li>
+              <li><svg class="ic"><use href="#i-check"/></svg>Margen de cada producto y beneficio del periodo</li>
+              <li><svg class="ic"><use href="#i-check"/></svg>Envíos y servicios cobrados como un producto más</li>
             </ul>
             <a class="more" href="/tpv-tienda-online/">Todo sobre la gestión de tiendas online <svg class="ic"><use href="#i-arrow"/></svg></a>
             <div class="thumbs" aria-label="Pantallas de tienda online">
-              <button class="on" data-src="assets/img/shots/analisis-abc-c.webp" data-full="assets/img/shots/analisis-abc.webp" data-alt="Análisis ABC"><img src="assets/img/shots/analisis-abc-c.webp" alt="" loading="lazy" width="1200" height="750"><span>Análisis ABC</span></button>
-              <button data-src="assets/img/shots/precios-c.webp" data-full="assets/img/shots/precios.webp" data-alt="Precios recomendados"><img src="assets/img/shots/precios-c.webp" alt="" loading="lazy" width="1200" height="750"><span>Precios</span></button>
-              <button data-src="assets/img/shots/panel-c.webp" data-full="assets/img/shots/panel.webp" data-alt="Panel de ventas"><img src="assets/img/shots/panel-c.webp" alt="" loading="lazy" width="1200" height="750"><span>Panel</span></button>
+              <button class="on" data-src="assets/img/shots/productos-c.webp" data-full="assets/img/shots/productos.webp" data-alt="Catálogo de productos"><img src="assets/img/shots/productos-c.webp" alt="" loading="lazy" width="1200" height="750"><span>Catálogo</span></button>
+              <button data-src="assets/img/shots/resumen-c.webp" data-full="assets/img/shots/resumen.webp" data-alt="Resumen de ventas"><img src="assets/img/shots/resumen-c.webp" alt="" loading="lazy" width="1200" height="750"><span>Resumen</span></button>
+              <button data-src="assets/img/shots/resultados-c.webp" data-full="assets/img/shots/resultados.webp" data-alt="Resultados del periodo"><img src="assets/img/shots/resultados-c.webp" alt="" loading="lazy" width="1200" height="750"><span>Resultados</span></button>
             </div>
           </div>
-          <button class="browser zoomable" data-full="assets/img/shots/analisis-abc.webp" aria-label="Ampliar captura">
-            <span class="chrome" aria-hidden="true"><i></i><i></i><i></i><span>nirkana · inteligencia</span></span>
-            <img class="main" src="assets/img/shots/analisis-abc-c.webp" width="1200" height="750" alt="Análisis ABC" loading="lazy">
+          <button class="browser zoomable" data-full="assets/img/shots/productos.webp" aria-label="Ampliar captura: Catálogo de productos con precio, coste y stock">
+            <span class="chrome" aria-hidden="true" data-title="nirkana · productos"><i></i><i></i><i></i></span>
+            <img class="main" src="assets/img/shots/productos-c.webp" width="1200" height="750" alt="Catálogo de productos con precio, coste y stock" loading="lazy">
             <span class="zoom-hint"><svg class="ic"><use href="#i-zoom"/></svg>Ampliar</span>
           </button>
         </div>
@@ -329,41 +333,41 @@
         <div class="story-text">
           <article class="step-card" data-shot="0">
             <span class="num">01 · Operación</span>
-            <h3>Cobra sin errores</h3>
-            <p>Cambio calculado, pago mixto y cuenta dividida. Tickets, facturas en PDF, devoluciones y facturas
-              rectificativas, todo desde la misma pantalla.</p>
-            <img class="m-shot" src="assets/img/shots/punto-de-venta-c.webp" width="1200" height="750" alt="Punto de venta" loading="lazy">
+            <h3>Cobra con las cuentas hechas</h3>
+            <p>Cambio calculado, pago mixto y cuenta dividida. Tickets, facturas con tus datos fiscales, devoluciones
+              parciales y facturas rectificativas, todo desde la misma pantalla.</p>
+            <img class="m-shot" src="assets/img/shots/vender-c.webp" width="1200" height="750" alt="Pantalla de venta" loading="lazy">
           </article>
           <article class="step-card" data-shot="1">
             <span class="num">02 · Control</span>
             <h3>Sabe lo que de verdad ganas</h3>
-            <p>Cierre de caja guiado, gastos, compras a proveedores y beneficio neto. El coste de cada producto se
-              actualiza solo cuando recibes mercancía.</p>
-            <img class="m-shot" src="assets/img/shots/gastos-y-beneficio-c.webp" width="1200" height="750" alt="Gastos y beneficio neto" loading="lazy">
+            <p>Cierre de caja contado a ciegas, gastos, compras a proveedores y beneficio del periodo. El coste de cada
+              producto se actualiza (media ponderada) cuando recibes mercancía.</p>
+            <img class="m-shot" src="assets/img/shots/resultados-c.webp" width="1200" height="750" alt="Resultados: beneficio, gastos e IVA" loading="lazy">
           </article>
           <article class="step-card" data-shot="2">
             <span class="num">03 · Equipo</span>
             <h3>Cada persona, su acceso</h3>
             <p>Administrador, encargado y empleado. Cada uno entra con su PIN y ve solo lo suyo. Ventas, facturas y
               cierres quedan firmados, y el registro de actividad guarda cada acceso.</p>
-            <img class="m-shot" src="assets/img/shots/equipo-y-seguridad-c.webp" width="1200" height="750" alt="Equipo y seguridad" loading="lazy">
+            <img class="m-shot" src="assets/img/shots/equipo-c.webp" width="1200" height="750" alt="Equipo: personas y roles" loading="lazy">
           </article>
           <article class="step-card" data-shot="3">
-            <span class="num">04 · Inteligencia</span>
-            <h3>Te avisa antes del problema</h3>
-            <p>Ventas que caen, cajas que no cuadran, stock que se agota o márgenes que bajan. Y cada lunes, un informe
-              en PDF con lo que ha pasado y qué hacer.</p>
-            <img class="m-shot" src="assets/img/shots/alertas-c.webp" width="1200" height="750" alt="Alertas inteligentes" loading="lazy">
+            <span class="num">04 · Claridad</span>
+            <h3>Entiende tu negocio</h3>
+            <p>Ventas por día y por hora, lo más vendido con su margen y qué se va a agotar. Y para tu gestoría, el
+              resumen de IVA del trimestre y la descarga en Excel.</p>
+            <img class="m-shot" src="assets/img/shots/resumen-c.webp" width="1200" height="750" alt="Resumen de ventas" loading="lazy">
           </article>
         </div>
         <div class="story-device" aria-hidden="true">
           <div class="device">
             <div class="chrome"><i></i><i></i><i></i><span>nirkana</span></div>
             <div class="screens">
-              <img class="on" src="assets/img/shots/punto-de-venta-c.webp" width="1200" height="750" alt="" loading="lazy">
-              <img src="assets/img/shots/gastos-y-beneficio-c.webp" width="1200" height="750" alt="" loading="lazy">
-              <img src="assets/img/shots/equipo-y-seguridad-c.webp" width="1200" height="750" alt="" loading="lazy">
-              <img src="assets/img/shots/alertas-c.webp" width="1200" height="750" alt="" loading="lazy">
+              <img class="on" src="assets/img/shots/vender-c.webp" width="1200" height="750" alt="" loading="lazy">
+              <img src="assets/img/shots/resultados-c.webp" width="1200" height="750" alt="" loading="lazy">
+              <img src="assets/img/shots/equipo-c.webp" width="1200" height="750" alt="" loading="lazy">
+              <img src="assets/img/shots/resumen-c.webp" width="1200" height="750" alt="" loading="lazy">
             </div>
           </div>
           <div class="dots"><i class="on"></i><i></i><i></i><i></i></div>
@@ -379,56 +383,56 @@
             <p class="eyebrow">La app por dentro</p>
             <h2>Mira NirKanA tal y como la usarás</h2>
           </div>
-          <p class="sub">Capturas reales de la aplicación con datos de ejemplo. Pulsa cualquiera para verla a tamaño
+          <p class="sub">Capturas reales de la aplicación, con datos de ejemplo. Pulsa cualquiera para verla a tamaño
             completo.</p>
         </div>
         <div class="bento">
-          <button class="tile big zoomable" data-full="assets/img/shots/panel.webp" data-reveal>
-            <img src="assets/img/shots/panel-c.webp" width="1200" height="750" alt="Panel de ventas" loading="lazy">
-            <span class="cap"><b>Panel de ventas</b>Facturación, tendencia y lo más vendido de un vistazo</span>
+          <button class="tile big zoomable" data-full="assets/img/shots/resumen.webp" data-reveal>
+            <img src="assets/img/shots/resumen-c.webp" width="1200" height="750" alt="Resumen de ventas" loading="lazy">
+            <span class="cap"><b>Resumen</b>Ventas por día y hora, lo más vendido y qué se agota</span>
           </button>
-          <button class="tile zoomable" data-full="assets/img/shots/cierre-de-caja.webp" data-reveal>
-            <img src="assets/img/shots/cierre-de-caja-c.webp" width="1200" height="750" alt="Cierre de caja" loading="lazy">
-            <span class="cap"><b>Cierre de caja</b>Cuadra el efectivo y guarda el informe firmado</span>
+          <button class="tile zoomable" data-full="assets/img/shots/caja.webp" data-reveal>
+            <img src="assets/img/shots/caja-c.webp" width="1200" height="750" alt="Caja" loading="lazy">
+            <span class="cap"><b>Caja</b>Abre, mueve efectivo y cierra contando el efectivo</span>
           </button>
           <button class="tile zoomable" data-full="assets/img/shots/promociones.webp" data-reveal>
-            <img src="assets/img/shots/promociones-c.webp" width="1200" height="750" alt="Promociones y fidelización" loading="lazy">
-            <span class="cap"><b>Promociones y puntos</b>Happy hour, descuentos y puntos automáticos</span>
+            <img src="assets/img/shots/promociones-c.webp" width="1200" height="750" alt="Promociones" loading="lazy">
+            <span class="cap"><b>Promociones y puntos</b>Happy hour, 3x2, descuentos y puntos de fidelidad</span>
           </button>
-          <button class="tile zoomable" data-full="assets/img/shots/informe-semanal.webp" data-reveal>
-            <img src="assets/img/shots/informe-semanal-c.webp" width="1200" height="750" alt="Informe semanal" loading="lazy">
-            <span class="cap"><b>Informe semanal</b>Un PDF cada lunes con lo importante</span>
+          <button class="tile zoomable" data-full="assets/img/shots/reposicion.webp" data-reveal>
+            <img src="assets/img/shots/reposicion-c.webp" width="1200" height="750" alt="Reposición" loading="lazy">
+            <span class="cap"><b>Reposición</b>Qué se agota y cuánto pedir, con un clic</span>
           </button>
           <button class="tile zoomable" data-full="assets/img/shots/clientes.webp" data-reveal>
             <img src="assets/img/shots/clientes-c.webp" width="1200" height="750" alt="Clientes" loading="lazy">
-            <span class="cap"><b>Clientes</b>Tu cartera ordenada por lo que te aportan</span>
+            <span class="cap"><b>Clientes</b>Tu cartera, con habituales y quienes llevan un mes sin venir</span>
           </button>
-          <button class="tile zoomable" data-full="assets/img/shots/historial.webp" data-reveal>
-            <img src="assets/img/shots/historial-c.webp" width="1200" height="750" alt="Historial de ventas" loading="lazy">
-            <span class="cap"><b>Historial</b>Reimprime tickets, factura o anula</span>
+          <button class="tile zoomable" data-full="assets/img/shots/ventas.webp" data-reveal>
+            <img src="assets/img/shots/ventas-c.webp" width="1200" height="750" alt="Historial de ventas" loading="lazy">
+            <span class="cap"><b>Ventas</b>Reimprime tickets, factura, devuelve o anula</span>
           </button>
-          <button class="tile zoomable" data-full="assets/img/shots/seguimiento-clientes.webp" data-reveal>
-            <img src="assets/img/shots/seguimiento-clientes-c.webp" width="1200" height="750" alt="Seguimiento de clientes" loading="lazy">
-            <span class="cap"><b>Seguimiento</b>Mensaje listo para recuperar clientes</span>
+          <button class="tile zoomable" data-full="assets/img/shots/ficha-cliente.webp" data-reveal>
+            <img src="assets/img/shots/ficha-cliente-c.webp" width="1200" height="750" alt="Ficha de cliente" loading="lazy">
+            <span class="cap"><b>Ficha de cliente</b>Qué compra, sus puntos y sus próximas citas</span>
           </button>
-          <button class="tile wide zoomable" data-full="assets/img/shots/gastos-y-beneficio.webp" data-reveal>
-            <img src="assets/img/shots/gastos-y-beneficio-c.webp" width="1200" height="750" alt="Gastos y beneficio" loading="lazy">
-            <span class="cap"><b>Gastos y beneficio neto</b>Lo que entra, lo que sale y lo que te queda</span>
+          <button class="tile wide zoomable" data-full="assets/img/shots/resultados.webp" data-reveal>
+            <img src="assets/img/shots/resultados-c.webp" width="1200" height="750" alt="Resultados" loading="lazy">
+            <span class="cap"><b>Resultados</b>Beneficio, gastos e IVA del trimestre</span>
           </button>
-          <button class="tile wide zoomable" data-full="assets/img/shots/copia-de-seguridad.webp" data-reveal>
-            <img src="assets/img/shots/copia-de-seguridad-c.webp" width="1200" height="750" alt="Copias de seguridad" loading="lazy">
-            <span class="cap"><b>Copias de seguridad</b>Descarga y restaura tus datos cuando quieras</span>
+          <button class="tile wide zoomable" data-full="assets/img/shots/equipo.webp" data-reveal>
+            <img src="assets/img/shots/equipo-c.webp" width="1200" height="750" alt="Equipo" loading="lazy">
+            <span class="cap"><b>Equipo</b>Administrador, encargado y empleado, cada uno con su acceso</span>
           </button>
           <button class="tile zoomable" data-full="assets/img/shots/compras.webp" data-reveal>
             <img src="assets/img/shots/compras-c.webp" width="1200" height="750" alt="Compras y proveedores" loading="lazy">
             <span class="cap"><b>Compras</b>Pedidos a proveedores con el stock al día</span>
           </button>
-          <button class="tile zoomable" data-full="assets/img/shots/emitir-factura.webp" data-reveal>
-            <img src="assets/img/shots/emitir-factura-c.webp" width="1200" height="750" alt="Emitir factura" loading="lazy">
-            <span class="cap"><b>Facturas</b>En PDF, con los datos fiscales del cliente</span>
+          <button class="tile zoomable" data-full="assets/img/shots/factura.webp" data-reveal>
+            <img src="assets/img/shots/factura-c.webp" width="1200" height="750" alt="Factura" loading="lazy">
+            <span class="cap"><b>Facturas</b>Con los datos fiscales del cliente, para imprimir o guardar en PDF</span>
           </button>
         </div>
-      </div>
+            </div>
     </section>
 
     <!-- ============================================================ MOBILE -->
@@ -438,7 +442,7 @@
           <p class="eyebrow">En el bolsillo</p>
           <h2>Todo tu equipo, desde su móvil</h2>
           <p class="sub on-dark">Sin terminales caros ni instalaciones. Cada persona abre la app en su móvil, entra con
-            su PIN y empieza a vender. Añádela a la pantalla de inicio y funciona como una app más.</p>
+            su usuario y su PIN y empieza a vender. Añádela a la pantalla de inicio y funciona como una app más.</p>
           <ul class="ticks light">
             <li><svg class="ic"><use href="#i-check"/></svg>Varias personas vendiendo a la vez</li>
             <li><svg class="ic"><use href="#i-check"/></svg>Los mismos datos en todos los dispositivos, al momento</li>
@@ -446,8 +450,8 @@
           </ul>
         </div>
         <div class="phones" aria-label="La app en tres móviles">
-          <figure class="ph p1"><img src="assets/img/shots/movil-acceso.webp" width="390" height="844" alt="Acceso del equipo con PIN" loading="lazy"></figure>
-          <figure class="ph p2"><img src="assets/img/shots/movil-panel.webp" width="390" height="844" alt="Panel de ventas en el móvil" loading="lazy"></figure>
+          <figure class="ph p1"><img src="assets/img/shots/movil-caja.webp" width="390" height="844" alt="Caja en el móvil" loading="lazy"></figure>
+          <figure class="ph p2"><img src="assets/img/shots/movil-resumen.webp" width="390" height="844" alt="Resumen de ventas en el móvil" loading="lazy"></figure>
           <figure class="ph p3"><img src="assets/img/shots/movil-vender.webp" width="390" height="844" alt="Vender desde el móvil" loading="lazy"></figure>
         </div>
       </div>
@@ -463,23 +467,24 @@
         </div>
         <div class="feats">
           <article class="feat tilt" data-reveal><span class="ico"><svg class="ic"><use href="#i-bell"/></svg></span>
-            <h3>Te avisa, no solo apunta</h3><p>Alertas de ventas que caen, cajas que no cuadran o stock que se agota, y un
-              informe en PDF cada lunes.</p></article>
+            <h3>Te avisa de lo que se agota</h3><p>Ves qué se acaba, a qué ritmo lo vendes y cuánto pedir, y creas el pedido al
+              proveedor con un clic.</p></article>
           <article class="feat tilt" data-reveal><span class="ico"><svg class="ic"><use href="#i-chart"/></svg></span>
-            <h3>Precios con tu margen</h3><p>Te propone el precio de cada producto según el margen que quieres ganar y lo
-              que te cuesta de verdad.</p></article>
+            <h3>Margen a la vista</h3><p>Cada producto muestra su margen. El coste se actualiza solo al recibir pedidos y
+              Resultados te da el beneficio del periodo.</p></article>
           <article class="feat tilt" data-reveal><span class="ico"><svg class="ic"><use href="#i-device"/></svg></span>
             <h3>Sin terminal ni instalación</h3><p>Funciona en el navegador de los móviles y ordenadores que ya tienes. Nada que
               comprar ni instalar.</p></article>
           <article class="feat tilt" data-reveal><span class="ico"><svg class="ic"><use href="#i-wifi-off"/></svg></span>
-            <h3>Si se cae internet, sigues cobrando</h3><p>La caja sin conexión guarda las ventas en el dispositivo y las
-              importas en NirKanA cuando vuelve la red.</p></article>
+            <h3>Si se cae internet, sigues cobrando</h3><p>Las ventas que no se pueden enviar se guardan en el dispositivo y se
+              mandan solas cuando vuelve la red; el ticket lleva su número definitivo al enviarse. Hace falta haber abierto la
+              app con conexión en ese dispositivo.</p></article>
           <article class="feat tilt" data-reveal><span class="ico"><svg class="ic"><use href="#i-box"/></svg></span>
             <h3>Una app, cuatro negocios</h3><p>Mesas y cocina, tienda con stock, agenda de citas o tienda online: activas lo
               que usas.</p></article>
           <article class="feat tilt" data-reveal><span class="ico"><svg class="ic"><use href="#i-download"/></svg></span>
-            <h3>Tus datos, sin ataduras</h3><p>Descarga una copia completa cuando quieras y exporta a CSV o PDF para tu
-              gestoría.</p></article>
+            <h3>Tus datos, sin ataduras</h3><p>Descarga una copia completa de tus datos cuando quieras y exporta ventas,
+              facturas y gastos a Excel para tu gestoría.</p></article>
         </div>
       </div>
     </section>
@@ -489,60 +494,50 @@
       <div class="wrap">
         <div class="head center" data-reveal>
           <p class="eyebrow">Calculadora</p>
-          <h2>¿Cuánto vale para tu negocio?</h2>
-          <p class="sub">Mueve los controles con tus números. Calculamos el tiempo que recuperas y el dinero que dejas
-            de perder cada mes.</p>
+          <h2>¿Cuánto te cuesta hoy el papeleo?</h2>
+          <p class="sub">Pon tus propios números: horas, valor de tu hora y qué parte de ese tiempo crees que podrías
+            ahorrar. Los resultados son solo tu cuenta, no una promesa nuestra.</p>
         </div>
 
         <div class="calc" data-reveal>
           <form class="calc-in" id="calc">
-            <label class="field">Tipo de negocio
-              <select id="c-type">
-                <option value="restaurant">Restaurante / cafetería</option>
-                <option value="retail">Tienda / comercio</option>
-                <option value="services">Autónomo / servicios</option>
-                <option value="online">Tienda online</option>
-              </select>
-            </label>
-            <label class="field">Ventas al mes <output id="o-sales">15.000 €</output>
-              <input type="range" id="c-sales" min="2000" max="100000" step="1000" value="15000">
-            </label>
             <label class="field">Horas a la semana en caja, stock y papeleo <output id="o-hours">10 h</output>
               <input type="range" id="c-hours" min="1" max="40" step="1" value="10">
             </label>
             <label class="field">Valor de una hora de tu tiempo <output id="o-rate">15 €</output>
               <input type="range" id="c-rate" min="8" max="60" step="1" value="15">
             </label>
+            <label class="field">Parte de ese tiempo que crees que ahorrarías <output id="o-share">25 %</output>
+              <input type="range" id="c-share" min="5" max="60" step="5" value="25">
+            </label>
           </form>
 
           <div class="calc-out" aria-live="polite">
             <div class="kpi">
-              <span>Horas recuperadas al mes</span>
-              <b id="r-hours">17 h</b>
+              <span>Horas al mes que dedicas hoy</span>
+              <b id="r-hours">43 h</b>
             </div>
             <div class="kpi">
-              <span>Valor de ese tiempo</span>
-              <b id="r-time">260 €</b>
+              <span>Lo que vale ese tiempo al mes</span>
+              <b id="r-time">650 €</b>
             </div>
             <div class="kpi">
-              <span>Pérdidas evitadas al mes</span>
-              <b id="r-loss">150 €</b>
-              <small>descuadres, roturas de stock y errores de cobro</small>
+              <span>Tiempo que ahorrarías (tu estimación)</span>
+              <b id="r-saved">11 h</b>
             </div>
             <div class="kpi total">
-              <span>Valor estimado al año</span>
-              <b id="r-year">4.920 €</b>
+              <span>Valor de ese ahorro al año</span>
+              <b id="r-year">1.950 €</b>
             </div>
-            <p class="fine">Estimación orientativa, no una garantía. <a href="#supuestos">Cómo lo calculamos</a>.
+            <p class="fine">Cuenta orientativa hecha con tus datos, no una garantía de ahorro. <a href="#supuestos">Cómo se calcula</a>.
               NirKanA cuesta desde 20 € al mes; escríbenos y te decimos el plan que encaja con tu negocio.</p>
           </div>
         </div>
         <details class="assume" id="supuestos">
-          <summary>Cómo lo calculamos</summary>
-          <p>Suponemos que NirKanA automatiza una parte del tiempo que dedicas a caja, stock e informes (entre el 35 % y el
-            50 % según el sector) y que evita una pequeña parte de las ventas que hoy se pierden por descuadres, productos
-            agotados o errores de cobro (entre el 0,4 % y el 1 % de tus ventas). Son supuestos prudentes: cada negocio es
-            distinto y, si nos escribes, lo calculamos con tus datos.</p>
+          <summary>Cómo se calcula</summary>
+          <p>Multiplicamos tus horas semanales por 4,33 semanas al mes, por el valor que tú das a una hora y por el
+            porcentaje de ahorro que tú eliges. No usamos datos de otros negocios ni prometemos un resultado: cada negocio es
+            distinto y, si nos escribes, lo revisamos juntos con tus datos reales.</p>
         </details>
       </div>
     </section>
@@ -560,15 +555,15 @@
           <article class="feat tilt" data-reveal><span class="ico"><svg class="ic"><use href="#i-users"/></svg></span>
             <h3>Roles y permisos</h3><p>Administrador, encargado y empleado. Cada página comprueba quién eres en el servidor.</p></article>
           <article class="feat tilt" data-reveal><span class="ico"><svg class="ic"><use href="#i-lock"/></svg></span>
-            <h3>Contraseñas cifradas</h3><p>Nunca se guardan en claro. Varios intentos fallidos bloquean la cuenta unos minutos.</p></article>
+            <h3>Contraseñas protegidas</h3><p>Se guardan con un algoritmo de hash (Argon2), nunca en claro. Tras varios intentos fallidos, la cuenta se bloquea un tiempo.</p></article>
           <article class="feat tilt" data-reveal><span class="ico"><svg class="ic"><use href="#i-list"/></svg></span>
             <h3>Registro de actividad</h3><p>Accesos, anulaciones, facturas, cierres de caja y cambios de configuración.</p></article>
           <article class="feat tilt" data-reveal><span class="ico"><svg class="ic"><use href="#i-cloud"/></svg></span>
-            <h3>Conexión cifrada</h3><p>Los datos viajan cifrados hasta una base de datos en la nube.</p></article>
+            <h3>Conexión cifrada</h3><p>Los datos viajan cifrados (HTTPS) hasta una base de datos PostgreSQL en la nube.</p></article>
           <article class="feat tilt" data-reveal><span class="ico"><svg class="ic"><use href="#i-download"/></svg></span>
-            <h3>Copias de seguridad</h3><p>Descarga una copia cuando quieras y restáurala en un minuto. Los datos son tuyos.</p></article>
+            <h3>Cada negocio, aparte</h3><p>Los datos de cada negocio están separados: una cuenta no puede ver ni tocar los de otra, y lo comprobamos con pruebas automáticas.</p></article>
           <article class="feat tilt" data-reveal><span class="ico"><svg class="ic"><use href="#i-receipt"/></svg></span>
-            <h3>Exportaciones seguras</h3><p>CSV listos para tu gestoría, protegidos frente a fórmulas maliciosas.</p></article>
+            <h3>Exportaciones seguras</h3><p>Excel listo para tu gestoría, sin fórmulas ocultas que puedan ejecutarse al abrirlo.</p></article>
         </div>
       </div>
     </section>
@@ -599,7 +594,7 @@
         <div class="faq-side" data-reveal>
           <p class="eyebrow">Preguntas</p>
           <h2>Preguntas frecuentes</h2>
-          <p class="sub">¿No encuentras la tuya? Escríbeme y te respondo en menos de 24 horas laborables.</p>
+          <p class="sub">¿No encuentras la tuya? Escríbenos y te respondemos en menos de 24 horas laborables.</p>
           <a class="btn ghost magnet" href="#contacto"><svg class="ic"><use href="#i-chat"/></svg>Hacer una pregunta</a>
         </div>
         <div class="faq-list" data-reveal>
@@ -615,12 +610,13 @@
           </details>
           <details>
             <summary>¿Qué pasa con mis datos?</summary>
-            <p>Se guardan en una base de datos en la nube con conexión cifrada. Puedes descargar una copia de seguridad
-              cuando quieras: los datos son tuyos.</p>
+            <p>Se guardan en una base de datos en la nube, con conexión cifrada y separados de los de otros negocios. Puedes
+              descargar una copia completa de tus datos cuando quieras: son tuyos.</p>
           </details>
           <details>
             <summary>¿Puedo pasarle los datos a mi gestoría?</summary>
-            <p>Sí. Ventas, facturas y cierres de caja se exportan a CSV o PDF, listos para enviar.</p>
+            <p>Sí. Ventas, facturas, gastos, compras, productos, clientes y cierres de caja se descargan en Excel, y
+              Resultados te da el resumen de IVA del trimestre. Las facturas se imprimen o se guardan en PDF desde el navegador.</p>
           </details>
           <details>
             <summary>¿Y si mi negocio cambia o tengo varios tipos de venta?</summary>
@@ -630,7 +626,8 @@
           <details>
             <summary>¿Cuánto cuesta?</summary>
             <p>Desde 20 € al mes. El precio final depende de las funciones que necesites: escríbenos y te digo
-              exactamente cuánto sería para tu negocio, sin compromiso.</p>
+              exactamente cuánto sería para tu negocio, sin compromiso. Se paga por transferencia bancaria o con tarjeta
+              (Stripe), como prefieras.</p>
           </details>
           <details class="no-trial only-demo">
             <summary>¿Puedo probarla antes de decidir?</summary>
@@ -643,6 +640,23 @@
             <p>Sí. La prueba gratuita dura 24 horas, no pide tarjeta y empieza con un negocio de ejemplo con ventas,
               caja, clientes y equipo, para que veas cómo funciona todo. Si te encaja, nos escribes y la dejamos lista
               con tus datos.</p>
+          </details>
+          <details>
+            <summary>¿Y si no hay internet?</summary>
+            <p>Si ese dispositivo ya ha abierto la app con conexión, puede seguir cobrando: las ventas se guardan en él y se
+              envían solas al volver la red. Mientras tanto no hay stock actualizado de otros dispositivos ni descuentos por
+              puntos.</p>
+          </details>
+          <details>
+            <summary>¿Qué impresoras y lectores admite?</summary>
+            <p>Imprime tickets desde el navegador. La conexión directa con impresoras térmicas y lectores de códigos depende
+              del modelo y del navegador: lo probamos contigo antes de que te decidas.</p>
+          </details>
+          <details>
+            <summary>¿Cumple con VERI*FACTU?</summary>
+            <p>NirKanA ya registra cada ticket y factura de forma encadenada y genera el código QR, pero todavía no afirmamos
+              conformidad con el sistema de la Agencia Tributaria: seguimos con las pruebas y la revisión. Si lo necesitas
+              para tu negocio, escríbenos y te contamos cómo está.</p>
           </details>
           <details>
             <summary>¿Me ayudas a ponerla en marcha?</summary>
