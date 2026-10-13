@@ -22,18 +22,31 @@ Todo está al principio de `assets/site.js`:
 const CONTACT = {
   email: "nirkana.oficial@gmail.com",  // botón «Escribir por email» y respaldo del formulario
   whatsapp: "",      // tu número con prefijo y solo cifras, p. ej. "34600111222"
-  formspreeId: "",   // el código de tu formulario de Formspree
+  formspreeId: "mbgdrbyg",   // el código de tu formulario de Formspree (ya puesto)
 };
 ```
 
-Con solo el email, el formulario abre el programa de correo del visitante con el mensaje ya escrito. Mejor aún:
+El formulario **ya está conectado** a tu formulario de Formspree (`mbgdrbyg`): cada solicitud sale del navegador del visitante
+directamente a Formspree (sin cookies, solo los campos del formulario) y Formspree te la reenvía **al correo con el que creaste
+la cuenta**. Probado en navegador con un Formspree simulado: envía los campos esperados (el `email` del visitante queda como
+dirección de respuesta), enseña «¡Gracias!…» si sale bien y, si falla, un mensaje con tu email de respaldo.
 
-- **WhatsApp:** pon tu número y aparece el botón «Hablar por WhatsApp» con un mensaje preparado.
-- **Formulario:** con `formspreeId`, los mensajes te llegan a tu correo sin que tu dirección aparezca en la web.
-  Sin él, el formulario prepara el mensaje en WhatsApp (si hay número) o en el correo. Para activarlo:
-  1. Crea una cuenta gratuita en [formspree.io](https://formspree.io) con tu email.
-  2. Crea un formulario (**New form**) y copia el código que aparece en la dirección `https://formspree.io/f/XXXXXXX`.
-  3. Pega solo `XXXXXXX` en `formspreeId`.
+### Comprobar que te llegan los mensajes (2 minutos, cuando la web esté publicada)
+
+Desde aquí no se puede ver tu cuenta de Formspree, así que esta comprobación la haces tú **una vez**:
+
+1. Abre `https://nirkana.es`, rellena el formulario con un email tuyo distinto y envíalo.
+2. **La primera vez** Formspree te manda un correo para **confirmar el formulario**: ábrelo (mira también en *spam*) y pulsa el
+   enlace. Hasta entonces no reenvía nada.
+3. Vuelve a enviar otro mensaje de prueba: debe llegar a tu bandeja con el nombre, el negocio y el mensaje.
+4. En formspree.io → tu formulario → **Settings** comprueba que el correo de destino es `nirkana.oficial@gmail.com` (puedes
+   añadir más destinatarios) y, si quieres, limita el formulario a tu dominio (*Restrict to domain*: `nirkana.es`).
+5. El plan gratuito tiene un tope mensual de envíos: míralo en tu cuenta. Si se agota, los visitantes ven el mensaje de error
+   con tu email de respaldo, así que no pierdes el contacto.
+
+Si dejas `formspreeId` vacío, el formulario prepara el mensaje en WhatsApp (si hay número) o en el correo del visitante.
+Para usar **otro** formulario: crea uno en [formspree.io](https://formspree.io) (**New form**), copia el código de
+`https://formspree.io/f/XXXXXXX` y pega solo `XXXXXXX` en `formspreeId`.
 
 ### Enlace «Entrar» para tus clientes
 
