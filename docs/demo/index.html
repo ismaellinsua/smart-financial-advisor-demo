@@ -620,11 +620,16 @@ a.btn { text-decoration: none; }
 /* The page where a business is chosen. */
 .demo-choose { max-width: 560px; }
 .demo-choose .kind-grid { display: grid; gap: 10px; }
+/* The contact button wraps on narrow phones (it is nowrap by default and widened the page at 320 px). */
+.demo-choose .btn { white-space: normal; text-align: center; }
 .demo-choose .kind-card svg { width: 24px; height: 24px; flex: none; color: var(--brand); }
 .demo-badge { display: inline-block; margin-left: 8px; padding: 2px 8px; border-radius: 99px; background: var(--brand-soft); color: var(--brand); font-size: 0.72rem; font-weight: 800; letter-spacing: 0.06em; vertical-align: middle; }
 .demo-steps { margin: 0; padding-left: 1.2em; display: grid; gap: 10px; }
 .demo-steps li::marker { color: var(--brand); font-weight: 800; }
 .demo-steps .where { display: inline-block; margin-right: 6px; padding: 1px 8px; border-radius: 99px; background: var(--brand-soft); color: var(--brand); font-size: 0.8rem; font-weight: 700; }
+
+.nk-cookie-notice{position:fixed;z-index:9999;bottom:18px;left:50%;transform:translateX(-50%);width:min(560px,calc(100% - 28px));padding:18px 20px;border:1px solid #dbe1ed;border-radius:16px;background:#fff;color:#172033;box-shadow:0 12px 44px #11182730;font:14px/1.5 system-ui,sans-serif}.nk-cookie-notice strong{font-size:16px}.nk-cookie-notice p{margin:8px 0 14px}.nk-cookie-notice a{color:#2a45d8;text-decoration:underline}.nk-cookie-notice button{background:#3b5bfd;color:white;border:0;border-radius:9px;padding:10px 17px;font:600 14px system-ui;cursor:pointer}.nk-cookie-notice button:focus-visible{outline:3px solid #14b8a6;outline-offset:3px}@media(prefers-color-scheme:dark){.nk-cookie-notice{background:#1c2436;color:#f5f6fa;border-color:#45506b}.nk-cookie-notice a{color:#a5b4fc}}
+@media(max-width:600px),(max-height:700px){.nk-cookie-notice{bottom:0;width:100%;border-radius:14px 14px 0 0;border-width:1px 0 0;padding:10px 14px calc(10px + env(safe-area-inset-bottom));font-size:13px;display:grid;grid-template-columns:1fr auto;gap:2px 12px;align-items:center}.nk-cookie-notice strong{grid-area:1/1;font-size:14px}.nk-cookie-notice button{grid-area:1/2}.nk-cookie-notice p{grid-area:2/1/3/3;margin:0;font-size:12.5px;line-height:1.4}.nk-cookie-notice button{padding:8px 14px;font-size:13px}}
 </style>
 </head>
 <body>
@@ -643,6 +648,59 @@ Cu\xE1ndo me viene bien que me llam\xE9is:
 Mi negocio: 
 Mi tel\xE9fono: 
 `)}`;function Tr(){document.title="NirKanA \xB7 Demostraci\xF3n";let t=document.getElementById("root");N(t,e("div",{class:"auth"},e("div",{class:"stack auth-col demo-choose"},e("div",{class:"card auth-card stack-lg"},e("div",{class:"stack"},e("div",{class:"brand"},e("img",{class:"brand-mark",src:"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIiB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgcm9sZT0iaW1nIiBhcmlhLWxhYmVsPSJOaXJLYW5BLCBzw61tYm9sbyI+PHRpdGxlPk5pckthbkEsIHPDrW1ib2xvPC90aXRsZT48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9InQiIHgxPSIwIiB5MT0iMCIgeDI9IjEiIHkyPSIxIj48c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiM0QzZCRkYiLz48c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiMyQTNGRDYiLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48cmVjdCB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgcng9IjExOCIgZmlsbD0idXJsKCN0KSIvPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDAgMCkgc2NhbGUoMS4wKSI+PHBhdGggZD0iTTE1MCAzNjJWMTYwTDM0NiAzNTJWMjQ0IiBmaWxsPSJub25lIiBzdHJva2U9IiNmZmYiIHN0cm9rZS13aWR0aD0iNjYiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPjxjaXJjbGUgY3g9IjM0NiIgY3k9IjE1MCIgcj0iNDAiIGZpbGw9IiMyREQ0QkYiLz48L2c+PC9zdmc+Cg==",alt:"",width:36,height:36}),"NirKanA",e("span",{class:"demo-badge"},"DEMOSTRACI\xD3N")),e("h1",{},"Prueba NirKanA, sin registrarte"),e("p",{class:"muted"},"Elige un tipo de negocio y entra en uno de ejemplo, con tres semanas de ventas, caja, clientes y equipo. Todo funciona de verdad: cobrar, abrir y cerrar caja, devolver, facturar\u2026")),e("div",{class:"kind-grid",role:"group","aria-label":"Tipo de negocio"},vr.map(([a,n,i,o])=>e("button",{type:"button",class:"kind-card",onclick:()=>$o(a)},e("span",{class:"row"},I(n),e("strong",{},i)),e("span",{class:"muted small"},o)))),e("p",{class:"muted small"},"Los datos son inventados y se quedan solo en este dispositivo: no se env\xEDa nada a ning\xFAn sitio. Cada d\xEDa empieza de cero."),e("div",{class:"row wrap"},e("a",{class:"btn primary",href:ln()},I("mail"),"Quiero NirKanA en mi negocio"),e("span",{class:"muted small"},zo))))))}function qr(t){let a=bi[t];J({title:`Guion de 5 minutos \xB7 ${a.title}`,wide:!0,body:e("div",{class:"stack"},e("p",{class:"muted"},"Para ense\xF1arla en persona: sigue el orden o salta a lo que le interese a quien tienes delante."),e("ol",{class:"demo-steps"},a.pasos.map(([n,i])=>e("li",{},e("span",{class:"where"},n),i))),e("p",{class:"muted small"},"Lo que hagas se guarda en este dispositivo hasta ma\xF1ana. \xABReiniciar\xBB deja el negocio como al empezar.")),actions:[e("a",{class:"btn primary",href:ln(` (${a.title})`)},"Quiero NirKanA")]})}async function kr(t){if(await Tt("Reiniciar la demostraci\xF3n","Se borra todo lo que hayas hecho (ventas, cobros, cambios) y el negocio vuelve a estar como al empezar.",{confirm:"Reiniciar",danger:!0})){na(),ia(t);try{for(let n of Object.keys(localStorage))/^nk[-.]/.test(n)&&n!==H0&&localStorage.removeItem(n)}catch{}G0(t)}}function Cr(t){let n=E().team.filter(i=>i.active).map(i=>e("button",{type:"button",class:`list-item ${i.id===E().user.id?"on":""}`,onclick:()=>{ta(i.id),G0(t)}},e("div",{class:"avatar"},I("user")),e("div",{class:"grow"},e("div",{class:"title"},i.name),e("div",{class:"muted small"},jr[i.role])),e("span",{class:`badge ${i.role==="admin"?"brand":""}`},i.role_label)));J({title:"Ver NirKanA como\u2026",body:e("div",{class:"stack"},e("p",{class:"muted"},"Cada persona del equipo ve y puede hacer lo que su rol permite. Elige una para ense\xF1arlo."),e("div",{class:"list"},n))})}var jr={admin:"Lo ve y lo cambia todo: equipo, ajustes, informes.",encargado:"Productos, anular ventas, informes y todos los cierres.",empleado:"Cobra y ve sus ventas; cierra la caja sin ver lo esperado."},So=(t,a)=>[e("span",{class:"demo-long"},t),e("span",{class:"demo-short"},a)];function wr(t){let a=e("div",{class:"demo-bar",role:"region","aria-label":"Demostraci\xF3n"},e("span",{class:"demo-tag"},"DEMO"),e("span",{class:"demo-text"},`${E().business.name} \xB7 datos de ejemplo`),e("span",{class:"demo-spacer"}),e("button",{type:"button",class:"demo-btn",onclick:()=>Cr(t)},E().user.role==="admin"?So("Ver como\u2026","Rol"):So(`Eres ${E().user.name.split(" ")[0]}`,E().user.name.split(" ")[0])),e("button",{type:"button",class:"demo-btn",onclick:()=>qr(t)},"Guion"),e("button",{type:"button",class:"demo-btn",onclick:()=>kr(t)},"Reiniciar"),e("button",{type:"button",class:"demo-btn",onclick:()=>{Wt(),G0(null)}},"Negocios"),e("a",{class:"demo-btn strong",href:ln(` \xAB${E().business.name}\xBB`)},"Quiero NirKanA"));document.body.prepend(a)}var Ao=!1;async function $o(t){Ao||(Ao=!0,Mo(t),location.hash="",aa(t,l0),wr(t),yi(),await Promise.resolve().then(()=>(Ie(),Eo)))}async function Er(){try{navigator.serviceWorker&&(navigator.serviceWorker.register=()=>Promise.reject(new Error("La demostraci\xF3n no instala nada.")))}catch{}/[?&]rapido\b/.test(location.search)&&(e0.ms=0),Ft.logout=()=>{Wt(),G0(null)},Ft.sinEspacio=hr(()=>O("Este dispositivo no deja guardar m\xE1s: lo que hagas ahora se perder\xE1 al recargar la p\xE1gina.","bad")),window.addEventListener("pagehide",Wt),document.addEventListener("visibilitychange",()=>document.visibilityState==="hidden"&&Wt());let t=new URLSearchParams(location.search).get("negocio"),a=l0.sectors[t]?t:gr();if(!a||!l0.sectors[a]){Tr();return}await $o(a),E().sales.length||O("Demostraci\xF3n vac\xEDa: pulsa \xABReiniciar\xBB.","bad")}Er().catch(t=>{console.error("Demo: no ha podido arrancar",t),document.getElementById("root").textContent="No se ha podido arrancar la demostraci\xF3n. Recarga la p\xE1gina."});})();
+</script>
+<script>window.NK_AVISO = {"key":"nirkana-demo-aviso-v1","heading":"Esta demostración no usa cookies","text":"No envía tus datos a ningún servidor: lo que pruebes se guarda solo en este dispositivo (almacenamiento local) hasta mañana, para que no se pierda al recargar. Consulta la ","link":"https://nirkana.es/privacidad.html","linkText":"política de privacidad"};
+// Informational notice only: the app currently declares essential session cookies, not optional trackers.
+// This acknowledgment is stored locally and is not consent to tracking.
+(() => {
+  "use strict";
+  // The app uses these defaults; the demo (a single file, no server) sets window.NK_AVISO with its own wording.
+  const CFG = {
+    key: "nirkana-cookie-notice-v1",
+    heading: "Tu privacidad en NirKanA",
+    text: "Usamos cookies técnicas necesarias para mantener tu sesión y proteger tu acceso. No utilizamos cookies publicitarias ni analíticas según nuestra configuración actual. Consulta la ",
+    link: "/legal/privacidad.html",
+    linkText: "política de privacidad",
+    ...(window.NK_AVISO || {}),
+  };
+  const KEY = CFG.key;
+  try { if (localStorage.getItem(KEY) === "seen") return; } catch { /* private mode */ }
+  const show = () => {
+    if (document.getElementById("nk-cookie-notice")) return;
+    const box = document.createElement("aside");
+    box.id = "nk-cookie-notice";
+    box.className = "nk-cookie-notice";
+    box.setAttribute("aria-label", "Información sobre cookies");
+    const heading = document.createElement("strong");
+    heading.textContent = CFG.heading;
+    const p = document.createElement("p");
+    p.append(CFG.text);
+    const a = document.createElement("a");
+    a.href = CFG.link;
+    a.textContent = CFG.linkText;
+    if (/^https?:/.test(CFG.link)) { a.target = "_blank"; a.rel = "noopener"; }
+    p.append(a, ".");
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = "Entendido";
+    const root = document.documentElement;
+    const reserve = () => root.style.setProperty("--nk-cookie-h", `${Math.ceil(box.getBoundingClientRect().height) + 18}px`);
+    const watcher = "ResizeObserver" in window ? new ResizeObserver(reserve) : null;
+    button.addEventListener("click", () => {
+      try { localStorage.setItem(KEY, "seen"); } catch { /* storage unavailable */ }
+      if (watcher) watcher.disconnect();
+      root.style.removeProperty("--nk-cookie-h");
+      box.remove();
+    });
+    box.append(heading, p, button);
+    document.body.append(box);
+    // The notice floats over the page: reserve its height so the login button, the till and the menu are never hidden under it.
+    reserve();
+    if (watcher) watcher.observe(box);
+  };
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", show, { once: true });
+  else show();
+})();
 </script>
 </body>
 </html>
