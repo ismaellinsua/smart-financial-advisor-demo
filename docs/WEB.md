@@ -116,6 +116,26 @@ con las preguntas visibles. La CI lo ejecuta en cada cambio de `docs/`.
 
 También puedes subir la carpeta `docs/` tal cual a Netlify, Cloudflare Pages o cualquier alojamiento estático.
 
+## Aviso legal (cuando tengas tus datos)
+
+La web todavía **no tiene aviso legal**: la ley (LSSI-CE, art. 10) pide que quien tiene una web con actividad económica
+publique su nombre, NIF, domicilio y email. Todo está listo para generarlo el día que tengas esos datos, y mientras
+tanto no se publica nada con huecos:
+
+1. `cp legal/datos.example.json legal/datos.json` (ese archivo no se sube a Git) y rellena `titular`, `nif`, `domicilio`
+   y `fecha` (la de publicación). El resto ya está: `email`, `web` y `url_condiciones` (las condiciones que aceptan los
+   clientes son las de la app, `https://app.nirkana.es/legal/condiciones.html`).
+2. `python ops/legal.py --check` dice qué falta; mientras falte algo o quede un «PENDIENTE», no escribe nada.
+3. `python ops/legal.py` crea `docs/aviso-legal.html`, añade «Aviso legal» al pie de todas las páginas y completa el
+   párrafo «Responsable» de `privacidad.html` con el mismo titular, NIF y domicilio (y su fecha de actualización).
+4. Pruebas (`node --test tests/web-boundaries.test.mjs tests/web-claims.test.mjs`), subir los cambios y pedir a tu
+   gestoría que lea el texto: es un modelo estándar, no asesoramiento jurídico.
+
+Por defecto solo se publica el aviso legal. `legal/condiciones.html` y `legal/encargado.html` son de la app anterior
+(un único medio de pago, prueba «de la duración que te indiquemos», copias diarias prometidas): no los publiques con
+`--todas` mientras la app de venta tenga los suyos (`nirkana-app/app/static/legal/`), para que nadie vea dos textos
+distintos.
+
 ## Seguridad
 
 - Sin cookies, analítica, publicidad ni código de terceros: nada que rastree a tus visitantes.
