@@ -1,10 +1,10 @@
 <!doctype html>
-<html lang="es">
+<html lang="es" class="js has-demo">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Security-Policy"
-        content="default-src 'self'; img-src 'self' data: https://*.goatcounter.com; style-src 'self'; script-src 'self'; connect-src https://formspree.io; form-action https://formspree.io; base-uri 'none'; object-src 'none'; upgrade-insecure-requests">
+        content="default-src 'self'; img-src 'self' data: https://*.goatcounter.com; style-src 'self'; script-src 'self'; connect-src 'self' https://formspree.io; form-action https://formspree.io; base-uri 'none'; object-src 'none'; upgrade-insecure-requests">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <title>NirKanA · TPV y programa de gestión para negocios</title>
   <meta name="description" content="TPV y programa de gestión para restaurantes, tiendas, autónomos y tiendas online: cobra, controla stock, caja y equipo y factura con IVA. Sin instalar nada.">
@@ -23,6 +23,7 @@
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
   <link rel="stylesheet" href="assets/site.css">
+  <noscript><link rel="stylesheet" href="assets/sin-js.css"></noscript>
   <script src="assets/site.js" defer></script>
 
   <link rel="canonical" href="https://nirkana.es/">
@@ -235,8 +236,8 @@
               <button data-src="assets/img/shots/cobro-mesa-c.webp" data-full="assets/img/shots/cobro-mesa.webp" data-alt="Cobro de una mesa"><img src="assets/img/shots/cobro-mesa-c.webp" alt="" loading="lazy" width="1200" height="750"><span>Cobro</span></button>
             </div>
           </div>
-          <button class="browser zoomable" data-full="assets/img/shots/mesas.webp" aria-label="Ampliar captura">
-            <span class="chrome" aria-hidden="true"><i></i><i></i><i></i><span>nirkana · mesas</span></span>
+          <button class="browser zoomable" data-full="assets/img/shots/mesas.webp" aria-label="Ampliar captura: Plano de mesas">
+            <span class="chrome" aria-hidden="true" data-title="nirkana · mesas"><i></i><i></i><i></i></span>
             <img class="main" src="assets/img/shots/mesas-c.webp" width="1200" height="750" alt="Plano de mesas" loading="lazy">
             <span class="zoom-hint"><svg class="ic"><use href="#i-zoom"/></svg>Ampliar</span>
           </button>
@@ -260,8 +261,8 @@
               <button data-src="assets/img/shots/compras-c.webp" data-full="assets/img/shots/compras.webp" data-alt="Compras y proveedores"><img src="assets/img/shots/compras-c.webp" alt="" loading="lazy" width="1200" height="750"><span>Compras</span></button>
             </div>
           </div>
-          <button class="browser zoomable" data-full="assets/img/shots/vender.webp" aria-label="Ampliar captura">
-            <span class="chrome" aria-hidden="true"><i></i><i></i><i></i><span>nirkana · vender</span></span>
+          <button class="browser zoomable" data-full="assets/img/shots/vender.webp" aria-label="Ampliar captura: Pantalla de venta con el ticket">
+            <span class="chrome" aria-hidden="true" data-title="nirkana · vender"><i></i><i></i><i></i></span>
             <img class="main" src="assets/img/shots/vender-c.webp" width="1200" height="750" alt="Pantalla de venta con el ticket" loading="lazy">
             <span class="zoom-hint"><svg class="ic"><use href="#i-zoom"/></svg>Ampliar</span>
           </button>
@@ -285,8 +286,8 @@
               <button data-src="assets/img/shots/clientes-c.webp" data-full="assets/img/shots/clientes.webp" data-alt="Clientes"><img src="assets/img/shots/clientes-c.webp" alt="" loading="lazy" width="1200" height="750"><span>Clientes</span></button>
             </div>
           </div>
-          <button class="browser zoomable" data-full="assets/img/shots/agenda.webp" aria-label="Ampliar captura">
-            <span class="chrome" aria-hidden="true"><i></i><i></i><i></i><span>nirkana · agenda</span></span>
+          <button class="browser zoomable" data-full="assets/img/shots/agenda.webp" aria-label="Ampliar captura: Agenda de citas">
+            <span class="chrome" aria-hidden="true" data-title="nirkana · agenda"><i></i><i></i><i></i></span>
             <img class="main" src="assets/img/shots/agenda-c.webp" width="1200" height="750" alt="Agenda de citas" loading="lazy">
             <span class="zoom-hint"><svg class="ic"><use href="#i-zoom"/></svg>Ampliar</span>
           </button>
@@ -310,8 +311,8 @@
               <button data-src="assets/img/shots/resultados-c.webp" data-full="assets/img/shots/resultados.webp" data-alt="Resultados del periodo"><img src="assets/img/shots/resultados-c.webp" alt="" loading="lazy" width="1200" height="750"><span>Resultados</span></button>
             </div>
           </div>
-          <button class="browser zoomable" data-full="assets/img/shots/productos.webp" aria-label="Ampliar captura">
-            <span class="chrome" aria-hidden="true"><i></i><i></i><i></i><span>nirkana · productos</span></span>
+          <button class="browser zoomable" data-full="assets/img/shots/productos.webp" aria-label="Ampliar captura: Catálogo de productos con precio, coste y stock">
+            <span class="chrome" aria-hidden="true" data-title="nirkana · productos"><i></i><i></i><i></i></span>
             <img class="main" src="assets/img/shots/productos-c.webp" width="1200" height="750" alt="Catálogo de productos con precio, coste y stock" loading="lazy">
             <span class="zoom-hint"><svg class="ic"><use href="#i-zoom"/></svg>Ampliar</span>
           </button>

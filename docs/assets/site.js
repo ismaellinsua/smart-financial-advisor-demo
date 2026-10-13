@@ -75,23 +75,28 @@ const ANALYTICS = { goatcounter: "" };
   }
 
   // ------------------------------------------------------------ «Probar NirKanA»: the free 24-hour trial
-  if (/^https:\/\/[a-z0-9.-]+(\/.*)?$/i.test(TRIAL_URL)) {
+  // The pages already carry class="has-demo" / "has-trial" on <html> to match this configuration, so the buttons are
+  // right on the first paint (a script cannot run before it: the CSP forbids inline scripts). The toggles below only
+  // correct a page whose class was left out of step; tests/web-boundaries.test.mjs checks they agree.
+  const trialOn = /^https:\/\/[a-z0-9.-]+(\/.*)?$/i.test(TRIAL_URL);
+  const demoOn = /^\/[a-z0-9\/_-]*$/i.test(DEMO_URL) || /^https:\/\/[a-z0-9.-]+(\/.*)?$/i.test(DEMO_URL);
+  document.documentElement.classList.toggle("has-trial", trialOn); // site.css swaps «Quiero NirKanA» for «Probar NirKanA»
+  document.documentElement.classList.toggle("has-demo", demoOn);   // site.css shows the demo links
+  if (trialOn) {
     for (const link of document.querySelectorAll("a[data-trial]")) {
       link.href = TRIAL_URL;
       link.rel = "noopener noreferrer";
       link.addEventListener("click", () => countVisit("prueba-abierta", "Clic en Probar NirKanA", true));
     }
-    document.documentElement.classList.add("has-trial"); // site.css swaps «Quiero NirKanA» for «Probar NirKanA»
   }
 
   // ------------------------------------------------------------ «Ver la demo»: the example business, no sign-up
-  if (/^\/[a-z0-9\/_-]*$/i.test(DEMO_URL) || /^https:\/\/[a-z0-9.-]+(\/.*)?$/i.test(DEMO_URL)) {
+  if (demoOn) {
     for (const link of document.querySelectorAll("a[data-demo]")) {
       const sector = link.getAttribute("data-demo"); // a sector opens straight on that kind of business
       link.href = sector ? `${DEMO_URL}?negocio=${encodeURIComponent(sector)}` : DEMO_URL;
       link.addEventListener("click", () => countVisit("demo-abierta", "Clic en Ver la demo", true));
     }
-    document.documentElement.classList.add("has-demo"); // site.css shows the demo links
   }
 
   // ------------------------------------------------------------ menu on small screens
@@ -368,7 +373,7 @@ const ANALYTICS = { goatcounter: "" };
   const canvas = document.querySelector(".orb");
   const pointer = { x: 0, y: 0, tx: 0, ty: 0 };
   if (canvas && canvas.getContext) {
-    const ctx = canvas.getContext("2d");
+    let ctx = null; // created on the first fit: opening a 2D context is not cheap and can wait for the first frame
     const small = window.innerWidth < 760;
     const N = small ? 420 : 1300;
     const golden = Math.PI * (3 - Math.sqrt(5));
@@ -391,14 +396,27 @@ const ANALYTICS = { goatcounter: "" };
     };
     const inCalm = (x, y) => calm.some((q) => x > q.l && x < q.r && y > q.t && y < q.b);
     const resize = () => {
-      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      if (!ctx) ctx = canvas.getContext("2d");
       w = canvas.clientWidth; h = canvas.clientHeight;
+      // The dots are soft and tiny, so a phone does not need 3x resolution: a canvas of ~0.9 million pixels at most keeps
+      // every frame cheap to upload (a full-hero canvas at 2.6x was ~1.5 million on a 412 px phone).
+      dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, 2, Math.sqrt(900000 / Math.max(1, w * h))));
       canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       measure();
     };
     const mix = (a, b, t) => Math.round(a + (b - a) * t);
+    // Drawing one path per particle made every frame a long task on a phone. Particles are instead grouped into a few
+    // colour and brightness steps (not visible to the eye) and each group is filled once: ~40 fills instead of ~1300.
+    const SHADES = 6, LEVELS = 7;
+    const shade = Array.from({ length: SHADES }, (_, k) => {
+      const t = k / (SHADES - 1);
+      return `${mix(142, 94, t)}, ${mix(162, 234, t)}, ${mix(255, 212, t)}`;
+    });
+    for (const p of points) p.shade = Math.round(((p.y + 1) / 2) * (SHADES - 1));
+    const groups = Array.from({ length: SHADES * LEVELS }, () => []);
     const draw = (time) => {
+      if (!ctx || !w || !h) return; // not laid out yet
       ctx.clearRect(0, 0, w, h);
       pointer.x += (pointer.tx - pointer.x) * 0.05;
       pointer.y += (pointer.ty - pointer.y) * 0.05;
@@ -408,20 +426,29 @@ const ANALYTICS = { goatcounter: "" };
       const R = small ? Math.min(w * 0.46, 200) : Math.min(w * 0.24, 320);
       const ox = w / 2, oy = small ? Math.min(h * 0.22, 320) : Math.min(h * 0.2, 400);
       const f = 2.4;
+      for (const g of groups) g.length = 0;
       for (const p of points) {
         const breathe = 1 + 0.035 * Math.sin(time * 0.0012 + p.phase);
-        let x = p.x * breathe, y = p.y * breathe, z = p.z * breathe;
+        const x = p.x * breathe, y = p.y * breathe, z = p.z * breathe;
         const x1 = x * cy - z * sy; const z1 = x * sy + z * cy;
         const y2 = y * cx - z1 * sx; const z2 = y * sx + z1 * cx;
         const scale = f / (f + z2);
         const depth = (1 - z2) / 2; // 1 = front
-        const t = (p.y + 1) / 2;
         const px = ox + x1 * R * scale, py = oy + y2 * R * scale;
         const alpha = (0.12 + depth * 0.55) * (inCalm(px, py) ? 0.18 : 1);
-        ctx.fillStyle = `rgba(${mix(142, 94, t)}, ${mix(162, 234, t)}, ${mix(255, 212, t)}, ${alpha.toFixed(3)})`;
-        const size = (0.6 + depth * 1.5) * scale;
+        const level = Math.min(LEVELS - 1, Math.max(0, Math.round(alpha / 0.67 * (LEVELS - 1))));
+        groups[p.shade * LEVELS + level].push(px, py, (0.6 + depth * 1.5) * scale);
+      }
+      for (let k = 0; k < groups.length; k++) {
+        const g = groups[k];
+        if (!g.length) continue;
+        const level = k % LEVELS;
+        ctx.fillStyle = `rgba(${shade[(k - level) / LEVELS]}, ${((level / (LEVELS - 1)) * 0.67).toFixed(3)})`;
         ctx.beginPath();
-        ctx.arc(px, py, size, 0, Math.PI * 2);
+        for (let i = 0; i < g.length; i += 3) {
+          ctx.moveTo(g[i] + g[i + 2], g[i + 1]);
+          ctx.arc(g[i], g[i + 1], g[i + 2], 0, Math.PI * 2);
+        }
         ctx.fill();
       }
       // a tilted orbit ring
@@ -431,16 +458,18 @@ const ANALYTICS = { goatcounter: "" };
       ctx.ellipse(ox, oy, R * 1.45, R * 0.32, -0.25 + pointer.x * 0.3, 0, Math.PI * 2);
       ctx.stroke();
     };
+    let last = -1000;
     const loop = (time) => {
       if (!running || !visible) return;
-      draw(time);
+      if (time - last >= 30) { last = time; draw(time); } // the slow turn needs ~30 frames a second, not 60
       requestAnimationFrame(loop);
     };
-    resize();
-    window.addEventListener("resize", resize);
-    if (reduceMotion) {
-      draw(0);
-    } else {
+    // Sized when the browser has laid the page out anyway (ResizeObserver), not by reading sizes here, which would force
+    // a full style and layout pass in the middle of this script.
+    const fit = () => { resize(); if (reduceMotion) draw(0); };
+    if ("ResizeObserver" in window) new ResizeObserver(fit).observe(canvas);
+    else { fit(); window.addEventListener("resize", fit); }
+    if (!reduceMotion) {
       new IntersectionObserver(([entry]) => {
         const was = visible; visible = entry.isIntersecting;
         if (visible && !was) requestAnimationFrame(loop);

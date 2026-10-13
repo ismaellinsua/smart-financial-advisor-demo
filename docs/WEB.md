@@ -120,7 +120,25 @@ También puedes subir la carpeta `docs/` tal cual a Netlify, Cloudflare Pages o 
 
 - Sin cookies, analítica, publicidad ni código de terceros: nada que rastree a tus visitantes.
 - Política de seguridad de contenidos (CSP): solo se ejecuta el código propio de la web y el formulario solo puede
-  enviar a Formspree.
+  enviar a Formspree (la página también puede leer sus propios archivos, p. ej. `robots.txt`, que las herramientas de
+  medición piden desde la propia página).
 - Formulario con límites de longitud, validación, casilla de consentimiento y un campo trampa contra robots.
 - El único dato de contacto publicado es el email de contacto; los mensajes llegan por Formspree, WhatsApp o email.
 - Los enlaces externos se abren sin pasar datos de la página (`noopener`, `noreferrer`).
+
+## Rendimiento
+
+Medido con Lighthouse 12.8 (móvil, red y CPU simuladas) contra una copia local, 13 de octubre de 2026: las cinco páginas
+sacan 100 en accesibilidad, buenas prácticas y SEO; rendimiento 99–100, sin desplazamientos de diseño (CLS 0) y con
+menos de 10 ms de bloqueo en la portada. Son medidas de laboratorio: en tu conexión y tu móvil el resultado variará.
+
+Tres cosas lo mantienen así y conviene no deshacerlas:
+
+- **Las clases `js` y `has-demo` van en la etiqueta `<html>` de cada página.** Si las añadiera solo el script, los botones
+  y el menú cambiarían después de pintar y la página «saltaría». Si algún día activas la prueba de 24 horas (`TRIAL_URL`
+  en `site.js`), añade también `has-trial`; `tests/web-boundaries.test.mjs` avisa si no coinciden. Para quien navega sin
+  JavaScript, `<noscript>` carga `assets/sin-js.css`, que devuelve el menú de secciones al encabezado.
+- **La esfera de partículas dibuja por grupos, a 30 imágenes por segundo y con un lienzo acotado**: antes pintaba 1.300
+  trazos por imagen y bloqueaba el móvil más de un segundo en total.
+- **El título de las capturas ampliables (`data-title`) sale del CSS**, para que el texto visible del botón sea solo
+  «Ampliar» y su nombre accesible («Ampliar captura: …») lo contenga.
