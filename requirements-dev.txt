@@ -1,6 +1,6 @@
 # Tools for the test suite and CI (not installed in the container).
 pytest==9.1.1
 pytest-cov==7.1.0
-pyflakes==4.0.2
+pyflakes==4.0.3
 ruff==0.17.0
 playwright==1.63.0
