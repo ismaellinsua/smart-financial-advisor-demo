@@ -23,8 +23,10 @@
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
   <link rel="stylesheet" href="assets/site.css">
+  <link rel="stylesheet" href="assets/privacy-notice.css">
   <noscript><link rel="stylesheet" href="assets/sin-js.css"></noscript>
   <script src="assets/site.js" defer></script>
+  <script src="assets/privacy-notice.js" defer></script>
 
   <link rel="canonical" href="https://nirkana.es/">
   <script type="application/ld+json">
@@ -767,10 +769,16 @@
     </div>
     <div class="wrap foot-bottom">
       <span>© 2026 NirKanA</span>
-      <span>Sin cookies ni publicidad.</span>
+      <span>Sin cookies de publicidad ni analítica activas.</span>
     </div>
   </footer>
 
+  <aside class="privacy-notice" id="privacy-notice" aria-label="Aviso de privacidad y cookies" hidden>
+    <h2>Tu privacidad en NirKanA</h2>
+    <p>Actualmente no utilizamos cookies de publicidad ni analítica. Este aviso es informativo y recuerda tu elección en este navegador.</p>
+    <button id="privacy-notice-ok" type="button">Entendido</button>
+    <a href="/privacidad.html">Política de privacidad</a>
+  </aside>
   <dialog class="lightbox" id="lightbox" aria-label="Captura ampliada">
     <button class="lb-close" type="button" aria-label="Cerrar"><svg class="ic"><use href="#i-x"/></svg></button>
     <img alt="">
