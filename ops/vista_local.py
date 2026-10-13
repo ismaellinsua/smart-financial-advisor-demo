@@ -53,9 +53,9 @@ def build(out: Path) -> int:
     js = site.read_text(encoding="utf-8")
     js = js.replace('const DEMO_URL = "/demo/";',
                     'const DEMO_URL = new URL("../demo/index.html", document.currentScript.src).href;')
-    js = re.sub(r"if \(/\^\\/\[a-z0-9\\/_-\]\*\$/i\.test\(DEMO_URL\) \|\| ", "if (true || ", js)
+    js = re.sub(r"const demoOn = [^\n]+;", "const demoOn = true;", js)  # a file: address is not a /path nor https
     site.write_text(js, encoding="utf-8")
-    assert "if (true ||" in js and "document.currentScript" in js, "site.js changed: update ops/vista_local.py"
+    assert "const demoOn = true;" in js and "document.currentScript" in js, "site.js changed: update ops/vista_local.py"
     (out / "LEEME.txt").write_text(
         "Copia de la web de NirKanA para verla en tu ordenador.\n\nAbre index.html con doble clic.\n"
         "«Ver la demo» abre la demo (demo/index.html). El formulario de contacto no envía nada desde aquí.\n"

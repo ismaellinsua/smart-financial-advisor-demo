@@ -3,12 +3,12 @@
     python ops/capturas_web.py            # rewrites docs/assets/img/shots/*.webp, panel.webp, movil.webp and og.jpg
 
 The demo is the real front-end of the app running on invented data, so nothing here can show a screen the product does not
-have. Needs Playwright with Chromium (NK_CHROMIUM = path of the browser, default /opt/pw-browsers/chromium) and Pillow.
+have. Needs Playwright with Chromium (--chromium=RUTA to use another browser, default /opt/pw-browsers/chromium) and Pillow.
 Every shot is taken at noon in Madrid on the same day, so a rerun gives the same pictures.
 """
 
 import io
-import os
+import sys
 from datetime import datetime
 from pathlib import Path
 
@@ -160,8 +160,9 @@ def phone(browser):
 
 
 def main():
+    chromium = next((a.split("=", 1)[1] for a in sys.argv[1:] if a.startswith("--chromium=")), "/opt/pw-browsers/chromium")
     with sync_playwright() as p:
-        browser = p.chromium.launch(executable_path=os.environ.get("NK_CHROMIUM", "/opt/pw-browsers/chromium") or None)
+        browser = p.chromium.launch(executable_path=chromium or None)
         desktop(browser)
         phone(browser)
         browser.close()
