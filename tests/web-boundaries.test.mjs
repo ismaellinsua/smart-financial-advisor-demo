@@ -95,10 +95,49 @@ test('despertar la prueba pide una imagen y una página ocultas del propio servi
   assert.match(site, /\$\{new URL\(target\)\.origin\}\/icons\/simbolo\.svg\?despertar=/);
   assert.match(site, /waker\.setAttribute\("sandbox", ""\)/);                  // la página oculta no puede hacer nada
   assert.match(site, /const TRIAL_GIVE_UP_MS = \d{4,5};/);                       // pasado ese tiempo, se lleva al visitante a la prueba
-  assert.match(site, /timers\.push\(setTimeout\(open, TRIAL_GIVE_UP_MS\)\)/);
+  assert.match(site, /TRIAL_GIVE_UP_MS\)\);/);                                     // el temporizador final lleva al visitante a la prueba
+  assert.match(site, /open\("prueba-lenta"/);
   assert.match(site, /event\.button !== 0 \|\| event\.metaKey \|\| event\.ctrlKey/); // nueva pestaña / ventana: comportamiento normal
   const giveUp = Number(site.match(/const TRIAL_GIVE_UP_MS = (\d+);/)[1]);
   assert.ok(giveUp >= 30000 && giveUp <= 60000, `espera total fuera de lo razonable: ${giveUp} ms`);
+});
+
+// Price and contact: the home page shows the price as a section of its own, linked from the menu and the footer, and the
+// e-mail address itself is visible (not only behind a mailto: button) and can be copied.
+test('el precio tiene sección propia, enlazada desde el menú y el pie, y la cabecera de la home lo menciona', () => {
+  assert.match(home, /<section id="precio">/);
+  assert.match(home, /<h2>Desde 20 € al mes<\/h2>/);
+  assert.equal((home.match(/href="#precio"/g) || []).length, 2, 'enlace en el menú y en el pie');
+  assert.match(home, /Después, desde 20 € al mes\./);
+  assert.match(home, /schema\.org[\s\S]*"price": "20"/);   // los datos estructurados dicen lo mismo que la página
+});
+
+test('la dirección de email se ve y se puede copiar, y se rellena desde la configuración (no está escrita en el HTML)', () => {
+  assert.match(home, /id="email-copy"/);
+  assert.match(home, /id="email-text" data-email/);
+  const visible = home.replace(/<script type="application\/ld\+json">[\s\S]*?<\/script>/g, '');   // los datos estructurados para buscadores sí lo llevan
+  assert.doesNotMatch(visible, /nirkana\.oficial@gmail\.com/);
+  assert.match(site, /querySelectorAll\("a\[data-email\]"\)/);
+  assert.match(site, /navigator\.clipboard\.writeText\(email\)/);
+});
+
+// Counting (GoatCounter, no cookies): the events that tell a visit from a lead. They only count once ANALYTICS has a code.
+test('los eventos de medición cubren los botones que importan y la espera de la prueba', () => {
+  for (const event of ['prueba-abierta', 'demo-abierta', 'contacto-email', 'contacto-copiar', 'contacto-enviado',
+                       'precio-visto', 'prueba-espera', 'prueba-cancelada']) {
+    assert.match(site, new RegExp(`countVisit\\("${event}"`), `falta el evento ${event}`);
+  }
+  for (const event of ['prueba-lista', 'prueba-lenta']) { // los dos finales de la espera salen por open(), que cuenta y luego navega
+    assert.match(site, new RegExp(`open\\("${event}"`), `falta el evento ${event}`);
+  }
+  assert.match(site, /countVisit\(event, title, true\);\s*\n\s*setTimeout\(\(\) => window\.location\.assign\(target\), 150\)/);
+});
+
+test('la medición solo cuenta en la web publicada y respeta «no rastrear»', () => {
+  assert.match(site, /navigator\.doNotTrack !== "1" && !navigator\.globalPrivacyControl/);
+  assert.match(site, /\(\^\|\\\.\)nirkana\\\.es\$\/\.test\(location\.hostname\)/);
+  const code = site.match(/const ANALYTICS = \{ goatcounter: "([^"]*)" \};/)[1];
+  assert.match(code, /^([a-z0-9][a-z0-9-]{1,49})?$/, `código de GoatCounter no válido: ${code}`);
 });
 
 test('el nombre accesible de cada captura ampliable contiene el texto visible del botón', () => {

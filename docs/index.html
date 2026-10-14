@@ -88,6 +88,7 @@
         <a href="#recorrido">La app</a>
         <a class="only-demo" data-demo href="/demo/">Demo</a>
         <a href="#calculadora">Calculadora</a>
+        <a href="#precio">Precio</a>
         <a href="#preguntas">Preguntas</a>
         <a class="login" id="app-link" href="#" hidden>Entrar</a>
       </nav>
@@ -119,7 +120,7 @@
           <a class="btn magnet no-trial no-demo" href="#recorrido">Ver la app por dentro <svg class="ic"><use href="#i-arrow"/></svg></a>
           <a class="btn ghost magnet no-trial" href="#contacto">Hablar de mi negocio</a>
         </div>
-        <p class="cta-note only-trial">24 horas gratis, sin tarjeta, con un negocio de ejemplo listo para usar.</p>
+        <p class="cta-note only-trial">24 horas gratis, sin tarjeta, con un negocio de ejemplo listo para usar. Después, desde 20 € al mes.</p>
         <p class="cta-note no-trial only-demo">Sin registro · Datos ficticios · A tu ritmo</p>
         <nav class="hero-sectors" aria-label="Encuentra tu tipo de negocio">
           <span>Hecha para tu día a día</span>
@@ -589,6 +590,31 @@
     </section>
 
     <!-- ============================================================ FAQ -->
+    <!-- ============================================================ PRICE -->
+    <section id="precio">
+      <div class="wrap">
+        <div class="head center" data-reveal>
+          <p class="eyebrow">Precio</p>
+          <h2>Desde 20 € al mes</h2>
+          <p class="sub">El precio final depende de las funciones que necesites. Te decimos exactamente cuánto sería para tu negocio, sin compromiso.</p>
+        </div>
+        <div class="price-card" data-reveal>
+          <ul class="ticks">
+            <li class="only-trial"><svg class="ic"><use href="#i-check"/></svg>Pruébala 24 horas gratis, sin tarjeta</li>
+            <li><svg class="ic"><use href="#i-check"/></svg>Te ayudamos a ponerla en marcha: catálogo, equipo y datos fiscales</li>
+            <li><svg class="ic"><use href="#i-check"/></svg>Pago por transferencia bancaria o con tarjeta (Stripe)</li>
+            <li><svg class="ic"><use href="#i-check"/></svg>Respuesta en menos de 24 h laborables</li>
+          </ul>
+          <div class="price-cta">
+            <a class="btn magnet" href="#contacto">Pedir mi precio <svg class="ic"><use href="#i-arrow"/></svg></a>
+            <p class="mail-line" data-email-wrap hidden>
+              <span>O escríbenos a <a data-email data-subject="Quiero saber el precio de NirKanA"></a></span>
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <section id="preguntas">
       <div class="wrap faq">
         <div class="faq-side" data-reveal>
@@ -689,6 +715,11 @@
               <a class="btn ghost" id="whatsapp-link" href="#contacto" hidden rel="noopener noreferrer" target="_blank"><svg class="ic"><use href="#i-chat"/></svg>Hablar por WhatsApp</a>
               <a class="btn ghost" id="email-link" href="#contacto" hidden><svg class="ic"><use href="#i-chat"/></svg>Contactar por email</a>
             </div>
+            <p class="mail-line" id="email-line" data-email-wrap hidden>
+              <span>O escríbenos a <a id="email-text" data-email></a></span>
+              <button class="btn ghost small" id="email-copy" type="button">Copiar dirección</button>
+              <span class="note mail-copied" id="email-copied" role="status" aria-live="polite"></span>
+            </p>
             <noscript><p class="note">Activa JavaScript para enviar el formulario.</p></noscript>
           </div>
 
@@ -747,6 +778,7 @@
         <a href="#funciones">Funciones</a>
         <a href="#recorrido">La app por dentro</a>
         <a href="#calculadora">Calculadora</a>
+        <a href="#precio">Precio</a>
         <a href="#seguridad">Seguridad</a>
       </nav>
       <nav aria-label="Sectores">
@@ -761,6 +793,7 @@
         <a class="only-trial" data-trial href="#contacto">Probar gratis</a>
         <a class="only-demo" data-demo href="/demo/">Ver la demo</a>
         <a href="#contacto">Contactar</a>
+        <a data-email data-subject="Quiero NirKanA" hidden></a>
         <a href="#preguntas">Preguntas frecuentes</a>
         <a href="privacidad.html">Aviso de privacidad</a>
       </nav>

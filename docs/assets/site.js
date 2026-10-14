@@ -58,6 +58,44 @@ const ANALYTICS = { goatcounter: "" };
   if (mailLink && email) {
     mailLink.href = mailto("Quiero NirKanA", MESSAGE);
     mailLink.hidden = false;
+    mailLink.addEventListener("click", () => countVisit("contacto-email", "Clic en Contactar por email", true));
+  }
+  // The address itself, visible: many people read their mail in a web page and a mailto: link does nothing for them.
+  if (email) {
+    for (const link of document.querySelectorAll("a[data-email]")) {
+      link.href = mailto(link.getAttribute("data-subject") || "Quiero NirKanA", MESSAGE);
+      link.textContent = email;
+      link.hidden = false;
+      link.addEventListener("click", () => countVisit("contacto-email", "Clic en la dirección de email", true));
+    }
+    for (const wrap of document.querySelectorAll("[data-email-wrap]")) wrap.hidden = false;
+  }
+  const copyButton = document.getElementById("email-copy");
+  const copiedNote = document.getElementById("email-copied");
+  if (copyButton && copiedNote && email) {
+    copyButton.addEventListener("click", async () => {
+      countVisit("contacto-copiar", "Dirección de email copiada", true);
+      let copied = false;
+      try { await navigator.clipboard.writeText(email); copied = true; } catch { /* some browsers refuse: select it instead */ }
+      if (!copied) {
+        const range = document.createRange();
+        range.selectNodeContents(document.getElementById("email-text"));
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+      }
+      copiedNote.textContent = copied ? "Copiada" : "Selecciónala y cópiala (Ctrl+C)";
+    });
+  }
+  // How many visitors reach the price (an event, once per visit).
+  const priceSection = document.getElementById("precio");
+  if (priceSection && "IntersectionObserver" in window) {
+    const watcher = new IntersectionObserver((entries) => {
+      if (!entries.some((entry) => entry.isIntersecting)) return;
+      countVisit("precio-visto", "Ha visto el precio", true);
+      watcher.disconnect();
+    }, { threshold: 0.5 });
+    watcher.observe(priceSection);
   }
   if (phone.length >= 8) {
     for (const wa of document.querySelectorAll("#whatsapp-link, #whatsapp-float")) {
@@ -126,10 +164,13 @@ const ANALYTICS = { goatcounter: "" };
       if (probe) probe.onload = probe.onerror = null;
       if (waker) waker.remove();
     };
-    const open = () => {
+    let leaving = false;
+    const open = (event, title) => {
+      leaving = true;
       stop();
       if (dialog && dialog.open) dialog.close();
-      window.location.assign(target);
+      countVisit(event, title, true);
+      setTimeout(() => window.location.assign(target), 150); // a moment for the count to leave before the page does
     };
     const wakeWithPage = () => {
       if (waker || finished) return;
@@ -144,7 +185,7 @@ const ANALYTICS = { goatcounter: "" };
     const ask = () => {
       if (finished) return;
       probe = new Image();
-      probe.onload = open;
+      probe.onload = () => open("prueba-lista", "La prueba abre sola");
       probe.onerror = () => {
         if (finished) return;
         wakeWithPage();
@@ -177,17 +218,22 @@ const ANALYTICS = { goatcounter: "" };
       cancel.addEventListener("click", () => dialog.close());
       actions.append(cancel);
       dialog.append(spinner, title, text, actions);
-      dialog.addEventListener("close", () => { stop(); dialog.remove(); }); // Escape and «Cancelar»: the visitor stays here
+      dialog.addEventListener("close", () => { // Escape and «Cancelar»: the visitor stays here
+        if (!leaving) countVisit("prueba-cancelada", "El visitante cancela la espera", true);
+        stop();
+        dialog.remove();
+      });
       document.body.append(dialog);
       dialog.showModal();
       cancel.focus();
+      countVisit("prueba-espera", "Pantalla de espera de la prueba", true);
       timers.push(setTimeout(() => {
         text.textContent = "Sigue arrancando; falta poco. Se abrirá sola en cuanto esté lista.";
       }, TRIAL_REASSURE_MS - (Date.now() - started)));
     };
 
     timers.push(setTimeout(showScreen, TRIAL_SHOW_AFTER_MS));
-    timers.push(setTimeout(open, TRIAL_GIVE_UP_MS));
+    timers.push(setTimeout(() => open("prueba-lenta", "La prueba tarda: se lleva al visitante"), TRIAL_GIVE_UP_MS));
     ask();
   };
 

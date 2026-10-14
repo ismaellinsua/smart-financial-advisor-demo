@@ -95,6 +95,17 @@ página de sector, que abre directamente ese tipo de negocio (`/demo/?negocio=ho
 - La dirección está en `DEMO_URL` (`assets/site.js`); si la dejas vacía, los enlaces a la demo desaparecen.
 - No sale en Google (`noindex`) ni en `sitemap.xml`.
 
+### Precio y dirección de email visibles
+
+La home tiene una sección propia, **Precio** (`#precio`, enlazada desde el menú y el pie), con «Desde 20 € al mes» y las mismas
+condiciones que ya decía la pregunta «¿Cuánto cuesta?»; el aviso bajo el botón de la cabecera también lo menciona. **Si cambias el
+precio, cambia los seis sitios de `index.html`**: la sección, el aviso de la cabecera, la pregunta frecuente (y su copia en los datos
+estructurados `FAQPage`), el precio de los datos estructurados `Offer` y el texto bajo la calculadora. `web-boundaries` comprueba
+que la sección, los enlaces y los datos estructurados dicen lo mismo.
+
+La dirección de email sale escrita en la página (no solo detrás de un botón) y con «Copiar dirección», porque quien lee el correo en
+una web no puede usar un enlace `mailto:`. Se rellena desde `CONTACT.email` de `site.js`: no está escrita en el HTML.
+
 ### Contar visitas sin cookies (GoatCounter)
 
 La web puede contar visitas, páginas vistas y formularios enviados **sin cookies ni datos personales**, así que no
@@ -108,6 +119,28 @@ necesita banner de cookies. Hasta que pongas tu código no cuenta nada.
 
 Solo cuenta en `nirkana.es` (no en copias locales) y no cuenta a quien tenga activado «no rastrear» en su navegador.
 El aviso de privacidad ya lo explica.
+
+**Qué cuenta** (en el panel salen como «eventos»; no guardan nada del visitante):
+
+| Evento | Significa |
+|---|---|
+| `/` y demás rutas | Visitas y páginas vistas |
+| `precio-visto` | Llegó a la sección de precio (una vez por visita) |
+| `prueba-abierta` | Pulsó «Probar gratis» |
+| `prueba-espera` | La prueba estaba dormida y vio la pantalla «Preparando tu prueba» |
+| `prueba-lista` | La prueba abrió sola cuando estuvo lista |
+| `prueba-lenta` | Pasaron 50 s y se le llevó a la prueba sin que estuviera lista |
+| `prueba-cancelada` | Cerró la pantalla de espera |
+| `demo-abierta` | Pulsó «Ver la demo» |
+| `contacto-email`, `contacto-copiar` | Pulsó el botón o la dirección de email, o la copió |
+| `contacto-enviado` | Envió el formulario |
+
+Cómo leerlo: de las visitas, cuántas llegan a `precio-visto`; de `prueba-abierta`, cuántas ven `prueba-espera` (así sabes si el plan
+gratis de Render se nota) y cuántas acaban en `prueba-lenta`; y al final cuántas escriben (`contacto-enviado` + `contacto-email`
++ `contacto-copiar`). Compara las páginas de sector entre sí: la que más escribe es la que mejor vende.
+
+**Activarlo es un cambio de una línea**, pero el código **tiene que ser el de una cuenta que ya hayas creado**: si apuntara a un
+código sin registrar, esas cifras caerían en la cuenta de quien lo registre después. Por eso no se pone hasta que la cuenta exista.
 
 ## Las capturas y los textos: solo lo que la app hace
 
