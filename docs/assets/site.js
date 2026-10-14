@@ -86,9 +86,97 @@ const ANALYTICS = { goatcounter: "" };
     for (const link of document.querySelectorAll("a[data-trial]")) {
       link.href = TRIAL_URL;
       link.rel = "noopener noreferrer";
-      link.addEventListener("click", () => countVisit("prueba-abierta", "Clic en Probar NirKanA", true));
+      link.addEventListener("click", (event) => {
+        countVisit("prueba-abierta", "Clic en Probar NirKanA", true);
+        openTrial(event, link);
+      });
     }
   }
+
+  // The trial runs on a service that sleeps after 15 minutes without visits and then needs up to a minute to wake up.
+  // Rather than leave the visitor on the host's own waiting page, wake it first with a request for one small image of
+  // the app (it only loads once the app answers; the host's waiting page is not an image, so it counts as «not yet»),
+  // show our own waiting screen and open the trial the moment it answers. If it never answers, the visitor can still
+  // open it by hand. Only a plain click is handled: new tab, new window and the like keep their normal behaviour.
+  const TRIAL_WAIT_MS = 120000;      // after this long, offer to open it anyway
+  const TRIAL_RETRY_MS = 2500;       // the host answers with something that is not an image while it wakes up: ask again
+  const TRIAL_SHOW_AFTER_MS = 700;   // an app that is already awake opens at once, without any screen in between
+  const openTrial = (event, link) => {
+    if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    if (typeof HTMLDialogElement !== "function") return; // very old browser: the plain link does its job
+    event.preventDefault();
+    const target = link.href;
+    const started = Date.now();
+    let finished = false;
+    let attempt = 0;
+    let probe = null;
+    let retry = 0;
+    let dialog = null;
+    const timers = [];
+
+    const stop = () => {
+      finished = true;
+      clearTimeout(retry);
+      timers.forEach(clearTimeout);
+      if (probe) probe.onload = probe.onerror = null;
+    };
+    const open = () => {
+      stop();
+      if (dialog && dialog.open) dialog.close();
+      window.location.assign(target);
+    };
+    const ask = () => {
+      if (finished) return;
+      probe = new Image();
+      probe.onload = open;
+      probe.onerror = () => { if (!finished) retry = setTimeout(ask, TRIAL_RETRY_MS); };
+      probe.src = `${new URL(target).origin}/icons/simbolo.svg?despertar=${started}-${++attempt}`;
+    };
+    const showScreen = () => {
+      if (finished) return;
+      dialog = document.createElement("dialog");
+      dialog.className = "trial-wait";
+      dialog.setAttribute("aria-labelledby", "trial-wait-title");
+      dialog.setAttribute("aria-describedby", "trial-wait-text");
+      const spinner = document.createElement("div");
+      spinner.className = "trial-wait-spin";
+      spinner.setAttribute("aria-hidden", "true");
+      const title = document.createElement("h2");
+      title.id = "trial-wait-title";
+      title.textContent = "Preparando tu prueba gratuita";
+      const text = document.createElement("p");
+      text.id = "trial-wait-text";
+      text.setAttribute("role", "status");
+      text.textContent = "La primera vez tarda hasta un minuto en arrancar. Se abrirá sola en cuanto esté lista.";
+      const actions = document.createElement("div");
+      actions.className = "trial-wait-actions";
+      const cancel = document.createElement("button");
+      cancel.type = "button";
+      cancel.className = "btn ghost small";
+      cancel.textContent = "Cancelar";
+      cancel.addEventListener("click", () => dialog.close());
+      actions.append(cancel);
+      dialog.append(spinner, title, text, actions);
+      dialog.addEventListener("close", () => { stop(); dialog.remove(); }); // Escape and «Cancelar»: the visitor stays here
+      document.body.append(dialog);
+      dialog.showModal();
+      cancel.focus();
+      timers.push(setTimeout(() => {
+        text.textContent = "Sigue arrancando; falta poco. Se abrirá sola en cuanto esté lista.";
+      }, 25000));
+      timers.push(setTimeout(() => {
+        text.textContent = "Está tardando más de lo normal. Puedes abrirla ya o intentarlo de nuevo en un minuto.";
+        const now = document.createElement("a");
+        now.className = "btn small";
+        now.href = target;
+        now.textContent = "Abrir de todas formas";
+        actions.append(now);
+      }, TRIAL_WAIT_MS - (Date.now() - started)));
+    };
+
+    timers.push(setTimeout(showScreen, TRIAL_SHOW_AFTER_MS));
+    ask();
+  };
 
   // ------------------------------------------------------------ «Ver la demo»: the example business, no sign-up
   if (demoOn) {
