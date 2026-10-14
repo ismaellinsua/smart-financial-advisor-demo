@@ -519,6 +519,8 @@ details p { color: var(--muted); margin: .8rem 0 0; max-width: 64ch; }
 .foot a:hover { color: var(--ink); }
 .foot-grid { display: grid; grid-template-columns: 1.6fr 1fr 1fr 1fr; gap: 32px; padding: 56px 0 40px; }
 .foot-grid nav { display: grid; gap: .55rem; align-content: start; }
+.foot-grid > * { min-width: 0; }
+.foot-grid a { overflow-wrap: anywhere; } /* the e-mail address is one long word */
 .foot-grid b { color: var(--ink); margin-bottom: .3rem; }
 .foot-brand p { margin-top: 1rem; max-width: 36ch; }
 .foot-brand .brand { color: var(--ink); }
@@ -549,6 +551,20 @@ details p { color: var(--muted); margin: .8rem 0 0; max-width: 64ch; }
   html { scroll-behavior: auto; }
   .stage, .feat, .browser, .tile, .tile img { transition: none; }
 }
+
+/* ------------------------------------------------------------------ price band and the visible e-mail address */
+.price-card { display: grid; grid-template-columns: 1.3fr 1fr; gap: clamp(20px, 4vw, 48px); align-items: center; max-width: 900px; margin-inline: auto;
+  padding: clamp(22px, 4vw, 38px); border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow-sm); }
+.price-card .ticks { margin: 0; }
+.price-cta { display: grid; gap: 1rem; justify-items: start; }
+.mail-line { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .8rem; margin: 0; color: var(--muted); }
+.mail-line[hidden] { display: none; }
+.mail-line a { font-weight: 700; color: var(--ink); overflow-wrap: anywhere; }
+.contact-card .mail-line { margin-top: 1rem; color: #AEBBDA; }
+.contact-card .mail-line a { color: #EAF0FF; }
+.mail-copied { min-height: 1.2em; font-size: .9rem; }
+.contact-card .mail-copied { color: #8FE9DB; }
+@media (max-width: 720px) { .price-card { grid-template-columns: 1fr; } }
 
 /* ------------------------------------------------------------------ waiting screen while the free trial wakes up */
 .trial-wait { border: 1px solid var(--line); border-radius: var(--radius); padding: 1.7rem 1.5rem 1.5rem; width: min(92vw, 26rem);
