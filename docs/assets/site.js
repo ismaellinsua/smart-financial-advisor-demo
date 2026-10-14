@@ -93,12 +93,16 @@ const ANALYTICS = { goatcounter: "" };
     }
   }
 
-  // The trial runs on a service that sleeps after 15 minutes without visits and then needs up to a minute to wake up.
-  // Rather than leave the visitor on the host's own waiting page, wake it first with a request for one small image of
-  // the app (it only loads once the app answers; the host's waiting page is not an image, so it counts as «not yet»),
-  // show our own waiting screen and open the trial the moment it answers. If it never answers, the visitor can still
-  // open it by hand. Only a plain click is handled: new tab, new window and the like keep their normal behaviour.
-  const TRIAL_WAIT_MS = 120000;      // after this long, offer to open it anyway
+  // The trial runs on a service that sleeps after 15 minutes without visits and then needs up to a minute (sometimes
+  // more) to wake up. Rather than leave the visitor on the host's own waiting page, ask it to wake and show our own
+  // waiting screen. Two kinds of request go out, because which one wakes the service is not something the host
+  // documents: one small image of the app (it only loads once the app answers; the host's waiting page and its 502
+  // are not images, so they count as «not yet») and, if that first try fails, one hidden page request, which is what
+  // opening the trial does. The trial opens by itself the moment the image loads; if that has not happened after 50
+  // seconds the visitor is simply taken there (the host's own waiting page then carries on): there is never a dead
+  // end. Only a plain click is handled: new tab, new window and the like keep their normal behaviour.
+  const TRIAL_GIVE_UP_MS = 50000;    // after this long, go to the trial anyway
+  const TRIAL_REASSURE_MS = 25000;   // after this long, say that it is still starting
   const TRIAL_RETRY_MS = 2500;       // the host answers with something that is not an image while it wakes up: ask again
   const TRIAL_SHOW_AFTER_MS = 700;   // an app that is already awake opens at once, without any screen in between
   const openTrial = (event, link) => {
@@ -110,6 +114,7 @@ const ANALYTICS = { goatcounter: "" };
     let finished = false;
     let attempt = 0;
     let probe = null;
+    let waker = null;
     let retry = 0;
     let dialog = null;
     const timers = [];
@@ -119,17 +124,32 @@ const ANALYTICS = { goatcounter: "" };
       clearTimeout(retry);
       timers.forEach(clearTimeout);
       if (probe) probe.onload = probe.onerror = null;
+      if (waker) waker.remove();
     };
     const open = () => {
       stop();
       if (dialog && dialog.open) dialog.close();
       window.location.assign(target);
     };
+    const wakeWithPage = () => {
+      if (waker || finished) return;
+      waker = document.createElement("iframe");
+      waker.hidden = true;                // never shown, but it still loads
+      waker.tabIndex = -1;
+      waker.setAttribute("aria-hidden", "true");
+      waker.setAttribute("sandbox", "");  // whatever page comes back can do nothing: it only has to be requested
+      waker.src = target;
+      document.body.append(waker);
+    };
     const ask = () => {
       if (finished) return;
       probe = new Image();
       probe.onload = open;
-      probe.onerror = () => { if (!finished) retry = setTimeout(ask, TRIAL_RETRY_MS); };
+      probe.onerror = () => {
+        if (finished) return;
+        wakeWithPage();
+        retry = setTimeout(ask, TRIAL_RETRY_MS);
+      };
       probe.src = `${new URL(target).origin}/icons/simbolo.svg?despertar=${started}-${++attempt}`;
     };
     const showScreen = () => {
@@ -163,18 +183,11 @@ const ANALYTICS = { goatcounter: "" };
       cancel.focus();
       timers.push(setTimeout(() => {
         text.textContent = "Sigue arrancando; falta poco. Se abrirá sola en cuanto esté lista.";
-      }, 25000));
-      timers.push(setTimeout(() => {
-        text.textContent = "Está tardando más de lo normal. Puedes abrirla ya o intentarlo de nuevo en un minuto.";
-        const now = document.createElement("a");
-        now.className = "btn small";
-        now.href = target;
-        now.textContent = "Abrir de todas formas";
-        actions.append(now);
-      }, TRIAL_WAIT_MS - (Date.now() - started)));
+      }, TRIAL_REASSURE_MS - (Date.now() - started)));
     };
 
     timers.push(setTimeout(showScreen, TRIAL_SHOW_AFTER_MS));
+    timers.push(setTimeout(open, TRIAL_GIVE_UP_MS));
     ask();
   };
 

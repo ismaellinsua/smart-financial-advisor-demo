@@ -76,22 +76,29 @@ test('la CSP solo admite el origen propio y Formspree para conexiones', () => {
   }
 });
 
-// The trial sleeps when nobody uses it; the site wakes it with a request for one image of the app and shows its own waiting
-// screen (see openTrial in site.js). Images from that address are therefore the only extra thing the CSP lets through.
-test('la CSP deja cargar imágenes solo de la propia web, de GoatCounter y del servicio de la prueba', () => {
+// The trial sleeps when nobody uses it; the site wakes it with a request for one image of the app plus, if that fails, one
+// hidden page request, and shows its own waiting screen (see openTrial in site.js). The CSP lets through exactly that.
+test('la CSP deja cargar imágenes y un marco solo del servicio de la prueba (y GoatCounter para imágenes)', () => {
   const trial = site.match(/const TRIAL_URL = "([^"]*)";/)[1];
-  const expected = ["img-src 'self' data: https://*.goatcounter.com", trial && new URL(trial).origin].filter(Boolean).join(' ');
+  const origin = trial && new URL(trial).origin;
+  const img = ["img-src 'self' data: https://*.goatcounter.com", origin].filter(Boolean).join(' ');
+  const frame = origin ? `frame-src ${origin}` : undefined;
   for (const file of pagesWithScript()) {
     const csp = readFileSync(file, 'utf8').match(/Content-Security-Policy"\s+content="([^"]*)"/)[1];
-    const img = csp.split(';').map((d) => d.trim()).find((d) => d.startsWith('img-src'));
-    assert.equal(img, expected, `${file}: ${img}`);
+    const directives = csp.split(';').map((d) => d.trim());
+    assert.equal(directives.find((d) => d.startsWith('img-src')), img, `${file}: img-src`);
+    assert.equal(directives.find((d) => d.startsWith('frame-src')), frame, `${file}: frame-src`);
   }
 });
 
-test('despertar la prueba pide solo una imagen del propio servicio y deja abrirla a mano si no responde', () => {
+test('despertar la prueba pide una imagen y una página ocultas del propio servicio y nunca deja al visitante sin salida', () => {
   assert.match(site, /\$\{new URL\(target\)\.origin\}\/icons\/simbolo\.svg\?despertar=/);
-  assert.match(site, /Abrir de todas formas/);
+  assert.match(site, /waker\.setAttribute\("sandbox", ""\)/);                  // la página oculta no puede hacer nada
+  assert.match(site, /const TRIAL_GIVE_UP_MS = \d{4,5};/);                       // pasado ese tiempo, se lleva al visitante a la prueba
+  assert.match(site, /timers\.push\(setTimeout\(open, TRIAL_GIVE_UP_MS\)\)/);
   assert.match(site, /event\.button !== 0 \|\| event\.metaKey \|\| event\.ctrlKey/); // nueva pestaña / ventana: comportamiento normal
+  const giveUp = Number(site.match(/const TRIAL_GIVE_UP_MS = (\d+);/)[1]);
+  assert.ok(giveUp >= 30000 && giveUp <= 60000, `espera total fuera de lo razonable: ${giveUp} ms`);
 });
 
 test('el nombre accesible de cada captura ampliable contiene el texto visible del botón', () => {
