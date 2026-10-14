@@ -72,6 +72,14 @@ personas abren la prueba.
 `prueba.nirkana.es` tenga su candado en Render, cambia aquí la dirección (la prueba `web-boundaries` solo admite esas dos).
 Si algún día lo vacías, quita también `has-trial` de la etiqueta `<html>` de cada página.
 
+**La espera del primer clic.** El plan gratuito de Render duerme el servicio tras 15 minutos sin visitas y tarda hasta un
+minuto en despertar. Para que el visitante no se quede ante la pantalla de espera de Render, `site.js` (`openTrial`) pide
+primero una imagen pequeña de la app (`/icons/simbolo.svg`), enseña su propia pantalla «Preparando tu prueba gratuita» y abre
+la prueba sola cuando responde; si tarda más de 2 minutos ofrece «Abrir de todas formas». Por eso la CSP de cada página
+admite imágenes del servicio de la prueba (`img-src`), y `web-boundaries` exige que coincida con `TRIAL_URL`: si cambias la
+dirección, cambia las dos cosas. El arreglo de fondo es el plan de pago de Render (siempre encendido): con él esa pantalla
+casi no se ve.
+
 ### La demo («Probar la demo»)
 
 `demo/index.html` es **NirKanA entera en un solo archivo** (la app con un negocio de ejemplo: bar, tienda, peluquería o

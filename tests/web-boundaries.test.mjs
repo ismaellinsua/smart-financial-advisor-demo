@@ -76,6 +76,24 @@ test('la CSP solo admite el origen propio y Formspree para conexiones', () => {
   }
 });
 
+// The trial sleeps when nobody uses it; the site wakes it with a request for one image of the app and shows its own waiting
+// screen (see openTrial in site.js). Images from that address are therefore the only extra thing the CSP lets through.
+test('la CSP deja cargar imágenes solo de la propia web, de GoatCounter y del servicio de la prueba', () => {
+  const trial = site.match(/const TRIAL_URL = "([^"]*)";/)[1];
+  const expected = ["img-src 'self' data: https://*.goatcounter.com", trial && new URL(trial).origin].filter(Boolean).join(' ');
+  for (const file of pagesWithScript()) {
+    const csp = readFileSync(file, 'utf8').match(/Content-Security-Policy"\s+content="([^"]*)"/)[1];
+    const img = csp.split(';').map((d) => d.trim()).find((d) => d.startsWith('img-src'));
+    assert.equal(img, expected, `${file}: ${img}`);
+  }
+});
+
+test('despertar la prueba pide solo una imagen del propio servicio y deja abrirla a mano si no responde', () => {
+  assert.match(site, /\$\{new URL\(target\)\.origin\}\/icons\/simbolo\.svg\?despertar=/);
+  assert.match(site, /Abrir de todas formas/);
+  assert.match(site, /event\.button !== 0 \|\| event\.metaKey \|\| event\.ctrlKey/); // nueva pestaña / ventana: comportamiento normal
+});
+
 test('el nombre accesible de cada captura ampliable contiene el texto visible del botón', () => {
   const buttons = [...home.matchAll(/<button class="browser zoomable"[^>]*aria-label="([^"]*)"[\s\S]*?<\/button>/g)];
   assert.ok(buttons.length >= 4);
