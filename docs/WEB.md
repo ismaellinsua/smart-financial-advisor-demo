@@ -72,13 +72,15 @@ personas abren la prueba.
 `prueba.nirkana.es` tenga su candado en Render, cambia aquí la dirección (la prueba `web-boundaries` solo admite esas dos).
 Si algún día lo vacías, quita también `has-trial` de la etiqueta `<html>` de cada página.
 
-**La espera del primer clic.** El plan gratuito de Render duerme el servicio tras 15 minutos sin visitas y tarda hasta un
-minuto en despertar. Para que el visitante no se quede ante la pantalla de espera de Render, `site.js` (`openTrial`) pide
-primero una imagen pequeña de la app (`/icons/simbolo.svg`), enseña su propia pantalla «Preparando tu prueba gratuita» y abre
-la prueba sola cuando responde; si tarda más de 2 minutos ofrece «Abrir de todas formas». Por eso la CSP de cada página
-admite imágenes del servicio de la prueba (`img-src`), y `web-boundaries` exige que coincida con `TRIAL_URL`: si cambias la
-dirección, cambia las dos cosas. El arreglo de fondo es el plan de pago de Render (siempre encendido): con él esa pantalla
-casi no se ve.
+**La espera del primer clic.** El plan gratuito de Render duerme el servicio tras 15 minutos sin visitas y tarda en despertar
+entre medio minuto y varios minutos (el 14/10: 38 s con el navegador de la propietaria; 3 min 19 s con peticiones de imagen desde
+GitHub, que contestan «502» mientras tanto). Para que el visitante no se quede ante la pantalla de espera de Render, `site.js`
+(`openTrial`) pide primero una imagen pequeña de la app (`/icons/simbolo.svg`) y, si falla, una página oculta del servicio (un
+`<iframe sandbox>` invisible: es lo que hace abrir la prueba), enseña su pantalla «Preparando tu prueba gratuita» y abre la prueba
+sola cuando la imagen carga. **A los 50 segundos lleva al visitante a la prueba pase lo que pase** (la pantalla de Render sigue
+desde ahí): nunca hay callejón sin salida. Por eso la CSP de cada página admite imágenes y un marco del servicio de la prueba
+(`img-src` y `frame-src`), y `web-boundaries` exige que coincidan con `TRIAL_URL`: si cambias la dirección, cambia las dos cosas.
+El arreglo de fondo es el plan de pago de Render (siempre encendido): con él esa pantalla casi no se ve.
 
 ### La demo («Probar la demo»)
 
