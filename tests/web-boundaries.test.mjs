@@ -15,8 +15,11 @@ test('la demo ficticia está disponible sin conectar con producción', () => {
   assert.match(home, /data-demo/);
 });
 
-test('el enlace de la prueba de 24 horas permanece desactivado hasta validar el despliegue', () => {
-  assert.match(site, /const TRIAL_URL = "";/);
+// The trial was validated from outside on 14/10/2026 (nirkana-app → Actions → comprobar-despliegue, modo prueba): only that
+// address or its future own domain may be linked; anything else (an http:// address, another host) is a mistake.
+test('el enlace de la prueba de 24 horas solo apunta a la prueba ya comprobada', () => {
+  const url = site.match(/const TRIAL_URL = "([^"]*)";/)[1];
+  assert.ok(['', 'https://nirkana-prueba.onrender.com', 'https://prueba.nirkana.es'].includes(url), `TRIAL_URL inesperado: ${url}`);
 });
 
 test('el acceso de clientes permanece desactivado hasta validar el despliegue', () => {

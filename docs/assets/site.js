@@ -17,7 +17,7 @@ const APP_URL = "";
 
 // Address of the free 24-hour trial (e.g. "https://prueba.nirkana.es"). Empty: the «Probar NirKanA» buttons stay hidden
 // and «Quiero NirKanA» takes their place, so the page never links to a trial that is not running yet.
-const TRIAL_URL = "";
+const TRIAL_URL = "https://nirkana-prueba.onrender.com";
 
 // Address of the offline demo, a page of this same site (the built NirKanA-demo.html lives at /demo/index.html). It is a
 // business with example data that anyone can open without signing up. Empty: no «Ver la demo» link is shown.

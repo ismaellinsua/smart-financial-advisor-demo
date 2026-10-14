@@ -68,6 +68,10 @@ el primer paso «Pruébala gratis», la pregunta «¿Puedo probarla antes de dec
 «Quiero NirKanA» y «Contactar» siguen llevando al formulario y al email. Si GoatCounter está activo, cuenta cuántas
 personas abren la prueba.
 
+**Estado (14/10/2026):** activado con `https://nirkana-prueba.onrender.com`, comprobada desde fuera ese día. Cuando
+`prueba.nirkana.es` tenga su candado en Render, cambia aquí la dirección (la prueba `web-boundaries` solo admite esas dos).
+Si algún día lo vacías, quita también `has-trial` de la etiqueta `<html>` de cada página.
+
 ### La demo («Probar la demo»)
 
 `demo/index.html` es **NirKanA entera en un solo archivo** (la app con un negocio de ejemplo: bar, tienda, peluquería o
