@@ -104,12 +104,16 @@ test('despertar la prueba pide una imagen y una página ocultas del propio servi
 
 // Price and contact: the home page shows the price as a section of its own, linked from the menu and the footer, and the
 // e-mail address itself is visible (not only behind a mailto: button) and can be copied.
-test('el precio tiene sección propia, enlazada desde el menú y el pie, y la cabecera de la home lo menciona', () => {
+test('el precio tiene sección propia, enlazada desde el menú y el pie, y todas las cifras de la home coinciden', () => {
   assert.match(home, /<section id="precio">/);
-  assert.match(home, /<h2>Desde 20 € al mes<\/h2>/);
+  const price = home.match(/<h2>Desde (\d+) € al mes<\/h2>/)?.[1];
+  assert.ok(price, 'la sección de precio no dice «Desde N € al mes»');
   assert.equal((home.match(/href="#precio"/g) || []).length, 2, 'enlace en el menú y en el pie');
-  assert.match(home, /Después, desde 20 € al mes\./);
-  assert.match(home, /schema\.org[\s\S]*"price": "20"/);   // los datos estructurados dicen lo mismo que la página
+  assert.match(home, new RegExp(`Después, desde ${price} € al mes\\.`));
+  // seis frases y los dos precios de los datos estructurados: todos dicen lo mismo (ops/precio.py los cambia a la vez)
+  assert.deepEqual([...new Set([...home.matchAll(/desde (\d+) € al mes/gi)].map((m) => m[1]))], [price]);
+  assert.equal([...home.matchAll(/desde (\d+) € al mes/gi)].length, 6);
+  assert.deepEqual([...new Set([...home.matchAll(/"price": "(\d+)"/g)].map((m) => m[1]))], [price]);
 });
 
 test('la dirección de email se ve y se puede copiar, y se rellena desde la configuración (no está escrita en el HTML)', () => {

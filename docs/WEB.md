@@ -97,11 +97,13 @@ página de sector, que abre directamente ese tipo de negocio (`/demo/?negocio=ho
 
 ### Precio y dirección de email visibles
 
-La home tiene una sección propia, **Precio** (`#precio`, enlazada desde el menú y el pie), con «Desde 20 € al mes» y las mismas
-condiciones que ya decía la pregunta «¿Cuánto cuesta?»; el aviso bajo el botón de la cabecera también lo menciona. **Si cambias el
-precio, cambia los seis sitios de `index.html`**: la sección, el aviso de la cabecera, la pregunta frecuente (y su copia en los datos
-estructurados `FAQPage`), el precio de los datos estructurados `Offer` y el texto bajo la calculadora. `web-boundaries` comprueba
-que la sección, los enlaces y los datos estructurados dicen lo mismo.
+La home tiene una sección propia, **Precio** (`#precio`, enlazada desde el menú y el pie), con «Desde 40 € al mes» (el 14/10 la
+propietaria decidió subirlo desde 20: «mínimo desde 40 o 60») y las mismas condiciones que ya decía la pregunta «¿Cuánto cuesta?»;
+el aviso bajo el botón de la cabecera también lo menciona. **El precio sale en 8 cifras de `index.html`**: seis frases (cabecera,
+sección de precio, calculadora, pregunta frecuente y su copia en los datos `FAQPage`, y la descripción de `Offer`) y los dos
+precios de los datos estructurados `Offer`. Si cambias el precio, cámbialas todas: en el repositorio `nirkana-web` lo hace
+`python ops/precio.py 60`. `web-boundaries` comprueba que todas dicen lo mismo. **El precio de cobro con tarjeta es el de Stripe**
+(Product → Price): hay que cambiarlo allí también, o la web y el pago no coincidirán.
 
 La dirección de email sale escrita en la página (no solo detrás de un botón) y con «Copiar dirección», porque quien lee el correo en
 una web no puede usar un enlace `mailto:`. Se rellena desde `CONTACT.email` de `site.js`: no está escrita en el HTML.
