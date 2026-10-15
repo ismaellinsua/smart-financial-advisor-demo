@@ -228,7 +228,7 @@ html:not(.has-demo) .only-demo, html.has-demo .no-demo { display: none !importan
 .chip span { color: #4A5568; }
 /* The chips float over the corners of the screenshot, never over its figures. */
 .c1 { top: -4%; left: 27%; transform: translateZ(170px); flex-direction: column; align-items: flex-start; gap: 0; }
-.c2 { top: 60%; left: -9%; transform: translateZ(220px); }
+.c2 { top: 68%; left: -2%; transform: translateZ(220px); }
 .c3 { bottom: -10%; left: 30%; transform: translateZ(150px); }
 .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
 .dot.red { background: #F04438; box-shadow: 0 0 0 4px rgba(240, 68, 56, .18); }
