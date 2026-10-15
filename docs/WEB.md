@@ -111,13 +111,17 @@ una web no puede usar un enlace `mailto:`. Se rellena desde `CONTACT.email` de `
 ### Contar visitas sin cookies (GoatCounter)
 
 La web puede contar visitas, páginas vistas y formularios enviados **sin cookies ni datos personales**, así que no
-necesita banner de cookies. Hasta que pongas tu código no cuenta nada.
+necesita banner de cookies. **Activo desde el 15/10/2026** con la cuenta `nirkana` (panel en
+`https://nirkana.goatcounter.com`): `const ANALYTICS = { goatcounter: "nirkana" };` en `assets/site.js`. La web no carga
+el `<script>` de GoatCounter (la CSP no lo permite y no hace falta): cuenta con su propia imagen de 1 píxel, sin cookies.
 
-1. Crea una cuenta gratuita en [goatcounter.com](https://www.goatcounter.com) y elige un código, p. ej. `nirkana`
-   (tu panel quedará en `https://nirkana.goatcounter.com`).
+Si algún día hay que repetirlo con otra cuenta:
+
+1. Crea una cuenta gratuita en [goatcounter.com](https://www.goatcounter.com) y elige un código.
 2. En el panel: **Settings → Data collection**, deja desmarcado guardar la IP y marca «Ignore IPs» con la tuya si no
    quieres contarte.
-3. En `assets/site.js`, pon `const ANALYTICS = { goatcounter: "nirkana" };` y publica.
+3. En `assets/site.js`, pon `const ANALYTICS = { goatcounter: "tu-código" };` y publica (y cambia el código que fija la
+   prueba de `tests/web-boundaries.test.mjs`).
 
 Solo cuenta en `nirkana.es` (no en copias locales) y no cuenta a quien tenga activado «no rastrear» en su navegador.
 El aviso de privacidad ya lo explica.

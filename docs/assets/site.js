@@ -26,7 +26,7 @@ const DEMO_URL = "/demo/";
 // Visit counter (GoatCounter): your site code, e.g. "nirkana" for nirkana.goatcounter.com. Empty: nothing is counted.
 // No cookies, nothing stored on the visitor's device, no third-party script; visitors who ask not to be tracked
 // (Do Not Track or Global Privacy Control) are not counted.
-const ANALYTICS = { goatcounter: "" };
+const ANALYTICS = { goatcounter: "nirkana" };
 
 (() => {
   "use strict";
