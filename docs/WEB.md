@@ -167,6 +167,19 @@ con las preguntas visibles. La CI lo ejecuta en cada cambio de `docs/`.
 `docs/caja/` es la «caja sin conexión» de la versión anterior (Streamlit); no está enlazada desde la web y lleva
 `noindex`. Se conserva porque `sales_manager/` aún la genera.
 
+## Diseño: lo que conviene saber antes de tocarlo
+
+- **La cabecera se vuelve de cristal oscuro mientras pasa sobre una sección oscura** (la portada, la historia de funciones y la
+  banda del móvil). Lo decide `assets/site.js` (clase `on-dark` en la cabecera) mirando las secciones `.hero`, `.dark` y
+  `.mobile-band`: si añades otra sección de fondo oscuro, dale una de esas clases o la cabecera se verá clara sobre ella.
+- **En el móvil (hasta 560 px) la galería de la portada es un carrusel** que se desliza con el dedo (`.bento`, con el aviso
+  «Desliza para ver más»); en pantallas grandes sigue siendo una cuadrícula. Así la portada del móvil mide unos 3.000 px menos.
+- **Cada página de sector abre con una captura de la app** (`.sub-hero-shot`, imágenes `shots/*-c.webp`): el texto a la
+  izquierda y la pantalla de ese tipo de negocio a la derecha; en el móvil, una debajo de la otra.
+- **La tarjeta de precio** lleva una franja de color arriba y el botón dentro de un panel propio, para que se vea como
+  «lo que cuesta» y no como una tarjeta más. El texto «Desde N € al mes + IVA» no se toca a mano: `ops/precio.py` lo mantiene.
+- `ops/capturas_web.py` oculta el aviso de cookies de la demo (`#nk-cookie-notice`) para que no salga tapando las capturas.
+
 ## Publicarla gratis con GitHub Pages
 
 1. En GitHub, abre el repositorio → **Settings → Pages**.
