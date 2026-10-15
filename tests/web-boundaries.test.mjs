@@ -106,13 +106,16 @@ test('despertar la prueba pide una imagen y una página ocultas del propio servi
 // e-mail address itself is visible (not only behind a mailto: button) and can be copied.
 test('el precio tiene sección propia, enlazada desde el menú y el pie, y todas las cifras de la home coinciden', () => {
   assert.match(home, /<section id="precio">/);
-  const price = home.match(/<h2>Desde (\d+) € al mes<\/h2>/)?.[1];
-  assert.ok(price, 'la sección de precio no dice «Desde N € al mes»');
+  const price = home.match(/<h2>Desde (\d+) € al mes \+ IVA<\/h2>/)?.[1];
+  assert.ok(price, 'la sección de precio no dice «Desde N € al mes + IVA»');
   assert.equal((home.match(/href="#precio"/g) || []).length, 2, 'enlace en el menú y en el pie');
-  assert.match(home, new RegExp(`Después, desde ${price} € al mes\\.`));
+  assert.match(home, new RegExp(`Después, desde ${price} € al mes \\+ IVA\\.`));
   // seis frases y los dos precios de los datos estructurados: todos dicen lo mismo (ops/precio.py los cambia a la vez)
   assert.deepEqual([...new Set([...home.matchAll(/desde (\d+) € al mes/gi)].map((m) => m[1]))], [price]);
   assert.equal([...home.matchAll(/desde (\d+) € al mes/gi)].length, 6);
+  // el precio es sin IVA: las seis frases lo dicen y los datos estructurados lo declaran
+  assert.equal([...home.matchAll(/desde \d+ € al mes \+ IVA/gi)].length, 6, 'cada cifra debe decir «+ IVA»');
+  assert.match(home, /"valueAddedTaxIncluded": false/);
   assert.deepEqual([...new Set([...home.matchAll(/"price": "(\d+)"/g)].map((m) => m[1]))], [price]);
 });
 
