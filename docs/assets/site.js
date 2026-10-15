@@ -629,10 +629,19 @@ const ANALYTICS = { goatcounter: "nirkana" };
     }
   }
 
-  // Header turns dark glass while it sits over the dark hero.
-  if (top && hero) {
-    const onDark = () => top.classList.toggle("on-dark", window.scrollY < hero.offsetHeight - 64);
-    window.addEventListener("scroll", onDark, { passive: true });
+  // The header turns dark glass while it sits over a dark section (the hero, the features story, the mobile band), and light
+  // glass over the rest: it used to be dark over the hero only, and washed out over the other dark sections.
+  if (top) {
+    const darkSections = [...document.querySelectorAll(".hero, .dark, .mobile-band")];
+    let queued = false;
+    const onDark = () => {
+      queued = false;
+      const edge = top.offsetHeight + 1, mid = top.offsetHeight / 2; // a dark section right under the bar counts too (the hero at the top)
+      top.classList.toggle("on-dark", darkSections.some((s) => { const r = s.getBoundingClientRect(); return r.top <= edge && r.bottom >= mid; }));
+    };
+    const queue = () => { if (!queued) { queued = true; requestAnimationFrame(onDark); } };
+    window.addEventListener("scroll", queue, { passive: true });
+    window.addEventListener("resize", queue);
     onDark();
   }
 

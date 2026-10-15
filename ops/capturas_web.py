@@ -20,7 +20,8 @@ DEMO = (ROOT / "docs" / "demo" / "index.html").as_uri()
 IMG = ROOT / "docs" / "assets" / "img"
 SHOTS = IMG / "shots"
 NOW = datetime.fromisoformat("2026-10-13T10:00:00+00:00")
-HIDE_DEMO_BAR = ".demo-bar { display: none !important } :root { --demo-h: 0px !important } #toasts { display: none !important }"
+HIDE_DEMO_BAR = (".demo-bar { display: none !important } :root { --demo-h: 0px !important } #toasts { display: none !important } "
+                 "#nk-cookie-notice { display: none !important }")  # the demo's cookie notice must not sit on top of the shots
 
 
 def open_demo(browser, sector, width=1440, height=900, phone=False):
