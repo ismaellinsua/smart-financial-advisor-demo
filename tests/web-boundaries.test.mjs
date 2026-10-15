@@ -142,6 +142,7 @@ test('la medición solo cuenta en la web publicada y respeta «no rastrear»', (
   assert.match(site, /\(\^\|\\\.\)nirkana\\\.es\$\/\.test\(location\.hostname\)/);
   const code = site.match(/const ANALYTICS = \{ goatcounter: "([^"]*)" \};/)[1];
   assert.match(code, /^([a-z0-9][a-z0-9-]{1,49})?$/, `código de GoatCounter no válido: ${code}`);
+  assert.equal(code, 'nirkana', 'la medición debe seguir activa con la cuenta nirkana.goatcounter.com');
 });
 
 test('el nombre accesible de cada captura ampliable contiene el texto visible del botón', () => {
