@@ -31,7 +31,8 @@ def test_many_small_amounts_add_up_exactly(shop):
     shop.upsert_product({**shop.products().set_index("id").loc[p].to_dict(), "price": 0.1, "stock": 100,
                          "sku": "CAM-001"}, p)
     for _ in range(30):
-        shop.create_sale([{"product_id": p, "quantity": 1}], "Efectivo")
+        # Without promotions: the sample shop has «Viernes de moda −10 %», which would turn 3.00 into 2.70 on a Friday.
+        shop.create_sale([{"product_id": p, "quantity": 1}], "Efectivo", apply_promos=False)
     with shop.db.tx() as cur:
         total = cur.execute("SELECT SUM(total) AS t, SUM(1) AS n FROM sales").fetchone()
     assert isinstance(total["t"], float) and isinstance(total["n"], int)
