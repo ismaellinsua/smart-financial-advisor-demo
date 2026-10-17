@@ -97,6 +97,16 @@ const ANALYTICS = { goatcounter: "nirkana" };
     }, { threshold: 0.5 });
     watcher.observe(priceSection);
   }
+  // How many visitors reach the solutions by kind of business (an event, once per visit).
+  const solutionsSection = document.getElementById("soluciones");
+  if (solutionsSection && "IntersectionObserver" in window) {
+    const watcher = new IntersectionObserver((entries) => {
+      if (!entries.some((entry) => entry.isIntersecting)) return;
+      countVisit("soluciones-vistas", "Ha visto las soluciones por sector", true);
+      watcher.disconnect();
+    }, { threshold: 0.3 });
+    watcher.observe(solutionsSection);
+  }
   if (phone.length >= 8) {
     for (const wa of document.querySelectorAll("#whatsapp-link, #whatsapp-float")) {
       wa.href = `https://wa.me/${phone}?text=${encodeURIComponent(MESSAGE)}`;
@@ -268,12 +278,32 @@ const ANALYTICS = { goatcounter: "nirkana" };
   const form = document.getElementById("contact-form");
   const status = document.getElementById("form-status");
   const say = (text, kind) => { status.textContent = text; status.className = `status ${kind || ""}`; };
+  const slug = (text) => text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
   const clean = (v, max) => String(v || "").replace(/[\u0000-\u0008\u000B-\u001F\u007F]/g, "").trim().slice(0, max);
 
   const formType = form ? form.elements.namedItem("tipo") : null;
   let typeChosen = false;
   const suggestType = (label) => { if (formType && !typeChosen && label) formType.value = label; };
   if (formType) formType.addEventListener("change", () => { typeChosen = true; });
+  const formRequest = form ? form.elements.namedItem("solicitud") : null;
+  const setOption = (select, label) => {
+    if (!select || !label) return false;
+    const option = [...select.options].find((o) => (o.value || o.textContent) === label || o.textContent.trim() === label);
+    if (option) select.value = option.value;
+    return Boolean(option);
+  };
+  // «Consultar mi caso» (data-sector) and «Pedir presupuesto» (data-request) arrive at the form with it already filled in,
+  // so the visitor is not asked twice. What the visitor chose by hand is never overwritten by a suggestion (see suggestType).
+  document.querySelectorAll("[data-sector], [data-request]").forEach((link) => {
+    link.addEventListener("click", () => {
+      const sector = link.getAttribute("data-sector");
+      if (sector && setOption(formType, sector)) {
+        typeChosen = true;
+        countVisit(`contacto-${slug(sector)}`, `Pide información desde el sector ${sector}`, true);
+      }
+      setOption(formRequest, link.getAttribute("data-request"));
+    });
+  });
 
   if (form) {
     let lastSent = 0;
@@ -290,17 +320,17 @@ const ANALYTICS = { goatcounter: "nirkana" };
 
       const fields = {
         solicitud: clean(data.get("solicitud"), 60),
-        nombre: clean(data.get("nombre"), 80), negocio: clean(data.get("negocio"), 100),
+        nombre: clean(data.get("nombre"), 80),
         tipo: clean(data.get("tipo"), 40), email: clean(data.get("email"), 120),
         telefono: clean(data.get("telefono"), 20), mensaje: clean(data.get("mensaje"), 1500),
       };
       const button = form.querySelector("button[type=submit]");
 
       if (!CONTACT.formspreeId) { // no form service configured: send the request by WhatsApp or email instead
-        const text = `${MESSAGE}\n\nSolicitud: ${fields.solicitud}\nNombre: ${fields.nombre}\nNegocio: ${fields.negocio} (${fields.tipo})\n` +
+        const text = `${MESSAGE}\n\nSolicitud: ${fields.solicitud}\nNombre: ${fields.nombre}\nTipo de negocio: ${fields.tipo}\n` +
           `Email: ${fields.email}\nTeléfono: ${fields.telefono || "-"}\n\n${fields.mensaje}`;
         if (phone.length < 8 && email) {
-          window.location.href = mailto(`${fields.solicitud} · NirKanA · ${fields.negocio}`, text);
+          window.location.href = mailto(`${fields.solicitud} · NirKanA · ${fields.nombre}`, text);
           say(`Se ha abierto tu correo con el mensaje preparado. Si no se abre, escríbenos a ${email}.`, "ok");
           lastSent = Date.now();
           return;
@@ -321,7 +351,7 @@ const ANALYTICS = { goatcounter: "nirkana" };
         const id = encodeURIComponent(CONTACT.formspreeId);
         const res = await fetch(`https://formspree.io/f/${id}`, {
           method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" },
-          body: JSON.stringify({ ...fields, _subject: `${fields.solicitud} · NirKanA · ${fields.negocio}` }),
+          body: JSON.stringify({ ...fields, _subject: `${fields.solicitud} · NirKanA · ${fields.nombre}` }),
           credentials: "omit", referrerPolicy: "strict-origin-when-cross-origin",
         });
         if (!res.ok) throw new Error(String(res.status));
@@ -381,10 +411,18 @@ const ANALYTICS = { goatcounter: "nirkana" };
     counters.forEach((el) => io.observe(el));
   }
 
+  // ------------------------------------------------------------ the calculator is folded: a link to #calculadora opens it
+  const openCalculator = () => {
+    const box = document.getElementById("calculadora");
+    if (box && location.hash === "#calculadora") box.open = true;
+  };
+  openCalculator();
+  window.addEventListener("hashchange", openCalculator);
+
   // ------------------------------------------------------------ sector tabs (ARIA tabs with arrow keys)
   const tabs = [...document.querySelectorAll('[role="tab"]')];
-  const TAB_TYPES = { "tab-rest": "Restaurante / cafetería", "tab-shop": "Tienda / comercio",
-                      "tab-pro": "Autónomo / servicios", "tab-web": "Tienda online" };
+  const TAB_TYPES = { "tab-hosteleria": "Hostelería", "tab-belleza": "Belleza y estética", "tab-comercio": "Comercio",
+                      "tab-autonomo": "Autónomo", "tab-pyme": "Pyme", "tab-otros": "Otro" };
   const selectTab = (tab, focus) => {
     suggestType(TAB_TYPES[tab.id]);
     tabs.forEach((t) => {
@@ -407,7 +445,10 @@ const ANALYTICS = { goatcounter: "nirkana" };
     if (focus) tab.focus();
   };
   tabs.forEach((tab, i) => {
-    tab.addEventListener("click", () => selectTab(tab));
+    tab.addEventListener("click", () => {
+      selectTab(tab);
+      countVisit(`sector-${tab.id.replace("tab-", "")}`, `Sector consultado: ${TAB_TYPES[tab.id]}`, true); // which businesses are asking
+    });
     tab.addEventListener("keydown", (e) => {
       const step = { ArrowRight: 1, ArrowLeft: -1 }[e.key];
       if (step) { e.preventDefault(); selectTab(tabs[(i + step + tabs.length) % tabs.length], true); }
@@ -423,6 +464,7 @@ const ANALYTICS = { goatcounter: "nirkana" };
   // Each sector shows three screens: the thumbnails swap the big one.
   document.querySelectorAll(".panel").forEach((panel) => {
     const big = panel.querySelector(".browser");
+    if (!big) return; // «Otros negocios» has no screenshots
     const main = big.querySelector(".main");
     const label = big.querySelector(".chrome > span");
     panel.querySelectorAll(".thumbs button").forEach((btn) => {
