@@ -672,3 +672,79 @@ h1 { letter-spacing: -.05em; }
   .btn:hover { transform: none; }
 }
 
+
+/* ------------------------------------------------------------------ redesign: solutions by kind of business */
+.tabs.cards { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; padding: 0; border: 0; border-radius: 0; background: none;
+  width: auto; max-width: none; overflow: visible; }
+.tabs.cards button { flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: .35rem; white-space: normal; text-align: left;
+  padding: 16px; border-radius: var(--radius); background: var(--surface); border: 1px solid var(--line); color: var(--ink);
+  box-shadow: var(--shadow-sm); transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease; }
+.tabs.cards button .ic { width: 2.5rem; height: 2.5rem; padding: .6rem; margin-bottom: .45rem; border-radius: 12px; color: var(--brand-text);
+  background: color-mix(in srgb, var(--brand) 10%, transparent); }
+.tabs.cards button b { font-size: 1rem; line-height: 1.2; }
+.tabs.cards button small { font-size: .82rem; font-weight: 500; line-height: 1.35; color: var(--muted); }
+.tabs.cards button:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--brand) 45%, var(--line)); }
+.tabs.cards button[aria-selected="true"] { border-color: var(--brand); background: color-mix(in srgb, var(--brand) 6%, var(--surface));
+  box-shadow: 0 0 0 1px var(--brand), var(--shadow-sm); }
+.tabs.cards button[aria-selected="true"] .ic { color: #fff; background: var(--grad); }
+@media (max-width: 1100px) { .tabs.cards { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 560px) {
+  .tabs.cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .tabs.cards button { padding: 14px; }
+  .tabs.cards button small { display: none; }
+}
+.psb { display: grid; gap: 0; margin: 1.1rem 0 1.4rem; }
+.psb > div { display: grid; grid-template-columns: 6.5rem minmax(0, 1fr); gap: 14px; padding: .85rem 0; border-top: 1px solid var(--line); }
+.psb dt { font-size: .75rem; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; color: var(--brand-text); padding-top: .2rem; }
+.psb dd { margin: 0; color: var(--muted); }
+.psb > div:last-child dd { color: var(--ink); font-weight: 600; }
+@media (max-width: 560px) { .psb > div { grid-template-columns: 1fr; gap: 2px; } }
+.panel-lead { color: var(--muted); font-size: 1.05rem; }
+.panel-cta { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem 1.4rem; margin-bottom: 1.2rem; }
+.panel-cta .more { margin: 0; }
+.panel-cta .btn { margin-right: .2rem; }
+.custom-card { display: grid; place-items: center; gap: 1rem; text-align: center; min-height: 280px; padding: 32px; border-radius: var(--radius);
+  border: 1px dashed color-mix(in srgb, var(--brand) 45%, var(--line)); background: color-mix(in srgb, var(--brand) 5%, var(--surface)); }
+.custom-card .ico { display: grid; place-items: center; width: 64px; height: 64px; border-radius: 18px; color: #fff; background: var(--grad); }
+.custom-card .ico .ic { width: 30px; height: 30px; }
+.custom-card p { margin: 0; max-width: 28ch; font-weight: 600; font-size: 1.1rem; }
+
+/* demonstration and 24-hour trial */
+.demo-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; max-width: 980px; margin-inline: auto; }
+html:not(.has-trial) .demo-grid, html:not(.has-demo) .demo-grid { grid-template-columns: minmax(0, 560px); justify-content: center; }
+.demo-card { position: relative; overflow: hidden; display: flex; flex-direction: column; align-items: flex-start; gap: .4rem;
+  padding: clamp(22px, 3vw, 34px); border-radius: var(--radius); background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow-sm); }
+.demo-card:first-child::before { content: ""; position: absolute; inset: 0 0 auto; height: 4px; background: var(--grad); }
+.demo-card .ticks { margin: .8rem 0 1.4rem; }
+.demo-card .ticks li { font-weight: 500; }
+.demo-card .btn { margin-top: auto; }
+.tag { display: inline-block; padding: .2rem .7rem; border-radius: 999px; font-size: .74rem; font-weight: 800; text-transform: uppercase; letter-spacing: .1em;
+  color: var(--brand-text); background: color-mix(in srgb, var(--brand) 10%, transparent); }
+.demo-after { text-align: center; margin: 1.8rem 0 0; color: var(--muted); }
+.demo-after a { color: var(--brand-text); font-weight: 700; }
+@media (max-width: 760px) { .demo-grid { grid-template-columns: 1fr; } }
+
+/* four steps */
+.timeline.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.timeline.four::before { left: 12.5%; right: 12.5%; }
+@media (max-width: 960px) { .timeline.four { grid-template-columns: repeat(2, minmax(0, 1fr)); } .timeline.four::before { display: none; } }
+@media (max-width: 560px) { .timeline.four { grid-template-columns: 1fr; gap: 28px; } }
+
+/* secondary detail the visitor opens on purpose */
+.calc-box, .more-box { max-width: 980px; margin: clamp(28px, 4vw, 48px) auto 0; padding: 0; border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--surface); }
+.calc-box > summary, .more-box > summary { padding: 1.1rem 1.4rem; }
+.calc-box > summary .ic { margin-right: .6rem; color: var(--brand-text); }
+.calc-box > summary { justify-content: flex-start; }
+.calc-box > summary::after { margin-left: auto; }
+.calc-box[open] > summary, .more-box[open] > summary { border-bottom: 1px solid var(--line); }
+.calc-box > .sub { padding: 1.2rem 1.4rem 0; margin: 0; max-width: none; color: var(--muted); }
+.calc-box .calc { padding: 1.2rem 1.4rem; }
+.calc-box .assume { margin: 0 1.4rem 1.2rem; }
+.more-box .ticks { margin: 0; padding: 1.2rem 1.4rem; }
+.more-box .ticks li { font-weight: 500; }
+@media (max-width: 560px) { .calc-box > summary, .more-box > summary { padding-inline: 1rem; font-size: 1rem; } }
+.more-box { margin-top: clamp(20px, 3vw, 32px); }
+.bar-end .short { display: none; }
+@media (max-width: 560px) { .bar-end .long { display: none; } .bar-end .short { display: inline; } }
+.hero h1 { font-size: clamp(2.4rem, 4.1vw, 3.7rem); }
