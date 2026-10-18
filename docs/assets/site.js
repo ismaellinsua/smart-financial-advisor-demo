@@ -294,8 +294,13 @@ const ANALYTICS = { goatcounter: "nirkana" };
   };
   // «Consultar mi caso» (data-sector) and «Pedir presupuesto» (data-request) arrive at the form with it already filled in,
   // so the visitor is not asked twice. What the visitor chose by hand is never overwritten by a suggestion (see suggestType).
-  document.querySelectorAll("[data-sector], [data-request]").forEach((link) => {
+  const promoBox = form ? form.elements.namedItem("promocion") : null;
+  document.querySelectorAll("[data-sector], [data-request], [data-promo]").forEach((link) => {
     link.addEventListener("click", () => {
+      if (link.hasAttribute("data-promo") && promoBox) {
+        promoBox.checked = true;
+        countVisit("promo-clic", "Clic en la promoción del 20 %", true);
+      }
       const sector = link.getAttribute("data-sector");
       if (sector && setOption(formType, sector)) {
         typeChosen = true;
@@ -323,11 +328,12 @@ const ANALYTICS = { goatcounter: "nirkana" };
         nombre: clean(data.get("nombre"), 80),
         tipo: clean(data.get("tipo"), 40), email: clean(data.get("email"), 120),
         telefono: clean(data.get("telefono"), 20), mensaje: clean(data.get("mensaje"), 1500),
+        promocion: data.get("promocion") ? clean(promoBox.value, 60) : "",
       };
       const button = form.querySelector("button[type=submit]");
 
       if (!CONTACT.formspreeId) { // no form service configured: send the request by WhatsApp or email instead
-        const text = `${MESSAGE}\n\nSolicitud: ${fields.solicitud}\nNombre: ${fields.nombre}\nTipo de negocio: ${fields.tipo}\n` +
+        const text = `${MESSAGE}\n\nSolicitud: ${fields.solicitud}\nNombre: ${fields.nombre}\nTipo de negocio: ${fields.tipo}\nPromoción: ${fields.promocion || "-"}\n` +
           `Email: ${fields.email}\nTeléfono: ${fields.telefono || "-"}\n\n${fields.mensaje}`;
         if (phone.length < 8 && email) {
           window.location.href = mailto(`${fields.solicitud} · NirKanA · ${fields.nombre}`, text);
@@ -359,6 +365,7 @@ const ANALYTICS = { goatcounter: "nirkana" };
         typeChosen = false;
         lastSent = Date.now();
         countVisit("contacto-enviado", "Formulario de contacto enviado", true); // how many visits become requests
+        if (fields.promocion) countVisit("promo-solicitada", "Solicitud con la promoción del 20 %", true);
         say("¡Gracias! Te responderé en menos de 24 horas laborables.", "ok");
       } catch {
         say(email ? `No se pudo enviar. Inténtalo de nuevo o escríbenos a ${email}.` : "No se pudo enviar. Inténtalo de nuevo en unos minutos.", "err");
@@ -411,13 +418,17 @@ const ANALYTICS = { goatcounter: "nirkana" };
     counters.forEach((el) => io.observe(el));
   }
 
-  // ------------------------------------------------------------ the calculator is folded: a link to #calculadora opens it
-  const openCalculator = () => {
-    const box = document.getElementById("calculadora");
-    if (box && location.hash === "#calculadora") box.open = true;
+  // ------------------------------------------------------------ folded boxes (calculator, promotion terms): a link to them opens them
+  const openFolded = () => {
+    const box = location.hash.length > 1 ? document.getElementById(decodeURIComponent(location.hash.slice(1))) : null;
+    if (box && box.matches("details")) box.open = true;
   };
-  openCalculator();
-  window.addEventListener("hashchange", openCalculator);
+  openFolded();
+  window.addEventListener("hashchange", openFolded);
+  document.querySelectorAll("[data-promo-link]").forEach((link) => link.addEventListener("click", () => {
+    const box = document.getElementById((link.getAttribute("href") || "").split("#")[1] || "");
+    if (box && box.matches("details")) box.open = true;
+  }));
 
   // ------------------------------------------------------------ sector tabs (ARIA tabs with arrow keys)
   const tabs = [...document.querySelectorAll('[role="tab"]')];
@@ -485,6 +496,22 @@ const ANALYTICS = { goatcounter: "nirkana" };
       });
     });
   });
+
+  // ------------------------------------------------------------ arriving from the end-of-trial page (or a shared link)
+  // Only known values are accepted; anything else in the address is ignored.
+  const params = new URLSearchParams(location.search);
+  if (form && params.get("promo") === "20" && promoBox) promoBox.checked = true;
+  if (form && params.get("solicitud") === "presupuesto") setOption(formRequest, "Pedir presupuesto");
+  const wanted = params.get("sector");
+  if (form && wanted && TAB_TYPES[`tab-${wanted}`]) { setOption(formType, TAB_TYPES[`tab-${wanted}`]); typeChosen = true; }
+  // Links that carry the visitor's sector on to the home page (the end-of-trial page)
+  if (/^[a-z]{3,12}$/.test(wanted || "")) {
+    document.querySelectorAll("a[data-forward]").forEach((link) => {
+      const url = new URL(link.getAttribute("href"), location.href);
+      url.searchParams.set("sector", wanted);
+      link.setAttribute("href", `${url.pathname}${url.search}${url.hash}`);
+    });
+  }
 
   // ------------------------------------------------------------ lightbox: any screenshot opens full size
   const lightbox = document.getElementById("lightbox");

@@ -144,6 +144,14 @@
     </section>
 
 
+    <!-- ============================================================ PROMOTION (compact) -->
+    <aside class="promo-strip" aria-label="Promoción">
+      <div class="wrap promo-strip-row">
+        <p><b><span class="nw">20 %</span> de descuento</b> en la instalación de tu solución NirKanA.</p>
+        <a href="#promocion" data-promo-link>Ver la oferta</a>
+      </div>
+    </aside>
+
     <!-- ============================================================ TRUST STRIP -->
     <div class="trust" aria-label="Lo esencial">
       <div class="wrap trust-row">
@@ -389,38 +397,53 @@
       </div>
     </section>
 
-    <!-- ============================================================ DEMO / TRIAL -->
+    <!-- ============================================================ 24-HOUR TRIAL + PROMOTION -->
     <section id="demostracion" class="band">
       <div class="wrap">
-        <div class="head center" data-reveal>
-          <p class="eyebrow">Conócela antes</p>
-          <h2>Pruébala antes de pedir nada</h2>
-          <p class="sub">Comprueba cómo trabaja NirKanA con un negocio de ejemplo, sin dar tus datos.</p>
-        </div>
-        <div class="demo-grid" data-reveal>
-          <article class="demo-card only-demo">
-            <span class="tag">Demostración</span>
-            <h3>Un negocio de ejemplo, en tu navegador</h3>
+        <div class="trial-grid">
+          <div class="trial-copy" data-reveal>
+            <p class="eyebrow">Demostración gratuita</p>
+            <h2>Descubre NirKanA durante 24 horas</h2>
+            <p class="sub">Conoce nuestra tecnología, explora las funcionalidades disponibles y descubre cómo podemos ayudarte a digitalizar tu negocio.</p>
             <ul class="ticks">
-              <li><svg class="ic"><use href="#i-check"/></svg><span><b>Qué puedes comprobar:</b> cobrar, abrir y cerrar caja, devolver y facturar.</span></li>
-              <li><svg class="ic"><use href="#i-check"/></svg><span><b>Cómo se entra:</b> con un clic, sin registro y sin instalar nada.</span></li>
-              <li><svg class="ic"><use href="#i-check"/></svg><span><b>Límites:</b> los datos son ficticios y no se guarda ni se envía nada.</span></li>
+              <li><svg class="ic"><use href="#i-check"/></svg><span><b>Qué incluye:</b> un negocio de ejemplo con ventas, caja, clientes y equipo para cobrar, devolver y facturar.</span></li>
+              <li><svg class="ic"><use href="#i-check"/></svg><span><b>Cómo se entra:</b> con un clic, sin tarjeta y sin compromiso.</span></li>
+              <li><svg class="ic"><use href="#i-check"/></svg><span><b>Límites:</b> dura 24 horas y los datos son ficticios.</span></li>
             </ul>
-            <a class="btn magnet" data-demo href="/demo/"><svg class="ic"><use href="#i-play"/></svg>Probar demostración</a>
-          </article>
-          <article class="demo-card only-trial">
-            <span class="tag">Prueba de 24 horas</span>
-            <h3>NirKanA funcionando durante un día</h3>
-            <ul class="ticks">
-              <li><svg class="ic"><use href="#i-check"/></svg><span><b>Duración:</b> 24 horas de uso.</span></li>
-              <li><svg class="ic"><use href="#i-check"/></svg><span><b>Qué incluye:</b> un negocio de ejemplo con ventas, caja, clientes y equipo.</span></li>
-              <li><svg class="ic"><use href="#i-check"/></svg><span><b>Condiciones:</b> sin tarjeta y sin compromiso.</span></li>
-            </ul>
-            <a class="btn ghost magnet" data-trial href="#contacto"><svg class="ic"><use href="#i-arrow"/></svg>Probar 24 horas gratis</a>
-          </article>
+            <div class="cta">
+              <a class="btn magnet only-trial" data-trial href="#contacto">Probar gratis 24 horas <svg class="ic"><use href="#i-arrow"/></svg></a>
+              <a class="btn magnet no-trial only-demo" data-demo href="/demo/">Probar demostración <svg class="ic"><use href="#i-arrow"/></svg></a>
+              <a class="btn ghost magnet" href="#contacto" data-request="Solicitar información">Solicitar información</a>
+            </div>
+            <p class="trial-alt only-trial only-demo">¿Prefieres verla sin esperar? <a data-demo href="/demo/">Abre la demostración instantánea</a>, sin registro.</p>
+          </div>
+          <figure class="screen trial-shot" data-reveal>
+            <div class="chrome" aria-hidden="true"><i></i><i></i><i></i><span>nirkana · demostración</span></div>
+            <img src="assets/img/shots/resumen-c.webp" width="1200" height="750" alt="Resumen de ventas de la demostración, con datos de ejemplo" loading="lazy">
+            <figcaption>Captura real de la demostración · datos de ejemplo</figcaption>
+          </figure>
         </div>
-        <p class="demo-after" data-reveal>¿Te ha convencido, o echas algo en falta?
-          <a href="#contacto" data-request="Solicitar información">Cuéntanos tu caso</a>.</p>
+
+        <div class="promo-card" id="promocion" data-reveal>
+          <div class="promo-copy">
+            <span class="tag">Oferta especial</span>
+            <h3>Oferta especial: <span class="nw">20 %</span> de descuento en la instalación de tu solución NirKanA.</h3>
+            <p>Contacta ahora con nosotros para solicitar información y aprovechar la promoción.</p>
+          </div>
+          <div class="promo-cta">
+            <a class="btn magnet" href="#contacto" data-promo data-request="Solicitar información">Contactar y conseguir mi <span class="nw">20 %</span> de descuento <svg class="ic"><use href="#i-arrow"/></svg></a>
+            <a class="more" href="#promocion-condiciones" data-promo-link>Condiciones de la promoción</a>
+          </div>
+        </div>
+        <details class="more-box" id="promocion-condiciones">
+          <summary>Condiciones de la promoción del <span class="nw">20 %</span></summary>
+          <ul class="ticks">
+            <li><svg class="ic"><use href="#i-check"/></svg><span>El descuento del <span class="nw">20 %</span> se aplica <b>solo al precio de instalación</b> de tu solución NirKanA.</span></li>
+            <li><svg class="ic"><use href="#i-check"/></svg><span>No se aplica a cuotas mensuales, mantenimiento, desarrollos adicionales ni otros conceptos.</span></li>
+            <li><svg class="ic"><use href="#i-check"/></svg><span>Se aplica a los servicios de instalación que NirKanA incluya en la promoción; lo verás indicado en tu presupuesto.</span></li>
+            <li><svg class="ic"><use href="#i-check"/></svg><span>Las condiciones concretas y el precio con el descuento ya aplicado figurarán en el presupuesto que recibas, antes de contratar. Pedir información no te obliga a nada.</span></li>
+          </ul>
+        </details>
       </div>
     </section>
 
@@ -716,6 +739,9 @@
             <label><span>¿Qué necesitas mejorar? <span class="opt">(opcional)</span></span><textarea name="mensaje" rows="3" maxlength="1500"
               placeholder="Por ejemplo: llevar las citas y cobrar desde el móvil"></textarea></label>
             <label><span>Teléfono <span class="opt">(opcional, solo si prefieres que te llamemos)</span></span><input name="telefono" type="tel" maxlength="20" autocomplete="tel" pattern="[0-9+ \(\)\-]{6,20}"></label>
+            <label class="check promo-check"><input type="checkbox" name="promocion" value="20 % de descuento en la instalación">
+              <span>Quiero información sobre el <b><span class="nw">20 %</span> de descuento en la instalación</b>
+                (<a href="#promocion-condiciones" data-promo-link>ver condiciones</a>).</span></label>
             <!-- Anti-spam: people never see or fill this field. -->
             <label class="hp" aria-hidden="true">No rellenar<input name="_gotcha" tabindex="-1" autocomplete="off"></label>
             <label class="check"><input type="checkbox" name="consentimiento" required>
@@ -760,6 +786,7 @@
         <a href="#contacto" data-request="Solicitar información">Solicitar información</a>
         <a data-email data-subject="Quiero NirKanA" hidden></a>
         <a href="#preguntas">Preguntas frecuentes</a>
+        <a href="#promocion-condiciones" data-promo-link>Condiciones de la promoción</a>
         <a href="privacidad.html">Aviso de privacidad</a>
       </nav>
     </div>

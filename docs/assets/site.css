@@ -748,3 +748,40 @@ html:not(.has-trial) .demo-grid, html:not(.has-demo) .demo-grid { grid-template-
 .bar-end .short { display: none; }
 @media (max-width: 560px) { .bar-end .long { display: none; } .bar-end .short { display: inline; } }
 .hero h1 { font-size: clamp(2.4rem, 4.1vw, 3.7rem); }
+
+/* ------------------------------------------------------------------ 24-hour trial and the 20 % promotion */
+.promo-strip { background: linear-gradient(90deg, color-mix(in srgb, var(--brand) 12%, var(--surface)), color-mix(in srgb, var(--brand-2) 12%, var(--surface)));
+  border-bottom: 1px solid var(--line); }
+.promo-strip-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: .3rem 1.2rem; padding-block: .7rem; }
+.promo-strip p { margin: 0; font-size: .95rem; }
+.promo-strip a { font-weight: 700; color: var(--brand-text); }
+.trial-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: clamp(28px, 5vw, 64px); align-items: center; }
+.trial-copy .ticks { margin: 1.2rem 0 1.4rem; }
+.trial-copy .ticks li { font-weight: 500; }
+.trial-copy .cta { justify-content: flex-start; margin-top: 0; }
+.trial-alt { margin: 1.1rem 0 0; color: var(--muted); font-size: .95rem; }
+.trial-alt a { color: var(--brand-text); font-weight: 700; }
+.trial-shot { margin: 0; }
+.trial-shot figcaption { padding: .55rem .8rem; text-align: center; color: #4A5468; background: #fff; font-size: .82rem; } /* .screen is white in both themes */
+.promo-card { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: clamp(20px, 4vw, 48px); align-items: center;
+  max-width: 980px; margin: clamp(36px, 6vw, 72px) auto 0; padding: clamp(22px, 4vw, 38px); border-radius: var(--radius); position: relative; overflow: hidden;
+  color: #EAF0FF; background: radial-gradient(500px 280px at 0% 0%, rgba(109, 75, 255, .45), transparent 60%), linear-gradient(150deg, #0A1230, #13235A);
+  box-shadow: var(--shadow); }
+.promo-card .tag { color: #8FE9DB; background: rgba(143, 233, 219, .12); }
+.promo-card h3 { font-size: clamp(1.25rem, 2.2vw, 1.7rem); margin: .7rem 0 .5rem; color: #fff; }
+.promo-card p { margin: 0; color: #C6D2EE; }
+.promo-cta { display: grid; gap: .9rem; justify-items: start; }
+.promo-cta .btn { width: 100%; text-align: center; justify-content: center; }
+.promo-cta .more { color: #8FE9DB; font-weight: 700; }
+.promo-check { grid-template-columns: auto 1fr; align-items: start; }
+@media (max-width: 860px) {
+  .trial-grid, .promo-card { grid-template-columns: 1fr; }
+  .trial-shot { order: -1; }
+}
+/* the end-of-trial page */
+.trial-end { padding-block: clamp(56px, 9vw, 112px); }
+.trial-end .wrap { max-width: 760px; text-align: center; }
+.trial-end .promo-card { grid-template-columns: 1fr; text-align: left; }
+.trial-end .promo-cta { justify-items: stretch; }
+.trial-end .cta { justify-content: center; }
+.nw { white-space: nowrap; }
