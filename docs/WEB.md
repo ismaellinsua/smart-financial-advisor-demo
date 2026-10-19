@@ -8,11 +8,11 @@ frecuentes y contacto. Está en esta carpeta `docs/`:
 | `index.html` | La página principal |
 | `demo/index.html` | La demo: NirKanA entera con un negocio de ejemplo, en un solo archivo (ver «La demo») |
 | `privacidad.html` | Aviso de privacidad (RGPD) |
-| `tpv-restaurantes/`, `tpv-tiendas/`, `programa-facturacion-autonomos/`, `tpv-tienda-online/` | Una página por sector, para buscadores (están en `sitemap.xml`) |
+| `tpv-restaurantes/`, `programa-peluquerias-estetica/`, `tpv-tiendas/`, `programa-facturacion-autonomos/`, `tpv-tienda-online/` | Una página por sector, para buscadores (están en `sitemap.xml`; `tests/web-claims.test.mjs` revisa que digan solo lo que la app hace) |
 | `404.html` | Lo que ve quien abre una dirección que no existe |
 | `assets/site.css` | Diseño (claro y oscuro, efectos 3D) |
 | `assets/site.js` | Contacto, formulario y efectos 3D |
-| `assets/img/` | Capturas de la app optimizadas (`shots/`: `*-c.webp` recortadas para tarjetas, `*.webp` completas para ampliar) |
+| `assets/img/` | Capturas de la app optimizadas (`shots/`: `*-c.webp` recortadas para tarjetas, `*.webp` completas para ampliar). Se regeneran con `python ops/capturas_web.py` desde `demo/index.html`, así que siempre enseñan el aspecto actual de la app |
 
 ## Cambiar tus datos de contacto
 
