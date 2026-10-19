@@ -1,7 +1,7 @@
 # NirKanA for any container host in the EU (Render Frankfurt, a VPS…). Caddy sits in front of Streamlit to add the
 # security headers Streamlit cannot set. Secrets come from environment variables (DATABASE_URL, APP_PASSWORD, SMTP_*…).
 # Images pinned by digest so every build uses the same bytes; Dependabot proposes updates.
-FROM caddy:2@sha256:f2a1290d0463aad60660d4ec134943f183ee2a5f6c3eb7bf32dd984f2f020772 AS caddy
+FROM caddy:2@sha256:685ae3d7c34d9b5f8caeddc5d14051db7bbd88ff1f5a2fa0c16bd8ca328fb7af AS caddy
 
 FROM python:3.14-slim@sha256:a2b82f3c48559aa0a8446d9af49826b6e2b2016f4cd2afabfe6013ec53729170
 # REQUIRE_DATABASE: the container's disk is wiped on every deploy, so the app refuses to keep data on it.
