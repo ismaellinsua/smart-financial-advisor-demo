@@ -72,6 +72,11 @@ personas abren la prueba.
 `prueba.nirkana.es` tenga su candado en Render, cambia aquí la dirección (la prueba `web-boundaries` solo admite esas dos).
 Si algún día lo vacías, quita también `has-trial` de la etiqueta `<html>` de cada página.
 
+**Vigilancia de la prueba.** Con la prueba activa, `web-boundaries` exige (antes de publicar) que la cabecera y los botones de
+la portada ofrezcan «Probar gratis», y el flujo **Web** (`ops/web_check.py`) comprueba lo mismo en la página ya publicada y que
+la prueba responde en modo prueba (le da hasta 3 minutos para despertar). Si el botón desaparece o la prueba cae, el flujo
+sale en rojo y GitHub avisa por email. El rediseño del 17/10 dejó el botón solo más abajo y nadie lo vio hasta el 18/10.
+
 **La espera del primer clic.** El plan gratuito de Render duerme el servicio tras 15 minutos sin visitas y tarda en despertar
 entre medio minuto y varios minutos (el 14/10: 38 s con el navegador de la propietaria; 3 min 19 s con peticiones de imagen desde
 GitHub, que contestan «502» mientras tanto). Para que el visitante no se quede ante la pantalla de espera de Render, `site.js`

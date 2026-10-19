@@ -35,6 +35,17 @@ test('la demo y la prueba de 24 horas son botones distintos', () => {
   assert.match(home, /data-trial/);
 });
 
+// La prueba (con registro) es a lo que viene el visitante: con ella activa, lo primero que ve —la cabecera y los botones de la
+// portada— la ofrece. El rediseño la dejó una vez solo más abajo y nadie la encontraba (la demo sin registro no la sustituye).
+test('con la prueba activa, la cabecera y la portada ofrecen «Probar gratis»', () => {
+  const url = site.match(/const TRIAL_URL = "([^"]*)";/)[1];
+  if (!/^https:\/\/[a-z0-9.-]+(\/.*)?$/i.test(url)) return;
+  const header = home.match(/<div class="bar-end">[\s\S]*?<\/div>/);
+  assert.ok(header && /data-trial/.test(header[0]), 'la cabecera no ofrece el botón de la prueba (a[data-trial])');
+  const hero = home.slice(home.indexOf('<section class="hero"')).match(/<div class="cta">[\s\S]*?<\/div>/);
+  assert.ok(hero && /data-trial/.test(hero[0]), 'la portada no ofrece el botón de la prueba (a[data-trial])');
+});
+
 // ---- rendimiento: las clases que el script añadiría ya vienen en el HTML (si no, los botones cambian tras pintar)
 import { readdirSync, statSync } from 'node:fs';
 

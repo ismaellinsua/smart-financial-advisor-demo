@@ -7,12 +7,17 @@ Checks, from outside, what GitHub Pages and the DNS provider do and nobody else 
   - the certificate is valid for the domain and has at least CERT_MIN_DAYS left (GitHub renews it by itself; if the
     DNS changes, renewal fails silently and the site breaks the day it expires),
   - http:// and www. send visitors to https://domain/ (Enforce HTTPS),
-  - every page in docs/ answers 200 (the published site is the one in the repository).
+  - every page in docs/ answers 200 (the published site is the one in the repository),
+  - with the 24-hour trial switched on (TRIAL_URL in docs/assets/site.js), the published home page offers it in the header
+    and on the first screen, and the trial itself answers «ok» (it sleeps when nobody visits it: it is given up to
+    TRIAL_WAIT seconds to wake up).
 Environment: WEB_DOMAIN (defaults to docs/CNAME). Exit code 1 when something is wrong, so the scheduled run turns red
 and GitHub emails the repository owner.
 """
 
+import json
 import os
+import re
 import socket
 import ssl
 import sys
@@ -27,6 +32,8 @@ PAGES_IPS = {"185.199.108.153", "185.199.109.153", "185.199.110.153", "185.199.1
              "2606:50c0:8000::153", "2606:50c0:8001::153", "2606:50c0:8002::153", "2606:50c0:8003::153"}
 CERT_MIN_DAYS = 14
 TIMEOUT = 20
+TRIAL_WAIT = 180   # seconds: a sleeping free instance answers 502 and takes from half a minute to a few minutes to wake up
+TRIAL_RETRY = 6
 
 
 def domain() -> str:
@@ -119,13 +126,71 @@ def http_problems(name: str, get=fetch) -> list[str]:
     return problems
 
 
+def trial_url() -> str:
+    """The address of the 24-hour trial set in docs/assets/site.js («» when the trial is switched off)."""
+    found = re.search(r'const TRIAL_URL = "([^"]*)";', (DOCS / "assets" / "site.js").read_text(encoding="utf-8"))
+    return found.group(1).rstrip("/") if found else ""
+
+
+def _block(html: str, start: str) -> str:
+    """The piece of `html` from the first `start` to the next closing </div> («» when `start` is not there)."""
+    begin = html.find(start)
+    return html[begin: html.find("</div>", begin)] if begin >= 0 else ""
+
+
+def home_trial_problems(html: str, url: str) -> list[str]:
+    """With the trial switched on, what a visitor sees first (the header and the first screen) must offer it. The
+    redesign once left it only further down the page and nobody found it."""
+    if not url:
+        return []
+    hero = html[html.find('<section class="hero"'):] if '<section class="hero"' in html else ""
+    places = {"la cabecera": _block(html, '<div class="bar-end">'), "la portada": _block(hero, '<div class="cta">')}
+    return [f"Web: {place} no ofrece el botón de la prueba de 24 horas (a[data-trial])"
+            for place, block in places.items() if "data-trial" not in block]
+
+
+def trial_problems(url: str, get=fetch, wait: float = TRIAL_WAIT, sleep=time.sleep, clock=time.monotonic) -> list[str]:
+    """The trial answers «ok» and says it is the trial. A free instance sleeps when nobody visits it, so it is asked until
+    it wakes up (502, a waiting page or a reset are «not yet») and only reported after `wait` seconds."""
+    if not url:
+        return []
+    deadline = clock() + wait
+    while True:
+        try:
+            status, _, body = get(f"{url}/api/health")
+        except OSError as exc:  # timeouts and resets while the instance starts
+            last = f"sin respuesta ({exc})"
+        else:
+            last = f"HTTP {status}"
+            if status == 200:
+                try:
+                    health = json.loads(body)
+                except ValueError:
+                    health = None
+                if isinstance(health, dict):
+                    if health.get("ok") is True and health.get("mode") == "prueba":
+                        return []
+                    return [f"Prueba: {url}/api/health responde, pero no es la prueba de 24 horas ({body[:80]!r})"]
+                last = "HTTP 200 sin datos (¿página de espera?)"
+        if clock() >= deadline:
+            return [f"Prueba: {url} no responde tras {int(wait)} s ({last}): revisa el servicio en Render"]
+        sleep(TRIAL_RETRY)
+
+
 def main() -> int:
     name = domain()
-    problems = dns_problems(name) + certificate_problems(name) + http_problems(name)
+    url = trial_url()
+    try:
+        status, _, home = fetch(f"https://{name}/")
+    except OSError:  # a site that does not answer is already reported by the checks above and below
+        status, home = 0, ""
+    problems = (dns_problems(name) + certificate_problems(name) + http_problems(name)
+                + (home_trial_problems(home, url) if status == 200 else []) + trial_problems(url))
     for problem in problems:
         print(f"::error::{problem}" if os.environ.get("GITHUB_ACTIONS") else problem)
     if not problems:
-        print(f"OK {name}: DNS en GitHub Pages, certificado válido, redirecciones y {len(pages())} páginas.")
+        trial = " y la prueba de 24 horas, ofrecida y respondiendo" if url else ""
+        print(f"OK {name}: DNS en GitHub Pages, certificado válido, redirecciones y {len(pages())} páginas{trial}.")
     return 1 if problems else 0
 
 

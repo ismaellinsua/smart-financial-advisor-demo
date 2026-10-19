@@ -435,7 +435,10 @@ externo es el principal. En un repositorio privado, desactiva este flujo (gasta 
 **La web (nirkana.es):** el flujo **Web** (`ops/web_check.py`) la comprueba desde fuera cada día y tras cada cambio en
 `docs/`: que el dominio y `www` apunten a GitHub Pages, que el certificado HTTPS sea válido y le queden al menos 14
 días (GitHub lo renueva solo, pero no si el DNS cambia), que `http://` y `www.` lleven a `https://nirkana.es/` y que
-cada página responda. Si algo falla, el flujo sale en rojo y GitHub te avisa por email.
+cada página responda. Con la prueba de 24 horas activa (`TRIAL_URL` en `docs/assets/site.js`) comprueba además que la
+portada publicada la ofrece en la cabecera y en sus botones («Probar gratis») y que la prueba responde «ok» en modo
+prueba; el plan gratuito de Render la duerme tras 15 minutos sin visitas, así que se le dan hasta 3 minutos para
+despertar antes de darla por caída. Si algo falla, el flujo sale en rojo y GitHub te avisa por email.
 
 ## Escalar
 
