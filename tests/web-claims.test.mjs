@@ -9,7 +9,7 @@ import { resolve, dirname } from 'node:path';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const docs = resolve(root, 'docs');
-const PAGES = ['', 'tpv-restaurantes/', 'tpv-tiendas/', 'programa-facturacion-autonomos/', 'tpv-tienda-online/'];
+const PAGES = ['', 'tpv-restaurantes/', 'programa-peluquerias-estetica/', 'tpv-tiendas/', 'programa-facturacion-autonomos/', 'tpv-tienda-online/'];
 const read = (rel) => readFileSync(resolve(docs, rel, rel.endsWith('.html') ? '' : 'index.html'), 'utf8');
 const pages = PAGES.map((p) => [p || 'index.html', p ? read(p) : readFileSync(resolve(docs, 'index.html'), 'utf8')]);
 

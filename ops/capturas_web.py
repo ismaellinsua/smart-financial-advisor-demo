@@ -125,6 +125,10 @@ def desktop(browser):
     pg.locator(".list-item").first.click()
     modal_shot_ready(pg)
     save(pg.screenshot(), "ficha-cliente")
+    pg.keyboard.press("Escape")
+    go(pg, "vender")
+    tiles(pg, 2)
+    save(pg.screenshot(), "vender-servicios")
     assert not pg.errors, pg.errors
     pg.context.close()
 
