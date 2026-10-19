@@ -98,11 +98,90 @@ def test_fetch_can_see_a_redirect_instead_of_following_it():
         server.shutdown()
 
 
+def test_the_home_offers_the_trial_in_the_header_and_on_the_first_screen():
+    html = (ROOT / "docs" / "index.html").read_text(encoding="utf-8")
+    url = web_check.trial_url()
+    assert url == "https://nirkana-prueba.onrender.com"
+    assert web_check.home_trial_problems(html, url) == []
+    assert web_check.home_trial_problems("<html></html>", "") == []  # trial switched off: nothing to offer
+
+    # The way the redesign lost it: the button is not in the header, or not in the first screen's buttons.
+    header_button = '<a class="btn small magnet only-trial" data-trial href="#contacto">Probar gratis</a>'
+    hero_button = '<a class="btn magnet only-trial" data-trial href="#contacto">Probar gratis 24 horas'
+    assert header_button in html and hero_button in html
+    assert web_check.home_trial_problems(html.replace(header_button, ""), url) == [
+        "Web: la cabecera no ofrece el botón de la prueba de 24 horas (a[data-trial])"]
+    assert web_check.home_trial_problems(html.replace(hero_button, hero_button.replace(" data-trial", "")), url) == [
+        "Web: la portada no ofrece el botón de la prueba de 24 horas (a[data-trial])"]
+    assert len(web_check.home_trial_problems("<html><body>NirKanA</body></html>", url)) == 2
+
+
+class _Trial:
+    """A trial that answers what `answers` says, one after another, on a clock that only moves when the check sleeps."""
+
+    def __init__(self, *answers):
+        self.answers, self.now, self.asked = list(answers), 0.0, 0
+
+    def get(self, url, follow=True):
+        assert url == "https://prueba.example/api/health"
+        self.asked += 1
+        answer = self.answers.pop(0) if len(self.answers) > 1 else self.answers[0]
+        if isinstance(answer, Exception):
+            raise answer
+        return answer
+
+    def check(self, wait=60):
+        return web_check.trial_problems("https://prueba.example", self.get, wait, self.sleep, lambda: self.now)
+
+    def sleep(self, seconds):
+        self.now += seconds
+
+
+OK = (200, "u", '{"ok": true, "mode": "prueba"}')
+
+
+def test_a_sleeping_trial_is_given_time_to_wake_up():
+    trial = _Trial((502, "u", ""), OSError("connection reset"), (200, "u", "<h1>Starting…</h1>"), OK)
+    assert trial.check() == [] and trial.asked == 4
+    assert _Trial(OK).check() == []
+    assert web_check.trial_problems("", lambda url: 1 / 0) == []  # trial switched off: nothing is asked
+
+
+def test_a_trial_that_never_wakes_up_or_is_not_the_trial_is_reported():
+    never = _Trial((502, "u", ""))
+    assert never.check(wait=30) == ["Prueba: https://prueba.example no responde tras 30 s (HTTP 502): revisa el servicio en Render"]
+    assert never.asked == 6  # every web_check.TRIAL_RETRY seconds until the wait is over
+    down = _Trial(OSError("timed out")).check(wait=12)
+    assert "sin respuesta (timed out)" in down[0]
+    other = _Trial((200, "u", '{"ok": true, "mode": "produccion"}')).check()
+    assert other == ['Prueba: https://prueba.example/api/health responde, pero no es la prueba de 24 horas '
+                     "('{\"ok\": true, \"mode\": \"produccion\"}')"]
+    broken = _Trial((200, "u", '{"ok": false, "mode": "prueba"}')).check()
+    assert "no es la prueba" in broken[0]
+
+
 def test_main_reports_and_fails(monkeypatch, capsys):
     monkeypatch.setattr(web_check, "dns_problems", lambda name: ["DNS: x"])
     monkeypatch.setattr(web_check, "certificate_problems", lambda name: [])
     monkeypatch.setattr(web_check, "http_problems", lambda name: [])
+    monkeypatch.setattr(web_check, "fetch", lambda url, follow=True: (200, url, "<html></html>"))
+    monkeypatch.setattr(web_check, "trial_url", lambda: "")
     monkeypatch.setenv("GITHUB_ACTIONS", "true")
     assert web_check.main() == 1 and "::error::DNS: x" in capsys.readouterr().out
     monkeypatch.setattr(web_check, "dns_problems", lambda name: [])
     assert web_check.main() == 0 and "OK nirkana.es" in capsys.readouterr().out
+
+
+def test_main_also_reports_a_home_without_the_trial_and_a_trial_that_is_down(monkeypatch, capsys):
+    monkeypatch.setattr(web_check, "dns_problems", lambda name: [])
+    monkeypatch.setattr(web_check, "certificate_problems", lambda name: [])
+    monkeypatch.setattr(web_check, "http_problems", lambda name: [])
+    monkeypatch.setattr(web_check, "fetch", lambda url, follow=True: (200, url, "<html><body>NirKanA</body></html>"))
+    monkeypatch.setattr(web_check, "trial_url", lambda: "https://prueba.example")
+    monkeypatch.setattr(web_check, "trial_problems", lambda url: ["Prueba: caída"])
+    assert web_check.main() == 1
+    printed = capsys.readouterr().out
+    assert "la cabecera no ofrece" in printed and "la portada no ofrece" in printed and "Prueba: caída" in printed
+    monkeypatch.setattr(web_check, "fetch", lambda url, follow=True: (200, url, (ROOT / "docs" / "index.html").read_text("utf-8")))
+    monkeypatch.setattr(web_check, "trial_problems", lambda url: [])
+    assert web_check.main() == 0 and "la prueba de 24 horas, ofrecida y respondiendo" in capsys.readouterr().out
