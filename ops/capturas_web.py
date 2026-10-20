@@ -58,6 +58,22 @@ def modal_shot_ready(pg):
     pg.wait_for_timeout(400)
 
 
+def book(pg, column, time, name, service, minutes):
+    """One more appointment, booked as the owner does it: a click on a free slot of that person's column, the client, the service."""
+    start = 9  # the grid of the day starts at 9:00 and draws 64 px per hour
+    hours, mins = (int(x) for x in time.split(":"))
+    pg.locator(".cal-col").nth(column).click(position={"x": 40, "y": round((hours - start + mins / 60) * 64) + 3})
+    modal = pg.locator(".modal")
+    expect(modal).to_contain_text("Nueva cita")
+    expect(modal.get_by_label("Hora")).to_have_value(time)  # the click really landed on that slot
+    modal.get_by_label("Cliente").fill(name)
+    picker = modal.get_by_label("Servicio")  # its options read «Mechas · 65,00 €»
+    picker.select_option(value=picker.evaluate("(s, n) => [...s.options].find((o) => o.text.startsWith(n))?.value", service))
+    modal.get_by_label("Duración (min)").fill(str(minutes))
+    modal.get_by_role("button", name="Guardar cita").click()
+    expect(modal).to_have_count(0)
+
+
 def save(png: bytes, name: str, size=(1440, 900), compact=(1200, 750), directory=SHOTS):
     im = Image.open(io.BytesIO(png)).convert("RGB")
     if im.size != size:
@@ -119,6 +135,17 @@ def desktop(browser):
     pg = open_demo(browser, "servicios")
     go(pg, "agenda")
     save(pg.screenshot(), "agenda")
+    pg.click(".segmented button:has-text('Por persona')")  # the same day, one column per professional
+    pg.wait_for_selector(".cal-grid .cal-appt")
+    # a fuller day, booked with the same click on a free slot a customer would use (Ana, Lucía, Marcos are the columns)
+    book(pg, 0, "10:00", "Marta Gil", "Corte y peinado", 60)
+    book(pg, 0, "12:00", "Irene Soto", "Mechas", 120)
+    book(pg, 0, "16:00", "Paula Vega", "Manicura", 45)
+    book(pg, 1, "12:30", "Carmen Ibáñez", "Alisado", 90)
+    book(pg, 2, "14:00", "Sergio León", "Corte de caballero", 30)
+    pg.evaluate("window.scrollTo(0, 0)")  # the clicks scrolled the page a little
+    pg.wait_for_timeout(500)
+    save(pg.screenshot(), "agenda-persona")
     go(pg, "clientes")
     save(pg.screenshot(), "clientes")
     go(pg, "clientes")
