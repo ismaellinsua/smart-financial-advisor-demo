@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="es" class="js has-demo has-trial">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; img-src 'self' data: https://*.goatcounter.com https://nirkana-prueba.onrender.com; frame-src https://nirkana-prueba.onrender.com; style-src 'self'; script-src 'self'; connect-src 'self' https://formspree.io; form-action https://formspree.io; base-uri 'none'; object-src 'none'; upgrade-insecure-requests">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <title>Arqueo y cierre de caja: cómo hacerlo paso a paso · NirKanA</title>
+  <meta name="description" content="Qué es el arqueo de caja, cuándo hacerlo y cómo cuadrar la caja al cerrar el día, con un ejemplo de cálculo y qué hacer si hay descuadre.">
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
+  <meta property="og:title" content="Arqueo y cierre de caja: cómo hacerlo paso a paso · NirKanA">
+  <meta property="og:description" content="Qué es el arqueo de caja, cuándo hacerlo y cómo cuadrar la caja al cerrar el día, con un ejemplo de cálculo y qué hacer si hay descuadre.">
+  <meta property="og:type" content="article">
+  <meta property="og:image" content="https://nirkana.es/assets/img/og.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Pantalla Caja de NirKanA con la caja abierta, el efectivo esperado y el apartado para cerrar contando billetes y monedas">
+  <meta property="og:locale" content="es_ES">
+  <meta property="og:site_name" content="NirKanA">
+  <meta property="og:url" content="https://nirkana.es/guias/arqueo-y-cierre-de-caja/">
+  <meta property="article:published_time" content="2026-10-21">
+  <meta property="article:modified_time" content="2026-10-21">
+  <meta property="article:author" content="NirKanA">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Arqueo y cierre de caja: cómo hacerlo paso a paso · NirKanA">
+  <meta name="twitter:description" content="Qué es el arqueo de caja, cuándo hacerlo y cómo cuadrar la caja al cerrar el día, con un ejemplo de cálculo y qué hacer si hay descuadre.">
+  <meta name="twitter:image" content="https://nirkana.es/assets/img/og.jpg">
+  <meta name="twitter:image:alt" content="Pantalla Caja de NirKanA con la caja abierta, el efectivo esperado y el apartado para cerrar contando billetes y monedas">
+  <meta name="theme-color" content="#0B1B33">
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+  <link rel="stylesheet" href="/assets/site.css">
+  <noscript><link rel="stylesheet" href="/assets/sin-js.css"></noscript>
+  <script src="/assets/site.js" defer></script>
+  <link rel="canonical" href="https://nirkana.es/guias/arqueo-y-cierre-de-caja/">
+  <script type="application/ld+json">
+  {"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "NirKanA", "item": "https://nirkana.es/"}, {"@type": "ListItem", "position": 2, "name": "Guías", "item": "https://nirkana.es/guias/"}, {"@type": "ListItem", "position": 3, "name": "Arqueo y cierre de caja: cómo hacerlo paso a paso", "item": "https://nirkana.es/guias/arqueo-y-cierre-de-caja/"}]}
+  </script>
+  <script type="application/ld+json">
+  {"@context": "https://schema.org", "@type": "Article", "headline": "Arqueo y cierre de caja: cómo hacerlo paso a paso", "description": "Qué es el arqueo de caja, cuándo hacerlo y cómo cuadrar la caja al cerrar el día, con un ejemplo de cálculo y qué hacer si hay descuadre.", "inLanguage": "es", "datePublished": "2026-10-21", "dateModified": "2026-10-21", "mainEntityOfPage": {"@type": "WebPage", "@id": "https://nirkana.es/guias/arqueo-y-cierre-de-caja/"}, "image": ["https://nirkana.es/assets/img/og.jpg"], "author": {"@type": "Organization", "name": "NirKanA", "url": "https://nirkana.es/"}, "publisher": {"@type": "Organization", "name": "NirKanA", "url": "https://nirkana.es/", "logo": {"@type": "ImageObject", "url": "https://nirkana.es/assets/apple-touch-icon.png"}}}
+  </script>
+  <script type="application/ld+json">
+  {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "¿Cada cuánto debo hacer el arqueo de caja?", "acceptedAnswer": {"@type": "Answer", "text": "Como mínimo al cerrar el día. Si varias personas cobran, hazlo también en cada cambio de turno: así sabes quién tenía la caja cuando apareció una diferencia."}}, {"@type": "Question", "name": "¿Qué hago si la caja no cuadra?", "acceptedAnswer": {"@type": "Answer", "text": "Cuenta de nuevo, repasa las anulaciones, devoluciones y gastos pagados en efectivo, y anota la diferencia tal cual. No metas ni saques dinero para que cuadre sin dejar constancia; si se repite, revisa el turno y la forma de cobrar."}}, {"@type": "Question", "name": "¿Qué diferencia hay entre arqueo y cierre de caja?", "acceptedAnswer": {"@type": "Answer", "text": "El arqueo es contar el dinero y compararlo con lo que dicen las ventas. El cierre es dar por terminado el turno o el día: fijas el total, anotas el descuadre, retiras el efectivo y guardas el registro."}}]}
+  </script>
+</head>
+<body class="subpage">
+  <svg class="sprite" aria-hidden="true" focusable="false">
+    <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M7 7l10 10M17 7L7 17"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+    <symbol id="i-zoom" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-5-5M11 8v6M8 11h6"/></symbol>
+    <symbol id="i-device" viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="2.5"/><path d="M11 18h2"/></symbol>
+    <symbol id="i-receipt" viewBox="0 0 24 24"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2zM9 7h6M9 11h6M9 15h4"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 2.5l8 3v6c0 5-3.4 8.7-8 10.5-4.6-1.8-8-5.5-8-10.5v-6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></symbol>
+    <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M7 19a5 5 0 1 1 .9-9.9A6.5 6.5 0 0 1 20 11a4 4 0 0 1-1 8z"/></symbol>
+    <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="7" r="4"/><path d="M2 21v-1.5A4.5 4.5 0 0 1 6.5 15h5a4.5 4.5 0 0 1 4.5 4.5V21M16 3.2a4 4 0 0 1 0 7.6M22 21v-1.5a4.5 4.5 0 0 0-3-4.2"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4.5" y="10.5" width="15" height="11" rx="2"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></symbol>
+    <symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6h12M9 12h12M9 18h12M4 6h.01M4 12h.01M4 18h.01"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M4 21h16"/></symbol>
+    <symbol id="i-chart" viewBox="0 0 24 24"><path d="M3 3v18h18M7 15l4-4 3 3 6-6"/></symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4zM10 21h4"/></symbol>
+    <symbol id="i-utensils" viewBox="0 0 24 24"><path d="M5 2v7a3 3 0 0 0 6 0V2M8 2v20M18 2c-2 2-3 5-3 9h3v11"/></symbol>
+    <symbol id="i-bag" viewBox="0 0 24 24"><path d="M5 7.5h14l-1 13.5H6zM9 7.5a3 3 0 0 1 6 0"/></symbol>
+    <symbol id="i-briefcase" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8.5 7V4.5h7V7M3 13h18"/></symbol>
+    <symbol id="i-box" viewBox="0 0 24 24"><path d="M21 8l-9-5-9 5 9 5zM3 8v8.5l9 5 9-5V8M12 13v8.5"/></symbol>
+    <symbol id="i-chat" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+    <symbol id="i-scissors" viewBox="0 0 24 24"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M8.1 7.9L20 20M8.1 16.1L20 4"/></symbol>
+    <symbol id="i-building" viewBox="0 0 24 24"><path d="M4 21V4a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v17M15 9h4a1 1 0 0 1 1 1v11M2 21h20M8 7h3M8 11h3M8 15h3"/></symbol>
+    <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3l2.2 6.3L21 12l-6.8 2.7L12 21l-2.2-6.3L3 12l6.8-2.7z"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5l11 7-11 7z"/></symbol>
+    <symbol id="i-wifi-off" viewBox="0 0 24 24"><path d="M3 3l18 18M8.5 16.5a5 5 0 0 1 7 0M5 13a10 10 0 0 1 4-2.6M19 13a10 10 0 0 0-2.4-1.8M2 9.5a15 15 0 0 1 4.6-2.8M22 9.5A15 15 0 0 0 11 5.1M12 20h.01"/></symbol>
+  </svg>
+
+  <a class="skip" href="#contenido">Saltar al contenido</a>
+
+  <header class="top">
+    <div class="wrap bar">
+      <a class="brand" href="/" aria-label="NirKanA, inicio">
+        <img class="logo" src="/assets/simbolo.svg" alt="" width="34" height="34"><span class="name">NirKanA</span>
+      </a>
+      <nav aria-label="Principal" id="menu">
+        <a href="/#soluciones">Soluciones</a>
+        <a href="/#funciones">Funciones</a>
+        <a href="/#recorrido">La app</a>
+        <a class="only-demo" data-demo="hosteleria" href="/demo/">Demo</a>
+        <a href="/#calculadora">Calculadora</a>
+        <a class="here" href="/guias/" aria-current="page">Guías</a>
+        <a href="/#preguntas">Preguntas</a>
+        <a class="login" id="app-link" href="#" hidden>Entrar</a>
+      </nav>
+      <div class="bar-end">
+        <a class="btn small ghost magnet only-demo demo-head" data-demo="hosteleria" href="/demo/">Ver la demo</a>
+        <a class="btn small magnet only-trial" data-trial href="/#contacto">Probar gratis</a>
+        <a class="btn small magnet no-trial" href="/#contacto">Quiero NirKanA</a>
+        <button class="menu-btn" type="button" aria-controls="menu" aria-expanded="false" aria-label="Abrir el menú">
+          <svg class="ic"><use href="#i-menu"/></svg></button>
+      </div>
+    </div>
+  </header>
+
+  <main id="contenido">
+    <article class="guide">
+      <header class="guide-head">
+        <div class="wrap narrow">
+          <nav class="crumbs" aria-label="Estás en"><a href="/">NirKanA</a> <span aria-hidden="true">›</span> <a href="/guias/">Guías</a> <span aria-hidden="true">›</span> Arqueo y cierre de caja: cómo hacerlo paso a paso</nav>
+          <p class="eyebrow">Guía</p>
+          <h1>Arqueo y cierre de caja: cómo hacerlo paso a paso</h1>
+          <p class="lead">Cuadrar la caja es comprobar que el dinero del cajón coincide con lo que dicen las ventas. Con un método fijo se hace en pocos minutos y deja de ser un quebradero de cabeza.</p>
+          <p class="guide-meta">Por el equipo de NirKanA · Actualizada el <time datetime="2026-10-21">21 de octubre de 2026</time> · 3 min de lectura</p>
+        </div>
+      </header>
+      <div class="wrap narrow guide-body">
+        <nav class="toc" aria-label="En esta guía"><b>En esta guía</b><ol><li><a href="#diferencia">Arqueo y cierre: qué es cada cosa</a></li><li><a href="#pasos">Los siete pasos para cuadrar la caja</a></li><li><a href="#ejemplo">Un ejemplo con números</a></li><li><a href="#descuadres">Por qué no cuadra: causas frecuentes</a></li><li><a href="#buenas">Buenas prácticas que lo facilitan</a></li><li><a href="#nirkana">Cómo lo hace NirKanA</a></li><li><a href="#preguntas">Preguntas frecuentes</a></li></ol></nav>
+        <section class="guide-sec" id="diferencia">
+          <h2>Arqueo y cierre: qué es cada cosa</h2>
+<p>El <strong>arqueo</strong> es contar el dinero real (billetes y monedas) y compararlo con lo que debería haber según las ventas registradas. El <strong>cierre</strong> es dar por terminado el día o el turno: fijas el total, anotas el descuadre si lo hay, retiras el efectivo y guardas el registro.</p>
+<p>Conviene hacerlo al cerrar el día y, si cobra más de una persona, en cada cambio de turno. Así, cuando algo no cuadra, sabes quién tenía la caja y a qué hora.</p>
+        </section>
+
+        <section class="guide-sec" id="pasos">
+          <h2>Los siete pasos para cuadrar la caja</h2>
+<ol>
+<li><strong>Al abrir, anota el fondo de caja.</strong> Es el dinero con el que empiezas (monedas y billetes pequeños para dar cambio). Cuéntalo y deja constancia.</li>
+<li><strong>Durante el día, registra todas las ventas</strong> con su forma de pago, y también las entradas y salidas de efectivo que no son ventas: pagar a un proveedor con dinero del cajón, retirar efectivo, devolver un importe.</li>
+<li><strong>Al cerrar, saca el total esperado</strong> de cada forma de pago: efectivo, tarjeta y otras.</li>
+<li><strong>Cuenta el efectivo por denominaciones</strong> (billetes de 50, 20, 10 y 5; monedas de 2 € y 1 €; y las de céntimos) y suma. Cuenta antes de mirar cuánto debería haber, para no ajustar el recuento sin querer.</li>
+<li><strong>Calcula el efectivo esperado:</strong> fondo inicial + ventas en efectivo + entradas − salidas.</li>
+<li><strong>Compara y anota la diferencia,</strong> tanto si sobra dinero como si falta, y quién cierra.</li>
+<li><strong>Retira el efectivo que vas a ingresar</strong> y deja el fondo para el día siguiente. Guarda el registro del cierre.</li>
+</ol>
+<p>Las ventas con tarjeta no están en el cajón: se comprueban comparando el total de tarjeta que registra tu TPV con el cierre del datáfono.</p>
+        </section>
+
+        <section class="guide-sec" id="ejemplo">
+          <h2>Un ejemplo con números</h2>
+<div class="tablewrap compact" role="region" aria-label="Ejemplo de cuadre de caja" tabindex="0">
+<table>
+<caption>Ejemplo inventado: la caja de un día</caption>
+<thead><tr><th scope="col">Concepto</th><th scope="col">Importe</th></tr></thead>
+<tbody>
+<tr><th scope="row">Fondo inicial</th><td>150,00 €</td></tr>
+<tr><th scope="row">Ventas cobradas en efectivo</th><td>612,40 €</td></tr>
+<tr><th scope="row">Pago a un proveedor con dinero del cajón</th><td>−25,00 €</td></tr>
+<tr><th scope="row"><strong>Efectivo esperado</strong></th><td><strong>737,40 €</strong></td></tr>
+<tr><th scope="row">Efectivo contado</th><td>735,90 €</td></tr>
+<tr><th scope="row"><strong>Descuadre</strong></th><td><strong>−1,50 €</strong></td></tr>
+</tbody>
+</table>
+</div>
+<p>Faltan 1,50 €. Puede ser un cambio mal dado o una venta sin registrar. Se anota la diferencia tal cual: no se «arregla» metiendo dinero en el cajón sin dejar constancia.</p>
+        </section>
+
+        <section class="guide-sec" id="descuadres">
+          <h2>Por qué no cuadra: causas frecuentes</h2>
+<ul>
+<li>Cambio mal dado o billetes confundidos.</li>
+<li>Ventas cobradas pero sin registrar, o registradas con otra forma de pago.</li>
+<li>Devoluciones o anulaciones sin anotar.</li>
+<li>Gastos pagados con el dinero del cajón y no apuntados.</li>
+<li>Propinas mezcladas con la recaudación.</li>
+<li>Un error al contar: si hay diferencia, cuenta de nuevo.</li>
+</ul>
+<div class="callout"><p><strong>Regla de oro:</strong> un descuadre pequeño anotado es información; un descuadre «arreglado» sin anotar esconde el problema. Si se repite siempre en el mismo turno o con la misma persona, revisa cómo se cobra y qué ventas se anulan, y habla con tu equipo.</p></div>
+        </section>
+
+        <section class="guide-sec" id="buenas">
+          <h2>Buenas prácticas que lo facilitan</h2>
+<ul>
+<li><strong>Contar «a ciegas»:</strong> sin ver el total esperado hasta terminar de contar.</li>
+<li><strong>Dejar constancia</strong> de quién cierra y a qué hora.</li>
+<li><strong>Un fondo de caja fijo:</strong> la misma cantidad cada día.</li>
+<li><strong>Ingresar el efectivo en el banco</strong> con regularidad y guardar el justificante.</li>
+<li><strong>Guardar los cierres:</strong> tu gestoría los agradecerá (mira la <a href="/guias/documentos-del-trimestre-para-la-gestoria/">guía de documentos del trimestre</a>).</li>
+</ul>
+        </section>
+
+        <aside class="guide-cta" aria-label="Probar NirKanA">
+          <p class="cta-title">Pruébalo con un negocio de ejemplo</p>
+          <p class="only-trial">Abre NirKanA 24 horas gratis, sin tarjeta, y compruébalo tú. Si te encaja, te lo dejamos listo con tus productos o tus servicios.</p>
+          <p class="no-trial">Cuéntanos tu negocio y te lo dejamos listo con tus productos o tus servicios. Sin compromiso.</p>
+          <div class="cta-row">
+            <a class="btn magnet only-trial" data-trial href="/#contacto">Probar NirKanA gratis <svg class="ic"><use href="#i-arrow"/></svg></a>
+            <a class="btn ghost only-trial" href="/#contacto">Quiero NirKanA</a>
+            <a class="btn magnet no-trial" href="/#contacto">Quiero NirKanA <svg class="ic"><use href="#i-arrow"/></svg></a>
+            <a class="btn ghost no-trial only-demo" data-demo="hosteleria" href="/demo/">Ver la demo</a>
+          </div>
+          <p class="mail-line" data-email-wrap hidden><span>O escríbenos a <a data-email data-subject="Consulta desde la guía de arqueo y cierre de caja"></a></span></p>
+        </aside>
+
+        <section class="guide-sec nk" id="nirkana">
+          <h2>Cómo lo hace NirKanA</h2>
+          <div class="nk-box">
+<p>En NirKanA el cierre de caja sigue ese mismo método:</p>
+<ul>
+<li>Abres la caja con su fondo inicial y la ves abierta mientras cobras.</li>
+<li>Al cerrar, cuentas el efectivo (con ayuda para contar billetes y monedas) sin ver lo esperado.</li>
+<li>El descuadre aparece al momento y queda registrado quién cerró.</li>
+<li>Los cierres de caja entran en el ZIP del trimestre que puedes darle a tu gestoría.</li>
+</ul>
+            <figure class="shot guide-shot">
+              <img src="/assets/img/shots/caja-c.webp" width="1200" height="750" alt="Pantalla Caja de NirKanA con la caja abierta, el efectivo esperado y el apartado para cerrar contando billetes y monedas" loading="lazy">
+              <figcaption>La pantalla de Caja: resumen del día y cierre contando el efectivo</figcaption>
+            </figure>
+            <p class="nk-more">Más sobre esto: <a href="/tpv-restaurantes/">TPV para restaurantes y bares</a> · <a href="/tpv-tiendas/">TPV para tiendas y comercios</a>.</p>
+          </div>
+        </section>
+
+        <section class="guide-sec" id="preguntas">
+          <h2>Preguntas frecuentes</h2>
+        <div class="faq-list">
+          <details>
+            <summary>¿Cada cuánto debo hacer el arqueo de caja?</summary>
+            <p>Como mínimo al cerrar el día. Si varias personas cobran, hazlo también en cada cambio de turno: así sabes quién tenía la caja cuando apareció una diferencia.</p>
+          </details>
+          <details>
+            <summary>¿Qué hago si la caja no cuadra?</summary>
+            <p>Cuenta de nuevo, repasa las anulaciones, devoluciones y gastos pagados en efectivo, y anota la diferencia tal cual. No metas ni saques dinero para que cuadre sin dejar constancia; si se repite, revisa el turno y la forma de cobrar.</p>
+          </details>
+          <details>
+            <summary>¿Qué diferencia hay entre arqueo y cierre de caja?</summary>
+            <p>El arqueo es contar el dinero y compararlo con lo que dicen las ventas. El cierre es dar por terminado el turno o el día: fijas el total, anotas el descuadre, retiras el efectivo y guardas el registro.</p>
+          </details>
+        </div>
+        </section>
+
+        <section class="guide-sec" id="relacionadas">
+          <h2>Sigue leyendo</h2>
+          <ul class="related"><li><a href="/guias/que-es-un-tpv/">Qué es un TPV y cómo elegir el de tu negocio</a> — Qué hace un TPV, en qué se diferencia de un datáfono y ocho preguntas para elegir bien.</li><li><a href="/guias/documentos-del-trimestre-para-la-gestoria/">Documentos del trimestre para tu gestoría: lista y rutina</a> — La lista de documentos del trimestre y una rutina semanal de quince minutos.</li></ul>
+        </section>
+      </div>
+    </article>
+
+    <section class="band">
+      <div class="wrap center-cta">
+        <h2>¿Lo vemos con tu negocio?</h2>
+        <p class="sub only-trial">Pruébala gratis 24 horas con un negocio de ejemplo, sin tarjeta. Si te encaja, te la
+          dejamos lista con tus productos o tus servicios.</p>
+        <p class="sub no-trial">Cuéntanos tu negocio y te la dejamos lista con tus productos, tus servicios y tu forma de trabajar.
+          Sin compromiso.</p>
+        <div class="cta-row">
+            <a class="btn magnet only-trial" data-trial href="/#contacto">Probar NirKanA gratis <svg class="ic"><use href="#i-arrow"/></svg></a>
+            <a class="btn ghost only-trial" href="/#contacto">Quiero NirKanA</a>
+            <a class="btn magnet no-trial" href="/#contacto">Quiero NirKanA <svg class="ic"><use href="#i-arrow"/></svg></a>
+            <a class="btn ghost no-trial only-demo" data-demo="hosteleria" href="/demo/">Ver la demo</a>
+          </div>
+        <p class="mail-line" data-email-wrap hidden><span>O escríbenos a <a data-email data-subject="Consulta desde la guía de arqueo y cierre de caja"></a></span></p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <div class="wrap foot-grid">
+      <div class="foot-brand">
+        <a class="brand" href="/" aria-label="NirKanA, inicio">
+          <img class="logo" src="/assets/simbolo.svg" alt="" width="34" height="34"><span class="name">NirKanA</span>
+        </a>
+        <p>El gestor de ventas para restaurantes, peluquerías, tiendas, autónomos y tiendas online. Cobra, gestiona y decide con
+          datos.</p>
+      </div>
+      <nav aria-label="Producto">
+        <b>Producto</b>
+        <a href="/#funciones">Funciones</a>
+        <a href="/#recorrido">La app por dentro</a>
+        <a href="/#calculadora">Calculadora</a>
+        <a href="/#seguridad">Seguridad</a>
+        <a href="/guias/">Guías</a>
+      </nav>
+      <nav aria-label="Sectores">
+        <b>Sectores</b>
+        <a href="/tpv-restaurantes/">Restaurantes</a>
+        <a href="/programa-peluquerias-estetica/">Peluquerías y estética</a>
+        <a href="/tpv-tiendas/">Tiendas</a>
+        <a href="/programa-facturacion-autonomos/">Autónomos</a>
+        <a href="/tpv-tienda-online/">Tiendas online</a>
+      </nav>
+      <nav aria-label="Contacto y legal">
+        <b>Contacto</b>
+        <a class="only-trial" data-trial href="/#contacto">Probar gratis</a>
+        <a class="only-demo" data-demo="hosteleria" href="/demo/">Ver la demo</a>
+        <a href="/#contacto">Contactar</a>
+        <a href="/#preguntas">Preguntas frecuentes</a>
+        <a href="/privacidad.html">Aviso de privacidad</a>
+      </nav>
+    </div>
+    <div class="wrap foot-bottom">
+      <span>© 2026 NirKanA</span>
+      <span>Sin cookies ni publicidad.</span>
+    </div>
+  </footer>
+</body>
+</html>

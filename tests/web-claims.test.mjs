@@ -9,7 +9,11 @@ import { resolve, dirname } from 'node:path';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const docs = resolve(root, 'docs');
-const PAGES = ['', 'tpv-restaurantes/', 'programa-peluquerias-estetica/', 'tpv-tiendas/', 'programa-facturacion-autonomos/', 'tpv-tienda-online/'];
+const SECTORS = ['tpv-restaurantes/', 'programa-peluquerias-estetica/', 'tpv-tiendas/', 'programa-facturacion-autonomos/', 'tpv-tienda-online/'];
+// Las guías (ops/guias.py) pasan por las mismas comprobaciones que la portada y los sectores.
+const GUIDES = ['guias/', 'guias/que-es-un-tpv/', 'guias/arqueo-y-cierre-de-caja/', 'guias/control-de-stock-en-una-tienda/', 'guias/agenda-de-citas-para-peluquerias/',
+                'guias/que-debe-llevar-una-factura/', 'guias/documentos-del-trimestre-para-la-gestoria/', 'guias/calcular-el-margen-de-un-producto/'];
+const PAGES = ['', ...SECTORS, ...GUIDES];
 const read = (rel) => readFileSync(resolve(docs, rel, rel.endsWith('.html') ? '' : 'index.html'), 'utf8');
 const pages = PAGES.map((p) => [p || 'index.html', p ? read(p) : readFileSync(resolve(docs, 'index.html'), 'utf8')]);
 
