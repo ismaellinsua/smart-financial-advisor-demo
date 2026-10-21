@@ -6,10 +6,11 @@
   <meta http-equiv="Content-Security-Policy"
         content="default-src 'self'; img-src 'self' data: https://*.goatcounter.com https://nirkana-prueba.onrender.com; frame-src https://nirkana-prueba.onrender.com; style-src 'self'; script-src 'self'; connect-src 'self' https://formspree.io; form-action https://formspree.io; base-uri 'none'; object-src 'none'; upgrade-insecure-requests">
   <meta name="referrer" content="strict-origin-when-cross-origin">
-  <title>NirKanA · Soluciones digitales para negocios, autónomos y pymes</title>
-  <meta name="description" content="Desarrollamos herramientas digitales para autónomos, comercios y pymes: TPV, caja, stock, facturas y agenda para hostelería, belleza y estética, comercio y servicios.">
-  <meta property="og:title" content="NirKanA · Soluciones digitales para hacer crecer tu negocio">
-  <meta property="og:description" content="Herramientas digitales para autónomos, comercios y pymes: ventas, caja, stock, facturas y agenda en un solo sitio.">
+  <title>NirKanA · TPV, caja, citas y facturas para tu negocio</title>
+  <meta name="description" content="TPV, caja, stock, citas y facturas para bares, tiendas, peluquerías y autónomos, desde el móvil. Pruébalo 24 horas gratis, sin tarjeta.">
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
+  <meta property="og:title" content="NirKanA · TPV, caja, citas y facturas para tu negocio">
+  <meta property="og:description" content="TPV, caja, stock, citas y facturas para bares, tiendas, peluquerías y autónomos. Pruébalo 24 horas gratis, sin tarjeta.">
   <meta property="og:type" content="website">
   <meta property="og:image" content="https://nirkana.es/assets/img/og.jpg">
   <meta property="og:image:width" content="1200">
@@ -19,6 +20,10 @@
   <meta property="og:site_name" content="NirKanA">
   <meta property="og:url" content="https://nirkana.es/">
   <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="NirKanA · TPV, caja, citas y facturas para tu negocio">
+  <meta name="twitter:description" content="TPV, caja, stock, citas y facturas para bares, tiendas, peluquerías y autónomos. Pruébalo 24 horas gratis, sin tarjeta.">
+  <meta name="twitter:image" content="https://nirkana.es/assets/img/og.jpg">
+  <meta name="twitter:image:alt" content="Resumen de ventas de NirKanA">
   <meta name="theme-color" content="#0B1B33">
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
@@ -27,6 +32,9 @@
   <script src="assets/site.js" defer></script>
 
   <link rel="canonical" href="https://nirkana.es/">
+  <script type="application/ld+json">
+  {"@context": "https://schema.org", "@type": "WebSite", "name": "NirKanA", "alternateName": "Nirkana", "url": "https://nirkana.es/", "inLanguage": "es", "publisher": {"@type": "Organization", "name": "NirKanA", "url": "https://nirkana.es/"}}
+  </script>
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -51,6 +59,7 @@
 </head>
 <body>
   <svg class="sprite" aria-hidden="true" focusable="false">
+    <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></symbol>
     <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
     <symbol id="i-x" viewBox="0 0 24 24"><path d="M7 7l10 10M17 7L7 17"/></symbol>
     <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
@@ -92,6 +101,7 @@
         <a href="#demostracion">Demostración</a>
         <a href="#recorrido">La app</a>
         <a href="#precio">Precio</a>
+        <a href="/guias/">Guías</a>
         <a href="#preguntas">Preguntas</a>
         <a class="login" id="app-link" href="#" hidden>Entrar</a>
       </nav>
@@ -684,6 +694,31 @@
       </div>
     </section>
 
+    <section id="guias">
+      <div class="wrap">
+        <div class="head" data-reveal>
+          <p class="eyebrow">Guías</p>
+          <h2>Guías para llevar mejor tu negocio</h2>
+          <p class="sub">Explicaciones claras, con ejemplos y listas de comprobación: cobrar, cuadrar la caja, controlar el stock, organizar citas y tener las facturas en orden.</p>
+        </div>
+        <div class="feats">
+          <article class="feat tilt" data-reveal><span class="ico"><svg class="ic"><use href="#i-device"/></svg></span>
+            <h3><a href="/guias/que-es-un-tpv/">Qué es un TPV y cómo elegir el de tu negocio</a></h3><p>Qué hace un TPV, en qué se diferencia de un datáfono y ocho preguntas para elegir bien.</p></article>
+          <article class="feat tilt" data-reveal><span class="ico"><svg class="ic"><use href="#i-receipt"/></svg></span>
+            <h3><a href="/guias/arqueo-y-cierre-de-caja/">Arqueo y cierre de caja: cómo hacerlo paso a paso</a></h3><p>Los siete pasos para cuadrar la caja, un ejemplo con números y qué hacer si no cuadra.</p></article>
+          <article class="feat tilt" data-reveal><span class="ico"><svg class="ic"><use href="#i-box"/></svg></span>
+            <h3><a href="/guias/control-de-stock-en-una-tienda/">Control de stock en una tienda: método sencillo en 5 pasos</a></h3><p>Cinco pasos para no quedarte sin lo que más vendes, con el cálculo del stock mínimo.</p></article>
+          <article class="feat tilt" data-reveal><span class="ico"><svg class="ic"><use href="#i-calendar"/></svg></span>
+            <h3><a href="/guias/agenda-de-citas-para-peluquerias/">Agenda de citas para peluquerías: sin solapes ni plantones</a></h3><p>Cinco principios para una agenda sin solapes y un mensaje de WhatsApp para confirmar citas.</p></article>
+          <article class="feat tilt" data-reveal><span class="ico"><svg class="ic"><use href="#i-briefcase"/></svg></span>
+            <h3><a href="/guias/que-debe-llevar-una-factura/">Qué debe llevar una factura: lista de comprobación</a></h3><p>Los datos de una factura completa, cuándo basta un ticket y los errores que más se repiten.</p></article>
+          <article class="feat tilt" data-reveal><span class="ico"><svg class="ic"><use href="#i-download"/></svg></span>
+            <h3><a href="/guias/documentos-del-trimestre-para-la-gestoria/">Documentos del trimestre para tu gestoría: lista y rutina</a></h3><p>La lista de documentos del trimestre y una rutina semanal de quince minutos.</p></article>
+        </div>
+        <p class="guides-all" data-reveal><a class="btn ghost" href="/guias/">Ver todas las guías <svg class="ic"><use href="#i-arrow"/></svg></a></p>
+      </div>
+    </section>
+
     <!-- ============================================================ CONTACT -->
     <section id="contacto" class="contact">
       <div class="wrap">
@@ -782,6 +817,7 @@
         <a href="#recorrido">La app por dentro</a>
         <a href="#precio">Precio</a>
         <a href="#seguridad">Seguridad</a>
+        <a href="/guias/">Guías</a>
       </nav>
       <nav aria-label="Contacto y legal">
         <b>Contacto</b>

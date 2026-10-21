@@ -9,6 +9,7 @@ frecuentes y contacto. Está en esta carpeta `docs/`:
 | `demo/index.html` | La demo: NirKanA entera con un negocio de ejemplo, en un solo archivo (ver «La demo») |
 | `privacidad.html` | Aviso de privacidad (RGPD) |
 | `tpv-restaurantes/`, `programa-peluquerias-estetica/`, `tpv-tiendas/`, `programa-facturacion-autonomos/`, `tpv-tienda-online/` | Una página por sector, para buscadores (están en `sitemap.xml`; `tests/web-claims.test.mjs` revisa que digan solo lo que la app hace) |
+| `guias/` | El índice de guías y una página por guía (cómo elegir un TPV, cuadrar la caja, controlar el stock…). **Se generan** con `python ops/guias.py` a partir de `ops/guias_texto.py`: no se editan a mano (ver «Guías y posicionamiento en buscadores») |
 | `404.html` | Lo que ve quien abre una dirección que no existe |
 | `assets/site.css` | Diseño (claro y oscuro, efectos 3D) |
 | `assets/site.js` | Contacto, formulario y efectos 3D |
@@ -152,6 +153,32 @@ gratis de Render se nota) y cuántas acaban en `prueba-lenta`; y al final cuánt
 
 **Activarlo es un cambio de una línea**, pero el código **tiene que ser el de una cuenta que ya hayas creado**: si apuntara a un
 código sin registrar, esas cifras caerían en la cuenta de quien lo registre después. Por eso no se pone hasta que la cuenta exista.
+
+## Guías y posicionamiento en buscadores
+
+Una web nueva no sale en Google por tener las etiquetas bien (eso ya lo tenía: Lighthouse da 100 en SEO) sino porque hay páginas que
+responden a lo que la gente busca, enlazadas entre sí y rastreables. Por eso hay **siete guías** (`guias/`) más su índice, cada una
+con un tema que busca un negocio pequeño: qué es un TPV, arqueo y cierre de caja, control de stock, agenda de citas para
+peluquerías, qué debe llevar una factura, documentos del trimestre para la gestoría y cómo calcular el margen de un producto.
+
+- **Cómo está hecho cada guía:** título y descripción propios, migas de pan, datos estructurados (`BreadcrumbList`, `Article` y
+  `FAQPage` con las mismas preguntas que se ven), índice «En esta guía», una captura real de la app, la prueba de 24 horas
+  (arriba, en el cuerpo y al final), el correo visible, enlaces a su sector y a otras guías, y el aviso de que son informativas
+  cuando tocan facturas o la gestoría.
+- **Lo que dicen de NirKanA es solo lo que ya dicen la portada y los sectores** (y lo que NirKanA no hace hoy: sin recordatorios
+  automáticos, sin retenciones de IRPF, sin reservas de clientes). `tests/web-claims.test.mjs` las revisa igual que a las demás
+  páginas (palabras prohibidas, imágenes con tamaño, enlaces que existen, preguntas visibles…) y `tests/web-guias.test.mjs`
+  comprueba lo propio de las guías (índice con anclas válidas, más de 600 palabras cada una, prueba y correo, enlaces cruzados).
+- **Añadir o cambiar una guía:** edita `ops/guias_texto.py` (los textos) y ejecuta `python ops/guias.py`; reescribe las páginas, el
+  índice y `sitemap.xml`. `python ops/guias.py --check` dice si lo publicado está al día (también lo comprueba `pytest`). La
+  cabecera, el pie y los iconos se copian de `tpv-tiendas/`, así que un cambio de menú o el «Aviso legal» de `ops/legal.py` también
+  llegan a las guías al regenerarlas. Si una guía nueva debe pasar las pruebas, añádela a `GUIDES` de `tests/web-claims.test.mjs`.
+- **Cuándo aparecerán en Google:** no depende de la web sino de que los buscadores la descubran. Eso se acelera dando de alta la web
+  en Google Search Console y Bing Webmaster Tools, y con enlaces desde otros sitios (TikTok, directorios, gestorías). Los pasos, en
+  `ops/SEO.md`. Nadie puede prometer una posición: lo que sí se puede asegurar es que no falte nada técnico.
+- **Cómo saber si funciona:** en `https://nirkana.goatcounter.com` salen las páginas más vistas (las guías con su dirección), los
+  sitios de los que llegan (google.com, bing.com…) y los eventos `prueba-abierta`, `contacto-email`, `contacto-copiar` y
+  `contacto-enviado`. Search Console añade qué se busca y en qué posición sales.
 
 ## Las capturas y los textos: solo lo que la app hace
 
