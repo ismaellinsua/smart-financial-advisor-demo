@@ -10,7 +10,7 @@ está en la web de lo que depende de cuentas tuyas (Google, Bing, redes), que qu
 | Etiquetas básicas (título, descripción, canonical, Open Graph, Twitter, idioma, icono) | En todas las páginas; títulos de menos de 70 caracteres y descripciones propias, con la prueba de 24 horas |
 | Datos estructurados (JSON-LD) | `SoftwareApplication`, `Organization`, `WebSite`, `FAQPage` en la portada; `BreadcrumbList` + `FAQPage` en cada sector; `BreadcrumbList` + `Article` + `FAQPage` en cada guía; `CollectionPage` en el índice de guías |
 | `robots.txt` y `sitemap.xml` | Mapa con 14 páginas (portada, 5 sectores, índice de guías y 7 guías), con fecha de última modificación. La demo, la pantalla «demostración finalizada», el aviso de privacidad y el 404 no se indexan |
-| Contenido que responde a búsquedas | 7 guías de 600 a 1.000 palabras, con ejemplos y listas de comprobación, enlazadas desde la portada, el menú, el pie y cada sector |
+| Contenido que responde a búsquedas | 7 guías de unas 650 a 1.100 palabras, con ejemplos y listas de comprobación, enlazadas desde la portada, el menú, el pie y cada sector |
 | Enlaces internos | Todas las páginas enlazan al índice de guías; cada guía enlaza a su sector y a otras dos guías; cada sector enlaza a tres guías |
 | Velocidad y accesibilidad | Lighthouse (móvil simulado, copia local, 21/10/2026): 100 en SEO, accesibilidad y buenas prácticas en todas las guías; rendimiento 99–100. axe-core: 0 infracciones en 14 páginas × móvil/escritorio × claro/oscuro |
 | Conversión | «Probar gratis 24 horas» en la cabecera, en el cuerpo y al final de cada guía y sector; el correo a la vista (con el asunto de la página de origen); eventos de medición sin cookies |
