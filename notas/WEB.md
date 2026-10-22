@@ -1,7 +1,8 @@
 # Web de NirKanA
 
 Página de presentación para ofrecer NirKanA a los clientes: soluciones por tipo de negocio, funciones, preguntas
-frecuentes y contacto. Está en esta carpeta `docs/`:
+frecuentes y contacto. Está en la carpeta `docs/` (lo único que se publica; este documento y las demás notas internas viven en
+`notas/`, **fuera** de `docs/`, para que no salgan en nirkana.es):
 
 | Archivo | Qué es |
 |---|---|
