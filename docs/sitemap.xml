@@ -2,31 +2,39 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://nirkana.es/</loc>
-    <lastmod>2026-10-21</lastmod>
+    <lastmod>2026-10-22</lastmod>
   </url>
   <url>
     <loc>https://nirkana.es/tpv-restaurantes/</loc>
-    <lastmod>2026-10-21</lastmod>
+    <lastmod>2026-10-22</lastmod>
   </url>
   <url>
     <loc>https://nirkana.es/programa-peluquerias-estetica/</loc>
-    <lastmod>2026-10-21</lastmod>
+    <lastmod>2026-10-22</lastmod>
   </url>
   <url>
     <loc>https://nirkana.es/tpv-tiendas/</loc>
-    <lastmod>2026-10-21</lastmod>
+    <lastmod>2026-10-22</lastmod>
   </url>
   <url>
     <loc>https://nirkana.es/programa-facturacion-autonomos/</loc>
-    <lastmod>2026-10-21</lastmod>
+    <lastmod>2026-10-22</lastmod>
   </url>
   <url>
     <loc>https://nirkana.es/tpv-tienda-online/</loc>
-    <lastmod>2026-10-21</lastmod>
+    <lastmod>2026-10-22</lastmod>
+  </url>
+  <url>
+    <loc>https://nirkana.es/programa-gestion-pequenas-empresas/</loc>
+    <lastmod>2026-10-22</lastmod>
   </url>
   <url>
     <loc>https://nirkana.es/guias/</loc>
-    <lastmod>2026-10-21</lastmod>
+    <lastmod>2026-10-22</lastmod>
+  </url>
+  <url>
+    <loc>https://nirkana.es/herramientas/</loc>
+    <lastmod>2026-10-22</lastmod>
   </url>
   <url>
     <loc>https://nirkana.es/guias/que-es-un-tpv/</loc>
@@ -34,7 +42,11 @@
   </url>
   <url>
     <loc>https://nirkana.es/guias/arqueo-y-cierre-de-caja/</loc>
-    <lastmod>2026-10-21</lastmod>
+    <lastmod>2026-10-22</lastmod>
+  </url>
+  <url>
+    <loc>https://nirkana.es/guias/comandas-y-pantalla-de-cocina-en-un-bar/</loc>
+    <lastmod>2026-10-22</lastmod>
   </url>
   <url>
     <loc>https://nirkana.es/guias/control-de-stock-en-una-tienda/</loc>
@@ -54,6 +66,26 @@
   </url>
   <url>
     <loc>https://nirkana.es/guias/calcular-el-margen-de-un-producto/</loc>
-    <lastmod>2026-10-21</lastmod>
+    <lastmod>2026-10-22</lastmod>
+  </url>
+  <url>
+    <loc>https://nirkana.es/guias/stock-de-tienda-online-y-tienda-fisica/</loc>
+    <lastmod>2026-10-22</lastmod>
+  </url>
+  <url>
+    <loc>https://nirkana.es/guias/devoluciones-y-cambios-en-una-tienda/</loc>
+    <lastmod>2026-10-22</lastmod>
+  </url>
+  <url>
+    <loc>https://nirkana.es/guias/como-elegir-una-impresora-de-tickets/</loc>
+    <lastmod>2026-10-22</lastmod>
+  </url>
+  <url>
+    <loc>https://nirkana.es/herramientas/calculadora-de-arqueo-de-caja/</loc>
+    <lastmod>2026-10-22</lastmod>
+  </url>
+  <url>
+    <loc>https://nirkana.es/herramientas/calculadora-de-margen/</loc>
+    <lastmod>2026-10-22</lastmod>
   </url>
 </urlset>

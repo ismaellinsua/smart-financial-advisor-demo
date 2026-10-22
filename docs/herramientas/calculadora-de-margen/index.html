@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="es" class="js has-demo has-trial">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; img-src 'self' data: https://*.goatcounter.com https://nirkana-prueba.onrender.com; frame-src https://nirkana-prueba.onrender.com; style-src 'self'; script-src 'self'; connect-src 'self' https://formspree.io; form-action https://formspree.io; base-uri 'none'; object-src 'none'; upgrade-insecure-requests">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <title>Calculadora de margen, recargo y precio de venta con IVA · NirKanA</title>
+  <meta name="description" content="Calcula el precio de venta con IVA a partir del coste y del margen que quieres, o el margen de un precio que ya tienes. Con el recargo y lo que cuesta un descuento.">
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
+  <meta property="og:title" content="Calculadora de margen, recargo y precio de venta con IVA · NirKanA">
+  <meta property="og:description" content="Calcula el precio de venta con IVA a partir del coste y del margen que quieres, o el margen de un precio que ya tienes. Con el recargo y lo que cuesta un descuento.">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://nirkana.es/assets/img/og.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Pantalla Resultados de NirKanA con las ventas, el coste de lo vendido, el margen bruto, los gastos y el beneficio neto">
+  <meta property="og:locale" content="es_ES">
+  <meta property="og:site_name" content="NirKanA">
+  <meta property="og:url" content="https://nirkana.es/herramientas/calculadora-de-margen/">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Calculadora de margen, recargo y precio de venta con IVA · NirKanA">
+  <meta name="twitter:description" content="Calcula el precio de venta con IVA a partir del coste y del margen que quieres, o el margen de un precio que ya tienes. Con el recargo y lo que cuesta un descuento.">
+  <meta name="twitter:image" content="https://nirkana.es/assets/img/og.jpg">
+  <meta name="twitter:image:alt" content="Pantalla Resultados de NirKanA con las ventas, el coste de lo vendido, el margen bruto, los gastos y el beneficio neto">
+  <meta name="theme-color" content="#0B1B33">
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+  <link rel="stylesheet" href="/assets/site.css">
+  <noscript><link rel="stylesheet" href="/assets/sin-js.css"></noscript>
+  <script src="/assets/site.js" defer></script>
+  <script src="/assets/herramientas.js" defer></script>
+  <link rel="canonical" href="https://nirkana.es/herramientas/calculadora-de-margen/">
+  <script type="application/ld+json">
+  {"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "NirKanA", "item": "https://nirkana.es/"}, {"@type": "ListItem", "position": 2, "name": "Herramientas", "item": "https://nirkana.es/herramientas/"}, {"@type": "ListItem", "position": 3, "name": "Calculadora de margen y precio de venta", "item": "https://nirkana.es/herramientas/calculadora-de-margen/"}]}
+  </script>
+  <script type="application/ld+json">
+  {"@context": "https://schema.org", "@type": "WebApplication", "name": "Calculadora de margen y precio de venta", "url": "https://nirkana.es/herramientas/calculadora-de-margen/", "description": "Calcula el precio de venta con IVA a partir del coste y del margen que quieres, o el margen de un precio que ya tienes. Con el recargo y lo que cuesta un descuento.", "applicationCategory": "BusinessApplication", "operatingSystem": "Cualquiera, en el navegador", "inLanguage": "es", "isAccessibleForFree": true, "offers": {"@type": "Offer", "price": "0", "priceCurrency": "EUR"}, "publisher": {"@type": "Organization", "name": "NirKanA", "url": "https://nirkana.es/"}}
+  </script>
+  <script type="application/ld+json">
+  {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "¿Cuál es la diferencia entre margen y recargo?", "acceptedAnswer": {"@type": "Answer", "text": "El margen es la parte del precio sin IVA que te queda como beneficio; el recargo es lo que añades sobre el coste. Con un coste de 10 € y un precio de 14 €, el recargo es del 40 % y el margen del 28,6 %."}}, {"@type": "Question", "name": "¿Cómo calculo el precio de venta a partir del coste?", "acceptedAnswer": {"@type": "Answer", "text": "Divide el coste entre 1 menos el margen que quieres (en forma decimal) y suma el IVA. Con un coste de 10 € y un margen del 40 %: 10 ÷ 0,6 = 16,67 € sin IVA, y 20,17 € con un 21 % de IVA."}}, {"@type": "Question", "name": "¿El margen se calcula con o sin IVA?", "acceptedAnswer": {"@type": "Answer", "text": "Sin IVA: el IVA que cobras no es tuyo, lo ingresas después. Si tu precio de venta ya lleva IVA, quítaselo antes de calcular el margen; la calculadora lo hace si eliges «con IVA incluido»."}}, {"@type": "Question", "name": "¿Qué margen debería tener mi producto?", "acceptedAnswer": {"@type": "Answer", "text": "Depende de tu sector, de tus gastos fijos y de lo que valora tu cliente: no hay una cifra válida para todos. Lo útil es comprobar que el margen de cada producto, sumado, cubre tus gastos (alquiler, sueldos, suministros) y deja beneficio."}}, {"@type": "Question", "name": "¿Cuánto me cuesta un descuento?", "acceptedAnswer": {"@type": "Answer", "text": "Más de lo que parece: con un margen del 40 %, un descuento del 20 % deja el margen en el 25 % y obliga a vender el doble de unidades para ganar lo mismo. Pon el descuento en la calculadora para ver tu caso."}}, {"@type": "Question", "name": "¿Se guarda lo que escribo?", "acceptedAnswer": {"@type": "Answer", "text": "No. Los cálculos se hacen en tu navegador: no se envía ni se guarda nada."}}]}
+  </script>
+</head>
+<body class="subpage">
+  <svg class="sprite" aria-hidden="true" focusable="false">
+    <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M7 7l10 10M17 7L7 17"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+    <symbol id="i-zoom" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-5-5M11 8v6M8 11h6"/></symbol>
+    <symbol id="i-device" viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="2.5"/><path d="M11 18h2"/></symbol>
+    <symbol id="i-receipt" viewBox="0 0 24 24"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2zM9 7h6M9 11h6M9 15h4"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 2.5l8 3v6c0 5-3.4 8.7-8 10.5-4.6-1.8-8-5.5-8-10.5v-6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></symbol>
+    <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M7 19a5 5 0 1 1 .9-9.9A6.5 6.5 0 0 1 20 11a4 4 0 0 1-1 8z"/></symbol>
+    <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="7" r="4"/><path d="M2 21v-1.5A4.5 4.5 0 0 1 6.5 15h5a4.5 4.5 0 0 1 4.5 4.5V21M16 3.2a4 4 0 0 1 0 7.6M22 21v-1.5a4.5 4.5 0 0 0-3-4.2"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4.5" y="10.5" width="15" height="11" rx="2"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></symbol>
+    <symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6h12M9 12h12M9 18h12M4 6h.01M4 12h.01M4 18h.01"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M4 21h16"/></symbol>
+    <symbol id="i-chart" viewBox="0 0 24 24"><path d="M3 3v18h18M7 15l4-4 3 3 6-6"/></symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4zM10 21h4"/></symbol>
+    <symbol id="i-utensils" viewBox="0 0 24 24"><path d="M5 2v7a3 3 0 0 0 6 0V2M8 2v20M18 2c-2 2-3 5-3 9h3v11"/></symbol>
+    <symbol id="i-bag" viewBox="0 0 24 24"><path d="M5 7.5h14l-1 13.5H6zM9 7.5a3 3 0 0 1 6 0"/></symbol>
+    <symbol id="i-briefcase" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8.5 7V4.5h7V7M3 13h18"/></symbol>
+    <symbol id="i-box" viewBox="0 0 24 24"><path d="M21 8l-9-5-9 5 9 5zM3 8v8.5l9 5 9-5V8M12 13v8.5"/></symbol>
+    <symbol id="i-chat" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+    <symbol id="i-scissors" viewBox="0 0 24 24"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M8.1 7.9L20 20M8.1 16.1L20 4"/></symbol>
+    <symbol id="i-building" viewBox="0 0 24 24"><path d="M4 21V4a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v17M15 9h4a1 1 0 0 1 1 1v11M2 21h20M8 7h3M8 11h3M8 15h3"/></symbol>
+    <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3l2.2 6.3L21 12l-6.8 2.7L12 21l-2.2-6.3L3 12l6.8-2.7z"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5l11 7-11 7z"/></symbol>
+    <symbol id="i-wifi-off" viewBox="0 0 24 24"><path d="M3 3l18 18M8.5 16.5a5 5 0 0 1 7 0M5 13a10 10 0 0 1 4-2.6M19 13a10 10 0 0 0-2.4-1.8M2 9.5a15 15 0 0 1 4.6-2.8M22 9.5A15 15 0 0 0 11 5.1M12 20h.01"/></symbol>
+  </svg>
+
+  <a class="skip" href="#contenido">Saltar al contenido</a>
+
+  <header class="top">
+    <div class="wrap bar">
+      <a class="brand" href="/" aria-label="NirKanA, inicio">
+        <img class="logo" src="/assets/simbolo.svg" alt="" width="34" height="34"><span class="name">NirKanA</span>
+      </a>
+      <nav aria-label="Principal" id="menu">
+        <a href="/#soluciones">Soluciones</a>
+        <a href="/#funciones">Funciones</a>
+        <a href="/#recorrido">La app</a>
+        <a class="only-demo" data-demo="tienda" href="/demo/">Demo</a>
+        <a href="/#calculadora">Calculadora</a>
+        <a href="/guias/">Guías</a>
+        <a href="/#preguntas">Preguntas</a>
+        <a class="login" id="app-link" href="#" hidden>Entrar</a>
+      </nav>
+      <div class="bar-end">
+        <a class="btn small ghost magnet only-demo demo-head" data-demo="tienda" href="/demo/">Ver la demo</a>
+        <a class="btn small magnet only-trial" data-trial href="/#contacto">Probar gratis</a>
+        <a class="btn small magnet no-trial" href="/#contacto">Quiero NirKanA</a>
+        <button class="menu-btn" type="button" aria-controls="menu" aria-expanded="false" aria-label="Abrir el menú">
+          <svg class="ic"><use href="#i-menu"/></svg></button>
+      </div>
+    </div>
+  </header>
+
+  <main id="contenido">
+    <article class="guide tool-page">
+      <header class="guide-head">
+        <div class="wrap narrow">
+          <nav class="crumbs" aria-label="Estás en"><a href="/">NirKanA</a> <span aria-hidden="true">›</span> <a href="/herramientas/">Herramientas</a> <span aria-hidden="true">›</span> Calculadora de margen y precio de venta</nav>
+          <p class="eyebrow">Herramienta gratis</p>
+          <h1>Calculadora de margen y precio de venta</h1>
+          <p class="lead">Pon lo que te cuesta un producto y el margen que quieres ganar, y te da el precio con IVA. O al revés: pon el precio al que vendes y mira el margen que te deja, con el recargo y el efecto de un descuento.</p>
+          <p class="guide-meta">Gratis · Sin registro · No se envía ni se guarda nada</p>
+        </div>
+      </header>
+      <div class="wrap tool-wrap">
+      <section class="tool" aria-label="Calculadora de margen y precio de venta">
+        <noscript><p class="callout"><strong>Esta calculadora necesita JavaScript.</strong> Si no puedes activarlo, usa la plantilla de Excel del arqueo de caja o haz las cuentas a mano con las fórmulas de más abajo.</p></noscript>
+        <form class="tc" data-calc="margen" data-modo="margen" autocomplete="off" novalidate>
+          <div class="tc-grid">
+            <fieldset class="tc-block">
+              <legend>1. Tus datos</legend>
+              <div class="seg" role="radiogroup" aria-label="Qué quieres calcular">
+                <input type="radio" id="modo-margen" name="modo" value="margen" checked><label for="modo-margen">Quiero un margen</label>
+                <input type="radio" id="modo-precio" name="modo" value="precio"><label for="modo-precio">Tengo el precio</label>
+              </div>
+              <div class="tc-field"><label for="m-coste">Coste de cada unidad, sin IVA <span class="unit">(€)</span></label><input id="m-coste" type="text" inputmode="decimal" autocomplete="off" placeholder="10,00" data-in="coste"></div>
+              <div data-solo="margen"><div class="tc-field"><label for="m-margen">Margen que quieres ganar <span class="unit">(%)</span></label><input id="m-margen" type="text" inputmode="decimal" autocomplete="off" placeholder="40" data-in="margen"></div></div>
+              <div data-solo="precio" hidden>
+                <div class="tc-field"><label for="m-precio">Precio de venta <span class="unit">(€)</span></label><input id="m-precio" type="text" inputmode="decimal" autocomplete="off" placeholder="24,99" data-in="precio"></div>
+                <div class="tc-field"><label for="m-incluido">Ese precio</label>
+                  <select id="m-incluido" data-in="iva-incluido"><option value="si" selected>Lleva el IVA incluido</option><option value="no">Es sin IVA</option></select></div>
+              </div>
+              <div class="tc-field"><label for="m-iva">IVA del producto</label>
+                <select id="m-iva" data-in="iva"><option value="21" selected>21 % (general)</option><option value="10">10 % (reducido)</option><option value="4">4 % (superreducido)</option><option value="0">0 % (exento)</option></select></div>
+              <div class="tc-field"><label for="m-descuento">Descuento que quieres probar, opcional <span class="unit">(%)</span></label><input id="m-descuento" type="text" inputmode="decimal" autocomplete="off" placeholder="0" data-in="descuento"></div>
+              <div class="tc-actions"><button type="reset" class="btn ghost small">Poner a cero</button></div>
+            </fieldset>
+            <div class="tc-block tc-results">
+              <p class="sr-only" role="status" data-out="resumen"></p>
+              <p class="tc-hint" data-out="aviso">Escribe el coste y el margen que quieres (o el precio de venta) y aquí verás el resultado.</p>
+              <div data-out="resultados" hidden>
+                <dl class="result-cards">
+                  <div class="rc main"><dt>Precio al público, con IVA</dt><dd data-out="pvp"></dd></div>
+                  <div class="rc"><dt>Precio sin IVA</dt><dd data-out="neto"></dd></div>
+                  <div class="rc"><dt>IVA</dt><dd data-out="iva"></dd></div>
+                  <div class="rc"><dt>Beneficio por unidad</dt><dd data-out="beneficio"></dd></div>
+                  <div class="rc"><dt>Margen sobre el precio</dt><dd data-out="margen"></dd></div>
+                  <div class="rc"><dt>Recargo sobre el coste</dt><dd data-out="recargo"></dd></div>
+                </dl>
+                <div class="tc-descuento" data-out="descuento" hidden>
+                  <p class="tc-sub">Con el descuento</p>
+                  <dl class="result-cards small">
+                    <div class="rc"><dt>Precio al público</dt><dd data-out="d-pvp"></dd></div>
+                    <div class="rc"><dt>Beneficio por unidad</dt><dd data-out="d-beneficio"></dd></div>
+                    <div class="rc"><dt>Margen</dt><dd data-out="d-margen"></dd></div>
+                  </dl>
+                  <p class="tc-aviso" data-out="d-texto"></p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </form>
+      </section>
+      </div>
+      <div class="wrap narrow guide-body">
+        <section class="guide-sec" id="formulas">
+          <h2>Las fórmulas, por si quieres hacerlo a mano</h2>
+<ul>
+<li><strong>Precio sin IVA = coste ÷ (1 − margen).</strong> Con un coste de 10 € y un margen del 40 %: 10 ÷ 0,60 = 16,67 €.</li>
+<li><strong>Precio con IVA = precio sin IVA × (1 + IVA).</strong> Con un 21 %: 16,67 × 1,21 = 20,17 €.</li>
+<li><strong>Margen = (precio sin IVA − coste) ÷ precio sin IVA.</strong> Es la parte del precio que te queda.</li>
+<li><strong>Recargo = (precio sin IVA − coste) ÷ coste.</strong> Es lo que añades sobre el coste.</li>
+</ul>
+        </section>
+
+        <section class="guide-sec" id="margen-recargo">
+          <h2>Margen y recargo no son lo mismo</h2>
+<div class="tablewrap compact" role="region" aria-label="Margen frente a recargo" tabindex="0">
+<table>
+<caption>El mismo producto, con un coste de 10 € sin IVA</caption>
+<thead><tr><th scope="col">Precio sin IVA</th><th scope="col">Beneficio</th><th scope="col">Margen</th><th scope="col">Recargo</th></tr></thead>
+<tbody>
+<tr><td>12,00 €</td><td>2,00 €</td><td>16,7 %</td><td>20 %</td></tr>
+<tr><td>14,00 €</td><td>4,00 €</td><td>28,6 %</td><td>40 %</td></tr>
+<tr><td>16,67 €</td><td>6,67 €</td><td>40,0 %</td><td>66,7 %</td></tr>
+<tr><td>20,00 €</td><td>10,00 €</td><td>50,0 %</td><td>100 %</td></tr>
+</tbody>
+</table>
+</div>
+<p>El recargo siempre sale mayor que el margen. Si sumas un 40 % al coste, tu margen real es del 28,6 %, no del 40 %. Por eso conviene decidir con el margen, que es lo que te queda de cada venta.</p>
+        </section>
+
+        <section class="guide-sec" id="iva">
+          <h2>El IVA no es ganancia</h2>
+<p>El IVA que cobras al cliente lo ingresas después: no forma parte de tu margen. Por eso el margen se calcula con el precio sin IVA, y si tu precio de venta ya lleva IVA hay que quitárselo antes de calcular. Los tipos más habituales son el 21 % general, el 10 % reducido y el 4 % superreducido; usa el que corresponde a tu producto y consúltalo con tu gestoría si dudas (en Canarias, Ceuta y Melilla los impuestos son otros).</p>
+        </section>
+
+        <section class="guide-sec" id="descuento">
+          <h2>Lo que cuesta un descuento</h2>
+<p>Un descuento se aplica sobre el precio, pero te quita beneficio. Con un coste de 10 € y un precio de 16,67 € sin IVA (margen del 40 %), un 20 % de descuento deja el precio en 13,33 €, el beneficio en 3,33 € y el margen en el 25 %: ganas la mitad por unidad, así que tendrías que vender el doble para ganar lo mismo. La calculadora lo hace con el descuento que escribas.</p>
+        </section>
+
+        <aside class="guide-cta" aria-label="Probar NirKanA">
+          <p class="cta-title">Que estas cuentas las haga el programa</p>
+          <p class="only-trial">Abre NirKanA 24 horas gratis, sin tarjeta, con un negocio de ejemplo y compruébalo tú. Si te encaja, te lo dejamos listo con tus productos o tus servicios.</p>
+          <p class="no-trial">Cuéntanos tu negocio y te lo dejamos listo con tus productos o tus servicios. Sin compromiso.</p>
+          <div class="cta-row">
+            <a class="btn magnet only-trial" data-trial href="/#contacto">Probar NirKanA gratis <svg class="ic"><use href="#i-arrow"/></svg></a>
+            <a class="btn ghost only-trial" href="/#contacto">Quiero NirKanA</a>
+            <a class="btn magnet no-trial" href="/#contacto">Quiero NirKanA <svg class="ic"><use href="#i-arrow"/></svg></a>
+            <a class="btn ghost no-trial only-demo" data-demo="tienda" href="/demo/">Ver la demo</a>
+          </div>
+          <p class="mail-line" data-email-wrap hidden><span>O escríbenos a <a data-email data-subject="Consulta desde la calculadora de margen"></a></span></p>
+        </aside>
+
+        <section class="guide-sec nk" id="nirkana">
+          <h2>Cómo lo hace NirKanA</h2>
+          <div class="nk-box">
+<ul>
+<li><strong>Cada producto muestra su margen,</strong> y el coste se actualiza solo al recibir pedidos.</li>
+<li><strong>Resultados:</strong> ventas, coste de lo vendido, margen y gastos de cualquier periodo, con el beneficio neto.</li>
+</ul>
+<p>Para que el margen salga exacto, cada producto tiene que tener su coste: se lo pones tú o se actualiza al recibir pedidos de proveedores. Tienes el método completo en la <a href="/guias/calcular-el-margen-de-un-producto/">guía para calcular el margen de un producto</a>.</p>
+            <figure class="shot guide-shot">
+              <img src="/assets/img/shots/resultados-c.webp" width="1200" height="750" alt="Pantalla Resultados de NirKanA con las ventas, el coste de lo vendido, el margen bruto, los gastos y el beneficio neto" loading="lazy">
+              <figcaption>Resultados: ventas, coste de lo vendido, margen y gastos (datos de ejemplo)</figcaption>
+            </figure>
+            <p class="nk-more">Más sobre esto: <a href="/tpv-tiendas/">TPV para tiendas y comercios</a> · <a href="/tpv-tienda-online/">Gestión de tiendas online</a>.</p>
+          </div>
+        </section>
+
+        <section class="guide-sec" id="preguntas">
+          <h2>Preguntas frecuentes</h2>
+        <div class="faq-list">
+          <details>
+            <summary>¿Cuál es la diferencia entre margen y recargo?</summary>
+            <p>El margen es la parte del precio sin IVA que te queda como beneficio; el recargo es lo que añades sobre el coste. Con un coste de 10 € y un precio de 14 €, el recargo es del 40 % y el margen del 28,6 %.</p>
+          </details>
+          <details>
+            <summary>¿Cómo calculo el precio de venta a partir del coste?</summary>
+            <p>Divide el coste entre 1 menos el margen que quieres (en forma decimal) y suma el IVA. Con un coste de 10 € y un margen del 40 %: 10 ÷ 0,6 = 16,67 € sin IVA, y 20,17 € con un 21 % de IVA.</p>
+          </details>
+          <details>
+            <summary>¿El margen se calcula con o sin IVA?</summary>
+            <p>Sin IVA: el IVA que cobras no es tuyo, lo ingresas después. Si tu precio de venta ya lleva IVA, quítaselo antes de calcular el margen; la calculadora lo hace si eliges «con IVA incluido».</p>
+          </details>
+          <details>
+            <summary>¿Qué margen debería tener mi producto?</summary>
+            <p>Depende de tu sector, de tus gastos fijos y de lo que valora tu cliente: no hay una cifra válida para todos. Lo útil es comprobar que el margen de cada producto, sumado, cubre tus gastos (alquiler, sueldos, suministros) y deja beneficio.</p>
+          </details>
+          <details>
+            <summary>¿Cuánto me cuesta un descuento?</summary>
+            <p>Más de lo que parece: con un margen del 40 %, un descuento del 20 % deja el margen en el 25 % y obliga a vender el doble de unidades para ganar lo mismo. Pon el descuento en la calculadora para ver tu caso.</p>
+          </details>
+          <details>
+            <summary>¿Se guarda lo que escribo?</summary>
+            <p>No. Los cálculos se hacen en tu navegador: no se envía ni se guarda nada.</p>
+          </details>
+        </div>
+        </section>
+
+        <section class="guide-sec" id="relacionadas">
+          <h2>Sigue leyendo</h2>
+          <ul class="related"><li><a href="/guias/calcular-el-margen-de-un-producto/">Cómo calcular el margen de un producto y fijar el precio</a> — Margen frente a recargo, la fórmula del precio de venta y lo que cuesta un descuento.</li><li><a href="/guias/control-de-stock-en-una-tienda/">Control de stock en una tienda: método sencillo en 5 pasos</a> — Cinco pasos para no quedarte sin lo que más vendes, con el cálculo del stock mínimo.</li><li><a href="/herramientas/calculadora-de-arqueo-de-caja/">Calculadora de arqueo de caja</a> — Cuenta billetes y monedas en euros, compáralo con lo esperado y ve el descuadre al momento. Con plantilla de Excel.</li></ul>
+        </section>
+      </div>
+    </article>
+
+    <section class="band">
+      <div class="wrap center-cta">
+        <h2>¿Lo vemos con tu negocio?</h2>
+        <p class="sub only-trial">Pruébala gratis 24 horas con un negocio de ejemplo, sin tarjeta. Si te encaja, te la
+          dejamos lista con tus productos o tus servicios.</p>
+        <p class="sub no-trial">Cuéntanos tu negocio y te la dejamos lista con tus productos, tus servicios y tu forma de trabajar.
+          Sin compromiso.</p>
+        <div class="cta-row">
+            <a class="btn magnet only-trial" data-trial href="/#contacto">Probar NirKanA gratis <svg class="ic"><use href="#i-arrow"/></svg></a>
+            <a class="btn ghost only-trial" href="/#contacto">Quiero NirKanA</a>
+            <a class="btn magnet no-trial" href="/#contacto">Quiero NirKanA <svg class="ic"><use href="#i-arrow"/></svg></a>
+            <a class="btn ghost no-trial only-demo" data-demo="tienda" href="/demo/">Ver la demo</a>
+          </div>
+        <p class="mail-line" data-email-wrap hidden><span>O escríbenos a <a data-email data-subject="Consulta desde la calculadora de margen"></a></span></p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <div class="wrap foot-grid">
+      <div class="foot-brand">
+        <a class="brand" href="/" aria-label="NirKanA, inicio">
+          <img class="logo" src="/assets/simbolo.svg" alt="" width="34" height="34"><span class="name">NirKanA</span>
+        </a>
+        <p>El gestor de ventas para restaurantes, peluquerías, tiendas, autónomos y tiendas online. Cobra, gestiona y decide con
+          datos.</p>
+      </div>
+      <nav aria-label="Producto">
+        <b>Producto</b>
+        <a href="/#funciones">Funciones</a>
+        <a href="/#recorrido">La app por dentro</a>
+        <a href="/#calculadora">Calculadora</a>
+        <a href="/#seguridad">Seguridad</a>
+        <a href="/guias/">Guías</a>
+        <a href="/herramientas/">Herramientas</a>
+      </nav>
+      <nav aria-label="Sectores">
+        <b>Sectores</b>
+        <a href="/tpv-restaurantes/">Restaurantes</a>
+        <a href="/programa-peluquerias-estetica/">Peluquerías y estética</a>
+        <a href="/tpv-tiendas/">Tiendas</a>
+        <a href="/programa-facturacion-autonomos/">Autónomos</a>
+        <a href="/tpv-tienda-online/">Tiendas online</a>
+        <a href="/programa-gestion-pequenas-empresas/">Pequeñas empresas</a>
+      </nav>
+      <nav aria-label="Contacto y legal">
+        <b>Contacto</b>
+        <a class="only-trial" data-trial href="/#contacto">Probar gratis</a>
+        <a class="only-demo" data-demo="tienda" href="/demo/">Ver la demo</a>
+        <a href="/#contacto">Contactar</a>
+        <a href="/#preguntas">Preguntas frecuentes</a>
+        <a href="/privacidad.html">Aviso de privacidad</a>
+      </nav>
+    </div>
+    <div class="wrap foot-bottom">
+      <span>© 2026 NirKanA</span>
+      <span>Sin cookies ni publicidad.</span>
+    </div>
+  </footer>
+</body>
+</html>

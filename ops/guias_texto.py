@@ -22,6 +22,7 @@ SECTOR = {
     "tiendas": ("/tpv-tiendas/", "TPV para tiendas y comercios"),
     "autonomos": ("/programa-facturacion-autonomos/", "Programa de facturación para autónomos"),
     "online": ("/tpv-tienda-online/", "Gestión de tiendas online"),
+    "pymes": ("/programa-gestion-pequenas-empresas/", "Programa de gestión para pequeñas empresas"),
 }
 
 # ---------------------------------------------------------------------------------------------------------------- 1
@@ -122,6 +123,8 @@ guide(
     demo="hosteleria",
     sectors=["restaurantes", "tiendas"],
     related=["que-es-un-tpv", "documentos-del-trimestre-para-la-gestoria"],
+    tools=["calculadora-de-arqueo-de-caja"],
+    updated="2026-10-22",
     subject="Consulta desde la guía de arqueo y cierre de caja",
     sections=[
         ("diferencia", "Arqueo y cierre: qué es cada cosa", """
@@ -139,6 +142,7 @@ guide(
 <li><strong>Retira el efectivo que vas a ingresar</strong> y deja el fondo para el día siguiente. Guarda el registro del cierre.</li>
 </ol>
 <p>Las ventas con tarjeta no están en el cajón: se comprueban comparando el total de tarjeta que registra tu TPV con el cierre del datáfono.</p>
+<p>Para el paso de contar y comparar tienes una <a href="/herramientas/calculadora-de-arqueo-de-caja/">calculadora de arqueo de caja</a> gratis, con los billetes y las monedas del euro y una plantilla de Excel para imprimir.</p>
 """),
         ("ejemplo", "Un ejemplo con números", """
 <div class="tablewrap compact" role="region" aria-label="Ejemplo de cuadre de caja" tabindex="0">
@@ -195,6 +199,122 @@ guide(
          "Cuenta de nuevo, repasa las anulaciones, devoluciones y gastos pagados en efectivo, y anota la diferencia tal cual. No metas ni saques dinero para que cuadre sin dejar constancia; si se repite, revisa el turno y la forma de cobrar."),
         ("¿Qué diferencia hay entre arqueo y cierre de caja?",
          "El arqueo es contar el dinero y compararlo con lo que dicen las ventas. El cierre es dar por terminado el turno o el día: fijas el total, anotas el descuadre, retiras el efectivo y guardas el registro."),
+    ],
+)
+
+# ---------------------------------------------------------------------------------------------------------------- 2b
+guide(
+    slug="comandas-y-pantalla-de-cocina-en-un-bar",
+    title="Comandas y pantalla de cocina en un bar o restaurante · NirKanA",
+    description="Qué debe llevar una comanda, cuándo conviene pasar del papel a una pantalla de cocina y cómo coordinar sala y cocina en un bar o restaurante, con los errores más comunes.",
+    h1="Comandas y pantalla de cocina en un bar o restaurante",
+    lead="La comanda es el mensaje que va de la sala a la cocina. Si llega tarde, incompleta o ilegible, se nota en el plato y en la mesa. Aquí tienes cómo ordenarla, con papel o con pantalla.",
+    group="Bares y restaurantes",
+    summary="Qué lleva una comanda bien hecha, papel frente a pantalla de cocina y cinco errores que frenan el servicio.",
+    icon="i-utensils",
+    demo="hosteleria",
+    sectors=["restaurantes"],
+    related=["arqueo-y-cierre-de-caja", "que-es-un-tpv"],
+    published="2026-10-22",
+    subject="Consulta desde la guía de comandas y pantalla de cocina",
+    sections=[
+        ("que-es", "Qué es una comanda y por qué importa", """
+<p>La <strong>comanda</strong> es el pedido de una mesa tal y como llega a la cocina y a la barra: qué se ha pedido, cuántas unidades, con qué cambios y en qué orden debe salir. Parece un papel más, pero de ella dependen tres cosas:</p>
+<ul>
+<li><strong>Que el plato sea el que pidió el cliente,</strong> con su «sin cebolla» o su «poco hecho».</li>
+<li><strong>Que salga en el orden y en el momento adecuados:</strong> los entrantes antes que los principales, y todo lo de una mesa junto.</li>
+<li><strong>Que la cuenta sea correcta:</strong> lo que se cocina es lo que se cobra. Una comanda perdida es un plato que no se cobra o un cliente que espera sin que nadie lo sepa.</li>
+</ul>
+"""),
+        ("que-lleva", "Qué debe llevar una comanda", """
+<p>Sea en papel o en pantalla, una comanda completa lleva siempre lo mismo:</p>
+<ol>
+<li><strong>Mesa o número de pedido,</strong> y cuántos comensales son.</li>
+<li><strong>Hora a la que se toma,</strong> para saber cuánto lleva esperando.</li>
+<li><strong>Quién la toma:</strong> si hay una duda, se sabe a quién preguntar.</li>
+<li><strong>Cada plato con su cantidad,</strong> uno por línea y con el nombre que usa la cocina.</li>
+<li><strong>Cambios y notas junto al plato al que afectan:</strong> «sin cebolla», «para compartir», «poco hecho».</li>
+<li><strong>Alergias e intolerancias bien visibles,</strong> no escondidas entre las notas. Es lo único que no admite letra pequeña ni interpretaciones.</li>
+<li><strong>Orden de salida:</strong> qué sale primero y qué «marcha» después.</li>
+<li><strong>Destino:</strong> si va a la cocina, a la plancha o a la barra.</li>
+</ol>
+<div class="tablewrap compact" role="region" aria-label="Ejemplo de comanda" tabindex="0">
+<table>
+<caption>Ejemplo inventado de una comanda</caption>
+<thead><tr><th scope="col">Mesa 7 · 4 comensales · 21:05</th><th scope="col">Notas</th><th scope="col">Salida</th></tr></thead>
+<tbody>
+<tr><th scope="row">2 × Ensalada de la casa</th><td>Una sin cebolla</td><td>Primero</td></tr>
+<tr><th scope="row">1 × Croquetas caseras (6 uds.)</th><td>Para compartir</td><td>Primero</td></tr>
+<tr><th scope="row">2 × Solomillo</th><td>Uno poco hecho y otro al punto</td><td>Segundo</td></tr>
+<tr><th scope="row">1 × Pasta sin gluten</th><td><strong>Celiaquía</strong></td><td>Segundo</td></tr>
+</tbody>
+</table>
+</div>
+"""),
+        ("papel-o-pantalla", "Papel, impresora de cocina o pantalla de cocina", """
+<p>No hay una opción mejor para todos los locales. Esto es lo que cambia de una a otra:</p>
+<div class="tablewrap" role="region" aria-label="Comparación de formas de pasar las comandas" tabindex="0">
+<table>
+<thead><tr><th scope="col">Forma</th><th scope="col">Cómo funciona</th><th scope="col">Lo bueno</th><th scope="col">Lo que hay que vigilar</th></tr></thead>
+<tbody>
+<tr><th scope="row">Libreta y papel</th><td>El camarero apunta, arranca la hoja y la lleva a la cocina.</td><td>No necesita nada y es inmediata.</td><td>Letra ilegible, hojas que se pierden y viajes de ida y vuelta.</td></tr>
+<tr><th scope="row">Impresora en la cocina</th><td>El pedido se imprime en un ticket en cuanto se envía.</td><td>La cocina recibe un papel claro, sin viajes.</td><td>Papel y mantenimiento: si se atasca o se queda sin papel, el pedido no llega.</td></tr>
+<tr><th scope="row">Pantalla de cocina</th><td>El pedido aparece en una pantalla y la cocina lo marca según avanza.</td><td>Sin papel, y con la hora y el estado de cada plato registrados.</td><td>Hace falta una pantalla y buena conexión en la cocina, y acostumbrar al equipo.</td></tr>
+</tbody>
+</table>
+</div>
+<p>Cuanto mayor es el local, más se nota la diferencia: con pocas mesas y una sola persona sirviendo, el papel funciona; con varias personas pidiendo a la vez y platos que salen por tandas, cada viaje y cada hoja perdida cuestan tiempo.</p>
+"""),
+        ("recorrido", "Un servicio sin gritos: el recorrido de una mesa", """
+<ol>
+<li><strong>Se abre la mesa</strong> con el número de comensales. Así sabes qué mesas están libres, cuáles ocupadas y cuánto llevan.</li>
+<li><strong>Se toma la comanda en la mesa,</strong> no de memoria en la barra: lo apuntas delante del cliente y repites el pedido para confirmarlo.</li>
+<li><strong>Se envía por tandas:</strong> los entrantes ya, y los principales cuando los entrantes estén sobre la mesa. Así los platos no se enfrían esperando.</li>
+<li><strong>La cocina marca el avance:</strong> pendiente, en preparación, listo. La sala sabe qué recoger y cuándo.</li>
+<li><strong>Si el cliente añade algo,</strong> va a la misma mesa y a la misma cuenta, con su hora, para que no se mezcle con lo anterior.</li>
+<li><strong>Se cobra:</strong> la mesa entera o dividida entre varias personas, en efectivo, con tarjeta o mezclando ambas.</li>
+<li><strong>Se libera la mesa</strong> para el siguiente servicio.</li>
+</ol>
+<p>Al terminar el servicio, la caja se cuadra con el método de la <a href="/guias/arqueo-y-cierre-de-caja/">guía de arqueo y cierre de caja</a>.</p>
+"""),
+        ("errores", "Cinco errores que frenan el servicio", """
+<ul>
+<li><strong>Comandas sin orden de salida.</strong> La cocina prepara todo a la vez y el principal llega antes de que se hayan terminado los entrantes.</li>
+<li><strong>Alergias apuntadas «de palabra».</strong> Si no están escritas de forma visible en la comanda, dependen de que alguien se acuerde. Escríbelas siempre, en su propia línea.</li>
+<li><strong>Dos camareros, una mesa y ninguna coordinación.</strong> Cada uno pide lo que oye y se duplican o se olvidan platos. Decide quién abre la mesa y haz que todo lo que se añada vaya a la misma cuenta.</li>
+<li><strong>Cambios de última hora de viva voz.</strong> Si el cliente cambia de idea, el cambio tiene que quedar en la comanda; si no, se cocina lo antiguo y se cobra lo nuevo, o al revés.</li>
+<li><strong>No mirar cuánto lleva esperando cada plato.</strong> La mesa que espera mucho más que las demás es la que acaba llamando al camarero. Ten a la vista el tiempo de cada pedido.</li>
+</ul>
+<div class="callout"><p><strong>Una regla simple:</strong> fija el tiempo máximo que quieres que espere un pedido y revisa cada día qué mesas lo han superado. Si se repite a la misma hora o con el mismo plato, hay un cuello de botella que se puede resolver.</p></div>
+"""),
+        ("coordinar", "Cómo coordinar sala y cocina", """
+<ul>
+<li><strong>Un solo nombre para cada plato.</strong> Que la carta, la comanda y la cocina usen el mismo; evita abreviaturas que solo entiende una persona.</li>
+<li><strong>Un responsable por turno</strong> que reparta las mesas y vigile los tiempos.</li>
+<li><strong>Los platos agotados se avisan a la sala</strong> antes de que alguien los pida.</li>
+<li><strong>Una revisión corta al cerrar:</strong> qué platos han tardado más, qué comandas hubo que corregir y qué mesas se cobraron con descuento.</li>
+</ul>
+"""),
+    ],
+    nirkana="""
+<p>Esto es lo que ya hace NirKanA en un restaurante, un bar o una cafetería:</p>
+<ul>
+<li><strong>Plano de mesas:</strong> ves de un vistazo qué mesas están libres, cuántos comensales hay y lo que queda por cobrar.</li>
+<li><strong>Comandas desde el móvil:</strong> cada camarero pide desde su móvil con su PIN, y varios pueden pedir en la misma mesa a la vez.</li>
+<li><strong>Pantalla de cocina:</strong> la cocina ve los platos en su pantalla, que se actualiza sola, los marca en preparación o listos y ve qué lleva más esperando.</li>
+<li><strong>Cuenta dividida y pago mixto:</strong> cobras la mesa entera o por partes, mezclas efectivo y tarjeta, y el cambio se calcula solo.</li>
+<li><strong>Cierre de caja:</strong> el efectivo se cuenta sin ver lo esperado y, al cerrar, ves el descuadre al momento.</li>
+</ul>
+<p>Hoy las reservas las apunta tu equipo (cliente, hora, comensales y notas): no hay una página pública para que tus clientes reserven solos.</p>
+""",
+    shot=("cocina-c", "Pantalla de cocina de NirKanA con los platos de cada mesa y el tiempo que llevan esperando", "La pantalla de cocina: los platos de cada mesa y lo que llevan esperando"),
+    faq=[
+        ("¿Qué es una pantalla de cocina?",
+         "Es una pantalla en la cocina que muestra los pedidos que llegan de la sala, en lugar de papeles o tickets. Quien cocina marca cada plato como en preparación o listo, y el pedido queda registrado con su hora."),
+        ("¿Hace falta una impresora en la cocina?",
+         "No necesariamente. Con una pantalla de cocina no hace falta imprimir cada comanda. Si tu cocina trabaja mejor con papel, puedes mantener una impresora aparte; antes de comprarla, comprueba que funciona con tu programa y tu dispositivo."),
+        ("¿Pueden pedir varios camareros en la misma mesa?",
+         "Depende del programa. En NirKanA cada camarero pide desde su móvil con su PIN y varios pueden pedir en la misma mesa a la vez."),
     ],
 )
 
@@ -490,6 +610,8 @@ guide(
     demo="online",
     sectors=["online", "tiendas"],
     related=["control-de-stock-en-una-tienda", "que-debe-llevar-una-factura"],
+    tools=["calculadora-de-margen"],
+    updated="2026-10-22",
     subject="Consulta desde la guía de cálculo del margen",
     sections=[
         ("conceptos", "Margen y recargo no son lo mismo", """
@@ -513,6 +635,7 @@ guide(
 </tbody>
 </table>
 </div>
+<p>Si prefieres no hacer la cuenta a mano, la <a href="/herramientas/calculadora-de-margen/">calculadora de margen y precio de venta</a> parte del coste y del margen (o del precio) y añade el IVA y el efecto de un descuento.</p>
 """),
         ("costes", "No olvides los costes que no se ven", """
 <ul>
@@ -550,12 +673,342 @@ guide(
     ],
 )
 
+# ---------------------------------------------------------------------------------------------------------------- 8
+guide(
+    slug="stock-de-tienda-online-y-tienda-fisica",
+    title="Stock de tienda online y física: un solo inventario · NirKanA",
+    description="Cómo llevar un solo inventario si vendes en una tienda online y en una tienda física: cinco reglas, cuándo descontar el stock de un pedido y un ejemplo con números.",
+    h1="Stock de una tienda online y una tienda física: cómo llevar un solo inventario",
+    lead="Vender por internet y en el local los mismos productos funciona hasta que uno se agota: entonces alguien compra lo que ya no queda. Un solo inventario y unas reglas claras lo evitan.",
+    group="Stock, precios y tienda online",
+    summary="Cinco reglas para llevar un solo inventario si vendes en la web y en el local, y cuándo descontar un pedido online.",
+    icon="i-cloud",
+    demo="online",
+    sectors=["online", "tiendas"],
+    related=["control-de-stock-en-una-tienda", "calcular-el-margen-de-un-producto"],
+    published="2026-10-22",
+    subject="Consulta desde la guía de stock de tienda online y física",
+    sections=[
+        ("por-que", "Por qué el stock se desajusta cuando vendes en dos sitios", """
+<p>Con un solo canal, cada venta descuenta una unidad y las cuentas son fáciles. Al añadir el segundo aparecen los desajustes, y los motivos suelen ser casi siempre los mismos:</p>
+<ul>
+<li><strong>Dos inventarios separados:</strong> una hoja para la web y otra para la tienda, que alguien tiene que mantener a mano.</li>
+<li><strong>Retrasos:</strong> el pedido de la web se anota al día siguiente y, mientras tanto, la última unidad se vende en el mostrador.</li>
+<li><strong>Productos con nombres o códigos distintos</strong> en cada canal, que no se pueden cruzar.</li>
+<li><strong>Cancelaciones y devoluciones</strong> que se anotan en un sitio y no en el otro.</li>
+<li><strong>Mercancía reservada</strong> para un pedido que se cobra o se envía días después.</li>
+</ul>
+<p>El resultado es el que nadie quiere: vender algo que no tienes, pedir disculpas y cancelar el pedido.</p>
+"""),
+        ("reglas", "Cinco reglas para llevar un solo inventario", """
+<ol>
+<li><strong>Un código por producto, el mismo en los dos canales.</strong> Una referencia propia o el código de barras, escrito igual en tu tienda online y en tu programa. Sin esa clave común no hay forma fiable de cruzar las ventas.</li>
+<li><strong>Una sola fuente de verdad.</strong> Elige dónde vive el stock «oficial» y haz que todo pase por ahí: ventas del local, pedidos de la web, compras a proveedores y devoluciones.</li>
+<li><strong>Anota los pedidos online el mismo día,</strong> mejor al recibirlos que al final de la semana. El retraso es una de las causas más habituales de los desajustes.</li>
+<li><strong>Protege las últimas unidades.</strong> En los productos con poco stock, publica en la web una unidad menos de las que tienes, o reserva la última para el local. Es mejor perder una venta que vender dos veces lo mismo.</li>
+<li><strong>Cuenta y compara con regularidad.</strong> Un recuento rotativo semanal de una categoría te enseña dónde se desajusta el sistema antes de que se acumule. Tienes el método en la <a href="/guias/control-de-stock-en-una-tienda/">guía de control de stock en una tienda</a>.</li>
+</ol>
+"""),
+        ("cuando-descontar", "¿Cuándo se descuenta el stock de un pedido online?", """
+<p>No hay una única respuesta correcta; lo importante es elegir una regla y aplicarla siempre igual.</p>
+<div class="tablewrap" role="region" aria-label="Cuándo descontar el stock de un pedido online" tabindex="0">
+<table>
+<thead><tr><th scope="col">Momento</th><th scope="col">Ventaja</th><th scope="col">Riesgo</th></tr></thead>
+<tbody>
+<tr><th scope="row">Al recibir el pedido</th><td>Evitas vender dos veces la misma unidad.</td><td>Si el cliente no paga o cancela, hay que devolver la unidad al stock.</td></tr>
+<tr><th scope="row">Al cobrarlo</th><td>Solo reservas mercancía de pedidos pagados.</td><td>Entre el pedido y el cobro, la unidad sigue «disponible» para otra venta.</td></tr>
+<tr><th scope="row">Al enviarlo</th><td>El stock refleja lo que de verdad ha salido del almacén.</td><td>Mientras se prepara, esa unidad todavía puede venderse en la tienda.</td></tr>
+</tbody>
+</table>
+</div>
+<p>Para un negocio pequeño, lo más seguro suele ser descontar al recibir el pedido y devolver la unidad al stock si se cancela antes de enviarlo.</p>
+"""),
+        ("ejemplo", "Un ejemplo con números", """
+<p>Una camiseta con 6 unidades en stock, vendida en el local y en la web. Esto es lo que ve un inventario único a lo largo de un día:</p>
+<div class="tablewrap compact" role="region" aria-label="Ejemplo de movimientos de stock de un producto" tabindex="0">
+<table>
+<caption>Ejemplo inventado: una camiseta en dos canales</caption>
+<thead><tr><th scope="col">Movimiento</th><th scope="col">Unidades</th><th scope="col">Stock</th></tr></thead>
+<tbody>
+<tr><th scope="row">Stock al abrir</th><td>—</td><td>6</td></tr>
+<tr><th scope="row">Venta en el local</th><td>−2</td><td>4</td></tr>
+<tr><th scope="row">Pedido en la web</th><td>−1</td><td>3</td></tr>
+<tr><th scope="row">Otro pedido en la web, cancelado antes de enviarlo</th><td>−1 y +1</td><td>3</td></tr>
+<tr><th scope="row">Devolución de un pedido ya enviado (llega en buen estado)</th><td>+1</td><td>4</td></tr>
+</tbody>
+</table>
+</div>
+<p>Si el stock mínimo de esa camiseta es 3, cuando baje de ahí toca pedir. Fíjate en que cada movimiento tiene su motivo: así, al contar, sabes de dónde viene cualquier diferencia.</p>
+"""),
+        ("sin-conexion", "¿Y si tu tienda online y tu programa no están conectados?", """
+<p>Muchas tiendas pequeñas trabajan así: la plataforma de la tienda online por un lado y el programa de la tienda por otro, sin conexión automática. Se puede llevar bien con una rutina corta:</p>
+<ol>
+<li><strong>Cada pedido online se registra como una venta</strong> en tu programa el mismo día, con el mismo código de producto.</li>
+<li><strong>El catálogo se mantiene en un único archivo</strong> (Excel o CSV) con código, nombre, precio, coste y stock, y se importa cada vez que cambia.</li>
+<li><strong>Una vez por semana,</strong> compara el stock que muestra la web con el de tu programa y corrige lo que no coincida, anotando el motivo.</li>
+</ol>
+<p>Son unos minutos al día, y cuando las ventas crecen compensa buscar una integración que lo haga sola. Mientras tanto, lo que no conviene es llevar dos inventarios y fiarse de los dos.</p>
+"""),
+        ("errores", "Errores frecuentes", """
+<ul>
+<li>Llevar una hoja de stock para la web y otra para el local.</li>
+<li>Cambiar el nombre de un producto en un canal y no en el otro, de modo que dejan de cruzarse.</li>
+<li>No anotar las devoluciones de la web.</li>
+<li>Subir al stock una devolución sin comprobar que el producto está en condiciones de venderse: si no lo está, es una merma.</li>
+<li>No avisar al equipo de la tienda de que la última unidad está reservada para un pedido.</li>
+</ul>
+"""),
+    ],
+    nirkana="""
+<p>NirKanA no se conecta hoy de forma automática con plataformas como Shopify o WooCommerce, pero te da un solo sitio para el catálogo y el stock del local y de la web:</p>
+<ul>
+<li><strong>Catálogo con stock:</strong> productos con código, código de barras, precio, coste y stock en un solo sitio.</li>
+<li><strong>Un stock para los dos canales:</strong> el TPV y tu catálogo comparten productos y stock, y cada pedido de la web se registra como una venta.</li>
+<li><strong>Importa desde Excel o CSV:</strong> subes tu lista de productos y ves qué se creará o se actualizará antes de guardar nada.</li>
+<li><strong>Reposición:</strong> ves qué se agota y cuánto pedir, y creas el pedido al proveedor con un clic.</li>
+<li><strong>Envíos y servicios:</strong> los cobras como un producto más, sin stock.</li>
+</ul>
+<p>Si necesitas una integración concreta con tu plataforma, cuéntanos cuál y la estudiamos.</p>
+""",
+    shot=("reposicion-c", "Resumen de NirKanA con lo más vendido y el aviso de reposición: cinco productos se agotan en menos de una semana", "Reposición: qué se agota y cuánto pedir (con datos de ejemplo)"),
+    faq=[
+        ("¿Cómo evito vender online algo que ya he vendido en la tienda?",
+         "Haz que los dos canales descuenten del mismo inventario, registra los pedidos online el mismo día y protege las últimas unidades de los productos con poco stock publicando en la web una menos de las que tienes. Si llevas dos hojas separadas, el desajuste es cuestión de tiempo."),
+        ("¿Cuándo debo descontar el stock de un pedido online?",
+         "Elige un momento y úsalo siempre igual: al recibir el pedido evitas vender dos veces la misma unidad, al cobrarlo reservas solo lo pagado y al enviarlo reflejas lo que ya ha salido. Para un negocio pequeño suele ser lo más seguro descontar al recibir el pedido y devolver la unidad si se cancela antes del envío."),
+        ("¿Se conecta NirKanA con Shopify o WooCommerce?",
+         "No. Hoy no hay conexión automática: importas tu lista de productos desde un Excel o CSV y registras los pedidos como ventas. Si necesitas una integración concreta, cuéntanos cuál y la estudiamos."),
+    ],
+)
+
+# ---------------------------------------------------------------------------------------------------------------- 9
+guide(
+    slug="devoluciones-y-cambios-en-una-tienda",
+    title="Devoluciones y cambios en una tienda: cómo organizarlos · NirKanA",
+    description="Cómo organizar las devoluciones y los cambios en una tienda: política escrita, pasos para registrarlos y qué cambia en la caja, el stock y la factura, con los errores más comunes.",
+    h1="Devoluciones y cambios en una tienda: cómo organizarlos",
+    lead="Una devolución bien gestionada deja tranquilo al cliente y las cuentas en orden; una mal gestionada descuadra la caja, el stock y a veces la factura. Este es un método sencillo para organizarlas.",
+    group="Cobrar y cuadrar la caja",
+    summary="Política escrita, los pasos de una devolución y qué cambia en la caja, el stock y la factura.",
+    icon="i-bag",
+    demo="tienda",
+    sectors=["tiendas", "online"],
+    related=["arqueo-y-cierre-de-caja", "control-de-stock-en-una-tienda", "que-debe-llevar-una-factura"],
+    published="2026-10-22",
+    subject="Consulta desde la guía de devoluciones y cambios",
+    disclaimer="Esta guía explica cómo organizar las devoluciones y los cambios; no es asesoramiento jurídico. Las obligaciones concretas (garantía, venta a distancia, facturas rectificativas) dependen de cada caso: confírmalas con tu gestoría o en la información oficial de consumo.",
+    sections=[
+        ("politica", "Empieza por una política de cambios y devoluciones escrita", """
+<p>La mayoría de los problemas con las devoluciones vienen de no haber decidido nada antes. Una política corta, escrita y a la vista (en el mostrador, en el ticket o en la web) evita discusiones y hace que todo el equipo responda lo mismo. Decide, como mínimo:</p>
+<ul>
+<li><strong>Plazo:</strong> cuántos días tiene el cliente para cambiar o devolver.</li>
+<li><strong>Estado del producto:</strong> con etiquetas, sin usar, en su envase.</li>
+<li><strong>Qué hay que presentar:</strong> el ticket, la factura o cualquier otro comprobante de la compra.</li>
+<li><strong>Qué se ofrece:</strong> cambio por otro producto, vale o devolución del dinero.</li>
+<li><strong>Cómo se devuelve el dinero:</strong> lo habitual es hacerlo por la misma vía por la que se pagó.</li>
+<li><strong>Qué se excluye,</strong> si hay algo que no admite devolución (productos personalizados o de higiene, por ejemplo).</li>
+<li><strong>Quién puede aprobarla</strong> cuando el caso se sale de la norma.</li>
+</ul>
+"""),
+        ("situaciones", "Tres situaciones que conviene distinguir", """
+<p>No todas las devoluciones son iguales, y no todas dependen solo de tu política:</p>
+<ul>
+<li><strong>Producto defectuoso o que no es lo que se vendió:</strong> el cliente tiene derechos legales (la garantía legal), con independencia de tu política de cambios.</li>
+<li><strong>Cambio de talla, color o modelo sin defecto:</strong> en una tienda física, aceptarlo es decisión tuya. Si lo ofreces, ponlo por escrito.</li>
+<li><strong>Compra a distancia (por ejemplo, en una tienda online):</strong> suele haber un derecho de desistimiento, con sus propios plazos y condiciones.</li>
+</ul>
+<p>Los plazos y las condiciones concretas dependen de cada caso y de la normativa vigente: confírmalos con tu gestoría o en la información oficial de consumo antes de fijar tu política.</p>
+"""),
+        ("pasos", "Los pasos de una devolución", """
+<ol>
+<li><strong>Localiza la venta original:</strong> con el ticket o buscándola por fecha, importe o cliente.</li>
+<li><strong>Revisa el producto</strong> y comprueba que encaja en tu política: estado, plazo y comprobante.</li>
+<li><strong>Decide con el cliente:</strong> cambio, vale o devolución del dinero.</li>
+<li><strong>Registra la devolución en tu programa,</strong> con los productos que vuelven y el importe. No saques dinero del cajón sin anotarlo: es una de las causas más habituales de los descuadres.</li>
+<li><strong>Devuelve el dinero por la misma vía del pago:</strong> efectivo desde el cajón, o tarjeta con la devolución del datáfono.</li>
+<li><strong>Repón el producto al stock</strong> si está en condiciones de volver a venderse; si no, anótalo como merma.</li>
+<li><strong>Si había factura, emite la rectificativa</strong> que la corrige, en lugar de borrarla.</li>
+<li><strong>Entrega un comprobante</strong> de la devolución y guarda el tuyo.</li>
+</ol>
+"""),
+        ("que-cambia", "Qué cambia en la caja, el stock y la factura", """
+<div class="tablewrap" role="region" aria-label="Qué cambia con una devolución" tabindex="0">
+<table>
+<thead><tr><th scope="col">Dónde</th><th scope="col">Qué cambia</th><th scope="col">Qué hay que anotar</th></tr></thead>
+<tbody>
+<tr><th scope="row">Caja</th><td>Sale dinero del cajón si se devuelve en efectivo.</td><td>La devolución, con su importe y la forma de pago original.</td></tr>
+<tr><th scope="row">Tarjeta</th><td>Se devuelve por el datáfono al mismo medio de pago.</td><td>La devolución, para que el total de tarjeta de tu programa coincida con el del datáfono.</td></tr>
+<tr><th scope="row">Stock</th><td>Las unidades vuelven al stock si se pueden volver a vender.</td><td>El motivo; si están dañadas, una merma en lugar de una entrada.</td></tr>
+<tr><th scope="row">Factura e IVA</th><td>Una factura emitida no se borra: se corrige con una rectificativa.</td><td>La rectificativa, vinculada a la factura original.</td></tr>
+</tbody>
+</table>
+</div>
+"""),
+        ("cambios", "Cambios: una devolución y una venta a la vez", """
+<p>Un cambio es, a efectos de cuentas, devolver un producto y vender otro. Si los dos valen lo mismo no se mueve dinero, pero sí el stock: una unidad entra y otra sale. Si el nuevo cuesta más, cobras la diferencia; si cuesta menos, devuelves la diferencia o entregas un vale. Anotarlo como una devolución y una venta, en lugar de «cambiar sin más», mantiene la caja y el stock en orden.</p>
+"""),
+        ("errores", "Errores frecuentes con las devoluciones", """
+<ul>
+<li><strong>Devolver dinero sin registrar nada:</strong> la caja no cuadra y nadie sabe por qué.</li>
+<li><strong>Devolver en efectivo una compra pagada con tarjeta:</strong> la devolución debería ir al mismo medio de pago, también para evitar fraudes.</li>
+<li><strong>Dejar que cualquiera apruebe cualquier devolución:</strong> decide quién puede hacerlo y revisa de vez en cuando las ventas anuladas y devueltas.</li>
+<li><strong>Olvidar el stock:</strong> el producto vuelve a la estantería pero el sistema no se entera, o al revés.</li>
+<li><strong>Borrar una factura en lugar de rectificarla,</strong> con el desorden que luego supone para tu gestoría.</li>
+</ul>
+"""),
+    ],
+    nirkana="""
+<ul>
+<li><strong>Devoluciones parciales:</strong> devuelves solo los productos que el cliente trae, no la venta entera.</li>
+<li><strong>Stock que se mueve solo:</strong> cada venta, compra o devolución actualiza las unidades.</li>
+<li><strong>Facturas rectificativas</strong> para corregir una factura ya emitida, que puedes imprimir o guardar en PDF.</li>
+<li><strong>Cada venta queda firmada por quien la hizo,</strong> y el registro de actividad guarda los accesos, las anulaciones, las facturas, los cierres de caja y los cambios de configuración.</li>
+<li><strong>Cierre de caja contado a ciegas,</strong> con el descuadre a la vista.</li>
+</ul>
+""",
+    shot=("ventas-c", "Pantalla Ventas de NirKanA con los tickets del día, su forma de pago y su estado", "Ventas: todos los tickets, con su forma de pago y su estado"),
+    faq=[
+        ("¿Estoy obligado a aceptar devoluciones en mi tienda?",
+         "Si el producto tiene un defecto o no es lo que se vendió, el cliente tiene derechos legales con independencia de tu política. En una tienda física, aceptar cambios o devoluciones de un producto sin defecto es decisión tuya, y conviene fijarlo y escribirlo. En las compras a distancia suele haber un derecho de desistimiento: confirma las condiciones con tu gestoría o en la información oficial de consumo."),
+        ("¿Cómo se devuelve el dinero de una compra pagada con tarjeta?",
+         "Lo habitual es devolverlo al mismo medio de pago, con la devolución en el datáfono, y registrar la devolución en tu programa con la forma de pago original. Así el total de tarjeta de tu programa coincide con el del datáfono."),
+        ("¿Qué pasa con la factura si el cliente devuelve el producto?",
+         "Una factura emitida no se borra: se corrige con una factura rectificativa que anula o reduce su importe. Tu gestoría puede confirmarte cómo aplicarlo en tu caso. NirKanA permite devoluciones parciales y emitir facturas rectificativas."),
+    ],
+)
+
+# ---------------------------------------------------------------------------------------------------------------- 10
+guide(
+    slug="como-elegir-una-impresora-de-tickets",
+    title="Cómo elegir una impresora de tickets para tu negocio · NirKanA",
+    description="Qué mirar al elegir una impresora de tickets: tipo, ancho de papel, conexión y compatibilidad con tu programa, y cómo probarla antes de comprar para no equivocarte.",
+    h1="Cómo elegir una impresora de tickets para tu negocio",
+    lead="Una impresora de tickets que no encaja con tu programa o con tu mostrador da más problemas que ventajas. Estas son las cosas que conviene mirar antes de comprarla y cómo probarla.",
+    group="Cobrar y cuadrar la caja",
+    summary="Tipo, ancho de papel, conexión y compatibilidad: qué comprobar antes de comprar una impresora de tickets.",
+    icon="i-receipt",
+    demo="tienda",
+    sectors=["tiendas", "restaurantes"],
+    related=["que-es-un-tpv", "devoluciones-y-cambios-en-una-tienda"],
+    published="2026-10-22",
+    subject="Consulta desde la guía de impresoras de tickets",
+    sections=[
+        ("que-imprimir", "Antes de elegir: qué vas a imprimir", """
+<p>Piensa primero en lo que necesitas sacar en papel:</p>
+<ul>
+<li><strong>El ticket de venta,</strong> estrecho y rápido, que se entrega al cobrar.</li>
+<li><strong>La comanda de cocina,</strong> en bares y restaurantes que no usan pantalla.</li>
+<li><strong>La factura,</strong> que suele imprimirse en un folio A4 o guardarse en PDF, y para la que no hace falta una impresora de tickets.</li>
+<li><strong>Las etiquetas de precio,</strong> que necesitan otro tipo de impresora distinto.</li>
+</ul>
+<p>Esta guía trata de las dos primeras: las impresoras de tickets, también llamadas de recibos.</p>
+"""),
+        ("tipos", "Tipos de impresora de tickets", """
+<div class="tablewrap" role="region" aria-label="Tipos de impresora de tickets" tabindex="0">
+<table>
+<thead><tr><th scope="col">Tipo</th><th scope="col">Cómo imprime</th><th scope="col">Suele encajar</th><th scope="col">Ten en cuenta</th></tr></thead>
+<tbody>
+<tr><th scope="row">Térmica de sobremesa</th><td>Calienta un papel especial: no usa tinta ni cinta.</td><td>Mostradores y barras. Es la más habitual.</td><td>El papel térmico se desvanece con el calor, la luz y el tiempo.</td></tr>
+<tr><th scope="row">De impacto (matricial)</th><td>Golpea una cinta contra el papel, que puede ser papel normal.</td><td>Cocinas, por aguantar mejor el calor, la humedad y la grasa.</td><td>Es más ruidosa y más lenta.</td></tr>
+<tr><th scope="row">Térmica portátil</th><td>Pequeña y con batería, a menudo de 58 mm.</td><td>Cobrar en la mesa, en un puesto o en la calle.</td><td>Hay que cargarla, y la conexión sin cables varía según el modelo.</td></tr>
+</tbody>
+</table>
+</div>
+"""),
+        ("ancho", "Ancho del papel: 58 mm o 80 mm", """
+<p>Los rollos de ticket se venden sobre todo en dos anchos:</p>
+<ul>
+<li><strong>58 mm:</strong> impresoras pequeñas, buenas para mostradores con poco espacio, tickets cortos o para llevar encima. Entra menos texto en cada línea.</li>
+<li><strong>80 mm:</strong> más espacio para nombres de producto largos, el desglose del IVA, códigos QR y más información. Es muy habitual en bares y comercios.</li>
+</ul>
+<p>Si tus productos tienen nombres largos o imprimes mucha información en el ticket, el de 80 mm te dará menos problemas; si cobras en movimiento, el de 58 mm es más cómodo.</p>
+"""),
+        ("conexion", "Cómo se conecta: USB, red o Bluetooth", """
+<div class="tablewrap" role="region" aria-label="Formas de conectar una impresora de tickets" tabindex="0">
+<table>
+<thead><tr><th scope="col">Conexión</th><th scope="col">Suele ir bien para</th><th scope="col">Ten en cuenta</th></tr></thead>
+<tbody>
+<tr><th scope="row">USB</th><td>Un puesto fijo con un ordenador al lado.</td><td>Sirve para un equipo a la vez, y que funcione desde el navegador depende del sistema y del modelo.</td></tr>
+<tr><th scope="row">Red (cable o wifi)</th><td>Varios dispositivos que imprimen en la misma impresora, como en una barra o una cocina.</td><td>Hay que configurar la red, y depende de cómo imprima tu programa.</td></tr>
+<tr><th scope="row">Bluetooth</th><td>Cobrar con el móvil o la tableta, sin cables.</td><td>La compatibilidad varía mucho según el modelo, el sistema del móvil y el navegador.</td></tr>
+</tbody>
+</table>
+</div>
+<p>Lo importante: <strong>que una impresora funcione con un ordenador no significa que funcione igual desde el navegador de un móvil.</strong> Pregunta al fabricante y a tu proveedor del programa, y pruébala antes de comprar.</p>
+"""),
+        ("compatibilidad", "Compatibilidad: que hable el mismo idioma que tu programa", """
+<p>La mayoría de las impresoras térmicas de tickets entienden un conjunto de órdenes llamado <strong>ESC/POS</strong>, que funciona como un estándar de hecho. Si tu programa imprime con esas órdenes, muchos modelos servirán; si imprime de otra manera, por ejemplo a través del diálogo de impresión del sistema, hace falta que la impresora tenga un controlador para tu dispositivo.</p>
+<p>La pregunta correcta no es «¿es buena esta impresora?», sino <strong>«¿funciona con mi programa, con mi dispositivo y con mi navegador?»</strong>.</p>
+"""),
+        ("lista", "Lista de comprobación antes de comprar", """
+<ol>
+<li>¿Funciona con mi móvil, mi tablet o mi ordenador, y con mi navegador?</li>
+<li>¿Lo confirma el proveedor de mi programa, o puedo probarla antes de decidir?</li>
+<li>¿Qué ancho de papel necesito, 58 u 80 mm?</li>
+<li>¿Tiene corte automático? Si cobras mucho, ahorra tiempo.</li>
+<li>¿Necesito abrir un cajón portamonedas? Muchos modelos tienen una salida para que el cajón se abra al imprimir; comprueba que es la que usa tu cajón.</li>
+<li>¿Dónde compro los rollos de repuesto y cuánto cuestan? Es un gasto que se repite.</li>
+<li>¿Qué garantía tiene y quién la repara si falla?</li>
+<li>¿Cabe en mi mostrador y hace ruido?</li>
+</ol>
+"""),
+        ("papel", "Cuidar el papel y guardar copias", """
+<p>El papel térmico se desvanece con el calor, la luz directa y el paso del tiempo: un ticket guardado al sol puede quedar en blanco al cabo de unos meses. Si necesitas conservar un comprobante, guarda también una copia digital, y almacena los rollos en un sitio fresco y seco. Para las facturas, lo más práctico es guardarlas en PDF.</p>
+<p>Y si no quieres imprimirlo todo, es una decisión de tu negocio y de lo que esperan tus clientes: antes de dejar de dar el ticket en papel, confirma con tu gestoría qué comprobantes tienes que entregar y conservar.</p>
+"""),
+    ],
+    nirkana="""
+<ul>
+<li><strong>Imprime tickets desde el navegador.</strong></li>
+<li><strong>Facturas</strong> con los datos fiscales del cliente, que puedes imprimir o guardar en PDF.</li>
+<li><strong>Impresoras térmicas y lectores de códigos:</strong> la conexión directa depende del modelo y del navegador, y la probamos contigo antes de que te decidas.</li>
+<li><strong>Lector de códigos de barras:</strong> el buscador del TPV acepta el código que escribe el lector y añade el producto al ticket; también puedes escanear con la cámara del móvil.</li>
+</ul>
+<p>Si ya tienes una impresora o estás a punto de comprarla, escríbenos el modelo y lo vemos antes de que gastes dinero.</p>
+""",
+    shot=("vender-c", "Pantalla de venta de NirKanA con los productos a la izquierda y el ticket a la derecha", "La pantalla de venta con el ticket abierto"),
+    faq=[
+        ("¿Qué ancho de papel necesito, 58 u 80 mm?",
+         "El de 58 mm es más compacto y vale para tickets cortos o para cobrar en movimiento; el de 80 mm da más espacio para nombres largos, el desglose del IVA y el código QR. Si tienes sitio en el mostrador y dudas, el de 80 mm te da más margen."),
+        ("¿Vale cualquier impresora o tiene que ser de tickets?",
+         "Para tickets conviene una impresora térmica de tickets, no una de oficina: es más rápida, no usa tinta y está pensada para rollos estrechos. Antes de comprarla, comprueba que funciona con tu programa, tu dispositivo y tu navegador. Con NirKanA lo probamos contigo antes de que te decidas."),
+        ("¿Puedo usar una impresora Bluetooth con el móvil?",
+         "A veces. Depende del modelo de la impresora, del sistema del móvil y del navegador: hay combinaciones que funcionan y otras que no. Por eso conviene probarla antes de comprarla, o comprarla con posibilidad de devolución."),
+    ],
+)
+
+# ---------------------------------------------------------------------------------------------------------------- entrada de TikTok
+# /tiktok/: la página a la que lleva el enlace de la biografía. No se indexa ni sale en el mapa del sitio, y nada de la web enlaza a
+# ella; GoatCounter cuenta sus visitas por la ruta y sus botones por los eventos tiktok-prueba, tiktok-demo y tiktok-correo.
+TIKTOK = dict(
+    title="Bienvenido desde TikTok · NirKanA",
+    description="Prueba NirKanA 24 horas gratis, sin tarjeta, o escríbenos por correo. Con calculadoras gratis y guías para llevar tu negocio.",
+    eyebrow="Si vienes de TikTok",
+    h1="Lleva tu negocio desde el móvil, sin papeles ni Excel",
+    lead="NirKanA es el programa para cobrar, cuadrar la caja, controlar el stock y organizar las citas de tu negocio. Ábrelo 24 horas gratis, sin tarjeta y con un negocio de ejemplo, y míralo como lo vería tu equipo.",
+    demo="tienda",
+    subject="Vengo de TikTok",
+    shot=("vender-c", "Pantalla de venta de NirKanA con el ticket abierto", "vender"),
+    free_title="También gratis: calculadoras y guías",
+    free_lead="Sin registro y sin dar ningún dato. Las calculadoras hacen las cuentas en tu propio navegador.",
+    guides=("Guías para llevar mejor tu negocio", "Cobrar, cuadrar la caja, pasar comandas, controlar el stock, gestionar devoluciones, organizar citas y tener las facturas en orden.", "i-list"),
+    sectors_title="Cómo se usa en tu tipo de negocio",
+    sectors=[
+        ("restaurantes", "i-utensils", "Mesas, comandas desde el móvil, pantalla de cocina y cierre de caja."),
+        ("peluquerias", "i-calendar", "Agenda por persona, aviso de la cita por WhatsApp y cobro con un toque."),
+        ("tiendas", "i-bag", "Venta rápida, stock que se mueve solo y reposición."),
+        ("autonomos", "i-briefcase", "Citas, facturas y el paquete del trimestre para tu gestoría."),
+        ("online", "i-cloud", "Catálogo, stock y márgenes de la web y del local en un solo sitio."),
+        ("pymes", "i-users", "Todo el equipo con los mismos datos, cada persona con su acceso."),
+    ],
+)
+
 # ---------------------------------------------------------------------------------------------------------------- índice
 HUB = dict(
     title="Guías para llevar tu negocio: caja, stock, citas y facturas · NirKanA",
-    description="Guías prácticas para autónomos y pequeños negocios: cómo elegir un TPV, cuadrar la caja, controlar el stock, organizar citas, facturar y preparar el trimestre.",
+    description="Guías prácticas para autónomos y pequeños negocios: TPV, caja, comandas, stock, devoluciones, impresoras de tickets, citas, facturas y el trimestre con tu gestoría.",
     h1="Guías para llevar mejor tu negocio",
-    lead="Explicaciones claras, con ejemplos y listas de comprobación, sobre lo que más tiempo quita a un negocio pequeño: cobrar, cuadrar la caja, controlar el stock, organizar citas y tener las facturas en orden.",
+    lead="Explicaciones claras, con ejemplos y listas de comprobación, sobre lo que más tiempo quita a un negocio pequeño: cobrar, cuadrar la caja, pasar comandas, controlar el stock, gestionar devoluciones, organizar citas y tener las facturas en orden.",
     demo="tienda",
     faq=[
         ("¿Quién escribe estas guías?",
