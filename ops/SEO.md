@@ -103,9 +103,9 @@ actualizar el aviso de privacidad.
   físico, devoluciones e impresoras de tickets. Ideas para las siguientes: programa de puntos para clientes, cómo hacer un
   presupuesto, inventario de fin de año en una tienda, cuenta dividida en una mesa, quién puede hacer qué en un equipo (permisos).
 - **Más herramientas gratis** (atraen enlaces y gente que luego prueba NirKanA): precio por hora de un servicio, punto de equilibrio,
-  calculadora de IVA, reparto de propinas. Se añaden como las dos primeras (ver `docs/WEB.md`).
+  calculadora de IVA, reparto de propinas. Se añaden como las dos primeras (ver `notas/WEB.md`).
 - **Cómo se añade:** `ops/guias_texto.py` (texto) → `python ops/guias.py` → `node --test tests/web-*.test.mjs` y
-  `pytest sales_manager/tests/test_guias.py` → publicar. Detalles en `docs/WEB.md`.
+  `pytest sales_manager/tests/test_guias.py` → publicar. Detalles en `notas/WEB.md`.
 - **Fechas:** una guía nueva lleva `published="AAAA-MM-DD"`; si cambias el texto de una antigua, pon `updated` (y sube `DATE` en
   `ops/guias.py` al día en que publicas). El mapa del sitio y los datos estructurados usan esas mismas fechas.
 - Si una función de la app cambia (por ejemplo, llegan los recordatorios automáticos), actualiza **a la vez** la guía, el sector y

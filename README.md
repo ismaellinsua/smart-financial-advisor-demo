@@ -8,7 +8,7 @@ con alertas y un informe semanal en el panel. Funciona en el navegador del móvi
 | Carpeta | Qué contiene |
 |---|---|
 | [`sales_manager/`](sales_manager/README.md) | La aplicación (Streamlit): funciones, instalación y publicación |
-| [`docs/`](docs/WEB.md) | La web de presentación, publicada con GitHub Pages |
+| [`docs/`](notas/WEB.md) | La web de presentación, publicada con GitHub Pages |
 | [`marketing/anuncios/`](marketing/anuncios/) | Anuncios en imagen, vídeo y 3D |
 
 ## Probarla en tu ordenador
