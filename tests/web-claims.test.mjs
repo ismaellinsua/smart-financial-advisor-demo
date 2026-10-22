@@ -9,13 +9,21 @@ import { resolve, dirname } from 'node:path';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const docs = resolve(root, 'docs');
-const SECTORS = ['tpv-restaurantes/', 'programa-peluquerias-estetica/', 'tpv-tiendas/', 'programa-facturacion-autonomos/', 'tpv-tienda-online/'];
+const SECTORS = ['tpv-restaurantes/', 'programa-peluquerias-estetica/', 'tpv-tiendas/', 'programa-facturacion-autonomos/', 'tpv-tienda-online/', 'programa-gestion-pequenas-empresas/'];
 // Las guías (ops/guias.py) pasan por las mismas comprobaciones que la portada y los sectores.
 const GUIDES = ['guias/', 'guias/que-es-un-tpv/', 'guias/arqueo-y-cierre-de-caja/', 'guias/control-de-stock-en-una-tienda/', 'guias/agenda-de-citas-para-peluquerias/',
-                'guias/que-debe-llevar-una-factura/', 'guias/documentos-del-trimestre-para-la-gestoria/', 'guias/calcular-el-margen-de-un-producto/'];
-const PAGES = ['', ...SECTORS, ...GUIDES];
+                'guias/que-debe-llevar-una-factura/', 'guias/documentos-del-trimestre-para-la-gestoria/', 'guias/calcular-el-margen-de-un-producto/',
+                'guias/comandas-y-pantalla-de-cocina-en-un-bar/', 'guias/stock-de-tienda-online-y-tienda-fisica/', 'guias/devoluciones-y-cambios-en-una-tienda/',
+                'guias/como-elegir-una-impresora-de-tickets/'];
+// Las herramientas gratuitas (calculadoras, también generadas por ops/guias.py) pasan por las mismas comprobaciones.
+const TOOLS = ['herramientas/', 'herramientas/calculadora-de-arqueo-de-caja/', 'herramientas/calculadora-de-margen/'];
+const PAGES = ['', ...SECTORS, ...GUIDES, ...TOOLS];
+// La entrada del enlace de TikTok (ops/guias.py) no se indexa ni está en el mapa del sitio, pero dice lo mismo que el resto de la web:
+// pasa las mismas comprobaciones de texto, de enlaces y de imágenes.
+const NOINDEX = ['tiktok/'];
 const read = (rel) => readFileSync(resolve(docs, rel, rel.endsWith('.html') ? '' : 'index.html'), 'utf8');
 const pages = PAGES.map((p) => [p || 'index.html', p ? read(p) : readFileSync(resolve(docs, 'index.html'), 'utf8')]);
+const textPages = [...pages, ...NOINDEX.map((p) => [p, read(p)])];
 
 // Funciones que tuvo el producto anterior (o que nunca existieron) y que la app de hoy no tiene.
 const FORBIDDEN = [
@@ -29,7 +37,7 @@ const FORBIDDEN = [
 const visible = (html) => html.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<style[\s\S]*?<\/style>/g, ' ').replace(/<[^>]+>/g, ' ');
 
 test('ninguna página promete funciones que la app no tiene ni cifras inventadas', () => {
-  for (const [name, html] of pages) {
+  for (const [name, html] of textPages) {
     const text = visible(html);
     for (const rx of FORBIDDEN) assert.doesNotMatch(text, rx, `${name}: «${text.match(rx)?.[0]}»`);
   }
@@ -38,11 +46,11 @@ test('ninguna página promete funciones que la app no tiene ni cifras inventadas
 test('VERI*FACTU solo aparece como pregunta con respuesta honesta (sin afirmar conformidad)', () => {
   const home = visible(pages[0][1]);
   assert.match(home, /todav[ií]a no afirmamos\s+conformidad/);
-  for (const [name, html] of pages.slice(1)) assert.doesNotMatch(visible(html), /veri\*?factu/i, name);
+  for (const [name, html] of textPages.slice(1)) assert.doesNotMatch(visible(html), /veri\*?factu/i, name);
 });
 
 test('todas las imágenes y enlaces internos de cada página existen', () => {
-  for (const [name, html] of pages) {
+  for (const [name, html] of textPages) {
     const refs = [...html.matchAll(/(?:src|href)="(\/[^"#?]*)(?:[#?][^"]*)?"/g)].map((m) => m[1]);
     for (const ref of refs) {
       const file = resolve(docs, '.' + ref);
@@ -53,7 +61,7 @@ test('todas las imágenes y enlaces internos de cada página existen', () => {
 });
 
 test('toda imagen tiene texto alternativo, ancho y alto (sin saltos de maquetación)', () => {
-  for (const [name, html] of pages) {
+  for (const [name, html] of textPages) {
     for (const tag of (html.match(/<img\b[^>]*>/g) ?? []).filter((t) => /\bsrc=/.test(t))) {
       assert.match(tag, /\balt="[^"]*"/, `${name}: ${tag}`);
       assert.match(tag, /\bwidth="\d+"/, `${name}: ${tag}`);
@@ -93,7 +101,7 @@ test('el sitemap lista exactamente las páginas públicas', () => {
 });
 
 test('ningún dato personal ni secreto en el código de la web', () => {
-  const files = ['assets/site.js', ...PAGES.map((p) => p + 'index.html')];
+  const files = ['assets/site.js', ...PAGES.map((p) => p + 'index.html'), ...NOINDEX.map((p) => p + 'index.html')];
   for (const f of files) {
     const s = readFileSync(resolve(docs, f), 'utf8');
     assert.doesNotMatch(s, /(?:api[_-]?key|secret|passw(?:or)?d|token)\s*[:=]\s*["'][^"']{8,}/i, f);

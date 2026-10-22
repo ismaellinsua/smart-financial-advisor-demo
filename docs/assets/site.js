@@ -48,6 +48,15 @@ const ANALYTICS = { goatcounter: "nirkana" };
     new Image().src = `https://${ANALYTICS.goatcounter}.goatcounter.com/count?${query}`;
   };
   countVisit(location.pathname, document.title);
+  // Events that other scripts of the site (the free calculators) or any link marked with data-evento ask to count.
+  document.addEventListener("nirkana:evento", (event) => {
+    const { slug, titulo } = event.detail || {};
+    if (/^[a-z0-9-]{3,40}$/.test(slug || "")) countVisit(slug, String(titulo || slug).slice(0, 80), true);
+  });
+  for (const marked of document.querySelectorAll("[data-evento]")) {
+    if (!/^[a-z0-9-]{3,40}$/.test(marked.dataset.evento)) continue;
+    marked.addEventListener("click", () => countVisit(marked.dataset.evento, String(marked.dataset.eventoTitulo || marked.dataset.evento).slice(0, 80), true));
+  }
 
   // ------------------------------------------------------------ direct contact buttons
   const phone = String(CONTACT.whatsapp).replace(/\D/g, "");

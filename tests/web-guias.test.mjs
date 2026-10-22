@@ -13,13 +13,14 @@ const read = (rel) => readFileSync(resolve(docs, rel), 'utf8');
 const slugs = readdirSync(resolve(docs, 'guias'), { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name).sort();
 const hub = read('guias/index.html');
 const guides = slugs.map((slug) => [slug, read(`guias/${slug}/index.html`)]);
-const SECTORS = ['tpv-restaurantes', 'programa-peluquerias-estetica', 'tpv-tiendas', 'programa-facturacion-autonomos', 'tpv-tienda-online'];
+const tools = readdirSync(resolve(docs, 'herramientas'), { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name).sort();
+const SECTORS = ['tpv-restaurantes', 'programa-peluquerias-estetica', 'tpv-tiendas', 'programa-facturacion-autonomos', 'tpv-tienda-online', 'programa-gestion-pequenas-empresas'];
 const text = (html) => html.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<style[\s\S]*?<\/style>/g, ' ').replace(/<svg[\s\S]*?<\/svg>/g, ' ')
   .replace(/<[^>]+>/g, ' ').replace(/&[a-z]+;/g, ' ').replace(/\s+/g, ' ').trim();
 const blocks = (html) => [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map((m) => JSON.parse(m[1]));
 
-test('hay siete guías o más y todas salen en el índice, en el mapa del sitio y en la portada o en un sector', () => {
-  assert.ok(slugs.length >= 7, `solo hay ${slugs.length} guías`);
+test('hay once guías o más y todas salen en el índice, en el mapa del sitio y en la portada o en un sector', () => {
+  assert.ok(slugs.length >= 11, `solo hay ${slugs.length} guías`);
   const sitemap = read('sitemap.xml');
   const home = read('index.html');
   for (const slug of slugs) {
@@ -97,12 +98,16 @@ test('cada guía tiene contenido de verdad (más de 600 palabras) y no repite el
   }
 });
 
-test('«Guías» está en la navegación y en el pie de todas las páginas indexables, y las guías cumplen la CSP', () => {
-  const pages = ['index.html', ...SECTORS.map((s) => `${s}/index.html`), 'guias/index.html', ...slugs.map((s) => `guias/${s}/index.html`)];
+test('«Guías» está en la navegación y en el pie de todas las páginas indexables, «Herramientas» en el pie, y las guías cumplen la CSP', () => {
+  const pages = ['index.html', ...SECTORS.map((s) => `${s}/index.html`), 'guias/index.html', ...slugs.map((s) => `guias/${s}/index.html`),
+    'herramientas/index.html', ...tools.map((t) => `herramientas/${t}/index.html`)];
   for (const rel of pages) {
     const html = read(rel);
     assert.match(html, /<nav aria-label="Principal" id="menu">[\s\S]*?href="\/guias\/"[^>]*>Guías<\/a>[\s\S]*?<\/nav>/, `${rel}: falta «Guías» en el menú`);
     assert.match(html, /<footer class="foot">[\s\S]*href="\/guias\/">Guías<\/a>[\s\S]*<\/footer>/, `${rel}: falta «Guías» en el pie`);
+    assert.match(html, /<footer class="foot">[\s\S]*href="\/herramientas\/">Herramientas<\/a>[\s\S]*<\/footer>/, `${rel}: falta «Herramientas» en el pie`);
+    const foot = html.match(/<footer class="foot">[\s\S]*<\/footer>/)[0];
+    for (const sector of SECTORS) assert.ok(foot.includes(`href="/${sector}/"`), `${rel}: el pie no enlaza a ${sector}`);
   }
   for (const rel of ['guias/index.html', ...slugs.map((s) => `guias/${s}/index.html`)]) {
     const html = read(rel);
@@ -121,9 +126,60 @@ test('cada página de sector enlaza a tres guías y enseña el correo en su llam
   }
 });
 
-test('la portada enlaza al índice de guías y declara el sitio con datos estructurados WebSite', () => {
+test('la portada enlaza al índice de guías y al de herramientas, y declara el sitio con datos estructurados WebSite', () => {
   const home = read('index.html');
   assert.match(home, /<section id="guias">[\s\S]*href="\/guias\/">Ver todas las guías/);
+  assert.match(home, /<section id="guias">[\s\S]*href="\/herramientas\/">Ver las herramientas/);
+  for (const t of tools) assert.ok(home.includes(`href="/herramientas/${t}/"`), `${t}: la portada no la enlaza`);
   const site = blocks(home).find((b) => b['@type'] === 'WebSite');
   assert.ok(site && site.url === 'https://nirkana.es/' && site.name === 'NirKanA' && site.inLanguage === 'es');
+});
+
+test('la entrada de TikTok no se indexa, no sale en el mapa del sitio y no la enlaza ninguna página', () => {
+  const page = read('tiktok/index.html');
+  assert.match(page, /<meta name="robots" content="noindex, follow">/);
+  assert.match(page, /<link rel="canonical" href="https:\/\/nirkana\.es\/tiktok\/">/);
+  assert.doesNotMatch(read('sitemap.xml'), /tiktok/);
+  assert.doesNotMatch(read('robots.txt'), /tiktok/i, 'robots.txt no debe cerrarla: para leer el noindex hay que poder entrar');
+  const stack = [docs];
+  while (stack.length) {
+    const dir = stack.pop();
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = resolve(dir, entry.name);
+      if (entry.isDirectory()) stack.push(full);
+      else if (/\.(html|xml|txt|js)$/.test(entry.name) && !full.endsWith('tiktok/index.html')) {
+        assert.doesNotMatch(readFileSync(full, 'utf8'), /\/tiktok\//, `${full.replace(docs, 'docs')}: enlaza o nombra la entrada de TikTok`);
+      }
+    }
+  }
+});
+
+test('la entrada de TikTok lleva a la prueba de 24 horas, a la demo y al correo, y cuenta cada botón con su propio evento', () => {
+  const page = read('tiktok/index.html');
+  assert.equal((page.match(/<h1[ >]/g) || []).length, 1);
+  assert.match(page, /data-trial data-evento="tiktok-prueba" data-evento-titulo="[^"]+" href="\/#contacto"/);
+  assert.match(page, /data-demo="tienda" data-evento="tiktok-demo" data-evento-titulo="[^"]+" href="\/demo\/"/);
+  assert.match(page, /<a data-email data-evento="tiktok-correo" data-evento-titulo="[^"]+" data-subject="Vengo de TikTok"><\/a>/);
+  assert.doesNotMatch(page.replace(/<script[\s\S]*?<\/script>/g, ''), /nirkana\.oficial@gmail\.com/, 'el correo lo pone site.js');
+  for (const slug of [...page.matchAll(/data-evento="([^"]+)"/g)].map((m) => m[1])) assert.match(slug, /^[a-z0-9-]{3,40}$/, `evento ${slug}`);
+  for (const target of [...tools.map((t) => `/herramientas/${t}/`), '/guias/', ...SECTORS.map((x) => `/${x}/`)]) assert.ok(page.includes(`href="${target}"`), `falta ${target}`);
+  assert.doesNotMatch(page, /\sstyle="|\son(click|load|error)=/i);
+  const scripts = page.replace(/<script type="application\/ld\+json">[\s\S]*?<\/script>/g, '').match(/<script\b[^>]*>/g) || [];
+  assert.ok(scripts.every((tag) => /\ssrc="\/assets\/site\.js"/.test(tag)), 'scripts en línea');
+});
+
+test('la página de pequeñas empresas solo promete lo que ya dicen la portada y los otros sectores', () => {
+  const html = read('programa-gestion-pequenas-empresas/index.html');
+  const visible = text(html);
+  for (const must of ['administrador, encargado y empleado', 'registro de actividad', 'acceso de solo lectura', 'un solo local']) {
+    assert.ok(visible.toLowerCase().includes(must), `falta «${must}»`);
+  }
+  assert.doesNotMatch(visible, /varios locales (?:con|en un solo)|traspasos|multi-?tienda/i, 'no se prometen varios locales');
+  const [crumbs, faq] = blocks(html);
+  assert.equal(crumbs['@type'], 'BreadcrumbList');
+  assert.deepEqual(crumbs.itemListElement.map((i) => i.position), [1, 2]);
+  assert.equal(faq['@type'], 'FAQPage');
+  assert.ok(faq.mainEntity.length >= 3);
+  const pyme = read('index.html').match(/<div class="panel" role="tabpanel" id="p-pyme"[\s\S]*?<\/div>\s*<div class="thumbs"/)[0];
+  assert.ok(pyme.includes('href="/programa-gestion-pequenas-empresas/"'), 'la portada debe llevar de la tarjeta «Pymes» a su página');
 });

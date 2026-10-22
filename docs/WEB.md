@@ -8,11 +8,15 @@ frecuentes y contacto. Está en esta carpeta `docs/`:
 | `index.html` | La página principal |
 | `demo/index.html` | La demo: NirKanA entera con un negocio de ejemplo, en un solo archivo (ver «La demo») |
 | `privacidad.html` | Aviso de privacidad (RGPD) |
-| `tpv-restaurantes/`, `programa-peluquerias-estetica/`, `tpv-tiendas/`, `programa-facturacion-autonomos/`, `tpv-tienda-online/` | Una página por sector, para buscadores (están en `sitemap.xml`; `tests/web-claims.test.mjs` revisa que digan solo lo que la app hace) |
-| `guias/` | El índice de guías y una página por guía (cómo elegir un TPV, cuadrar la caja, controlar el stock…). **Se generan** con `python ops/guias.py` a partir de `ops/guias_texto.py`: no se editan a mano (ver «Guías y posicionamiento en buscadores») |
+| `tpv-restaurantes/`, `programa-peluquerias-estetica/`, `tpv-tiendas/`, `programa-facturacion-autonomos/`, `tpv-tienda-online/`, `programa-gestion-pequenas-empresas/` | Una página por sector, para buscadores (están en `sitemap.xml`; `tests/web-claims.test.mjs` revisa que digan solo lo que la app hace). Son HTML escrito a mano: un enlace nuevo en el pie o en «Otros sectores» hay que ponerlo en todas |
+| `guias/` | El índice de guías y una página por guía (cómo elegir un TPV, cuadrar la caja, pasar comandas, controlar el stock, gestionar devoluciones…). **Se generan** con `python ops/guias.py` a partir de `ops/guias_texto.py`: no se editan a mano (ver «Guías y posicionamiento en buscadores») |
+| `herramientas/` | El índice y las dos calculadoras gratis (arqueo de caja, margen y precio de venta). **Se generan** con `python ops/guias.py` a partir de `ops/herramientas_texto.py`; las cuentas las hace `assets/herramientas.js` en el navegador del visitante |
+| `descargas/` | Archivos que se descargan desde la web: la plantilla de Excel del arqueo de caja (la crea `python ops/plantillas.py`) |
+| `tiktok/` | La página a la que lleva el enlace de la biografía de TikTok. **No se indexa** ni sale en el mapa del sitio, y ninguna otra página la enlaza (ver «La entrada de TikTok») |
 | `404.html` | Lo que ve quien abre una dirección que no existe |
 | `assets/site.css` | Diseño (claro y oscuro, efectos 3D) |
 | `assets/site.js` | Contacto, formulario y efectos 3D |
+| `assets/herramientas.js` | Las cuentas de las calculadoras (se carga solo en `herramientas/`); no envía ni guarda nada |
 | `assets/img/` | Capturas de la app optimizadas (`shots/`: `*-c.webp` recortadas para tarjetas, `*.webp` completas para ampliar). Se regeneran con `python ops/capturas_web.py` desde `demo/index.html`, así que siempre enseñan el aspecto actual de la app |
 
 ## Cambiar tus datos de contacto
@@ -146,6 +150,9 @@ El aviso de privacidad ya lo explica.
 | `demo-abierta` | Pulsó «Ver la demo» |
 | `contacto-email`, `contacto-copiar` | Pulsó el botón o la dirección de email, o la copió |
 | `contacto-enviado` | Envió el formulario |
+| `herramienta-arqueo`, `herramienta-margen` | Empezó a usar una calculadora (una vez por visita) |
+| `plantilla-arqueo` | Descargó la plantilla de Excel del arqueo de caja |
+| `tiktok-prueba`, `tiktok-demo`, `tiktok-correo` | Pulsó «Probar gratis», «Ver la demo» o el correo **desde la entrada de TikTok** (`/tiktok/`) |
 
 Cómo leerlo: de las visitas, cuántas llegan a `precio-visto`; de `prueba-abierta`, cuántas ven `prueba-espera` (así sabes si el plan
 gratis de Render se nota) y cuántas acaban en `prueba-lenta`; y al final cuántas escriben (`contacto-enviado` + `contacto-email`
@@ -157,9 +164,11 @@ código sin registrar, esas cifras caerían en la cuenta de quien lo registre de
 ## Guías y posicionamiento en buscadores
 
 Una web nueva no sale en Google por tener las etiquetas bien (eso ya lo tenía: Lighthouse da 100 en SEO) sino porque hay páginas que
-responden a lo que la gente busca, enlazadas entre sí y rastreables. Por eso hay **siete guías** (`guias/`) más su índice, cada una
-con un tema que busca un negocio pequeño: qué es un TPV, arqueo y cierre de caja, control de stock, agenda de citas para
-peluquerías, qué debe llevar una factura, documentos del trimestre para la gestoría y cómo calcular el margen de un producto.
+responden a lo que la gente busca, enlazadas entre sí y rastreables. Por eso hay **once guías** (`guias/`) más su índice, cada una
+con un tema que busca un negocio pequeño: qué es un TPV, arqueo y cierre de caja, comandas y pantalla de cocina, control de stock,
+stock de una tienda online y una física, agenda de citas para peluquerías, qué debe llevar una factura, documentos del trimestre
+para la gestoría, cómo calcular el margen de un producto, devoluciones y cambios, y cómo elegir una impresora de tickets. Además hay
+dos **herramientas gratis** (`herramientas/`) y una página de sector para **pequeñas empresas**.
 
 - **Cómo está hecho cada guía:** título y descripción propios, migas de pan, datos estructurados (`BreadcrumbList`, `Article` y
   `FAQPage` con las mismas preguntas que se ven), índice «En esta guía», una captura real de la app, la prueba de 24 horas
@@ -179,6 +188,52 @@ peluquerías, qué debe llevar una factura, documentos del trimestre para la ges
 - **Cómo saber si funciona:** en `https://nirkana.goatcounter.com` salen las páginas más vistas (las guías con su dirección), los
   sitios de los que llegan (google.com, bing.com…) y los eventos `prueba-abierta`, `contacto-email`, `contacto-copiar` y
   `contacto-enviado`. Search Console añade qué se busca y en qué posición sales.
+- **Fechas:** cada guía sale con «Publicada el…» (o «Actualizada el…» si se tocó después) y las mismas fechas en `Article` y en
+  `sitemap.xml`. En `ops/guias_texto.py`, `published` es el día en que sale la guía y `updated` solo se pone cuando cambia el texto;
+  la última fecha no puede pasar de `DATE` de `ops/guias.py`, que se sube cuando se publica algo.
+- **Qué guía enlaza a qué:** cada sector enseña tres guías (las más relacionadas con su negocio) y cada guía enlaza a su sector y a
+  otras guías (`related`, `sectors`). Al añadir una guía, ponla en `related` de alguna parecida y en el bloque «Guías» de un sector:
+  `tests/web-guias.test.mjs` exige que la enlace la portada o un sector.
+
+### Herramientas gratis (`herramientas/`)
+
+Una calculadora útil y gratis es lo que más se comparte y lo que más enlaces atrae, y deja al visitante a un paso de probar NirKanA.
+Hay dos: **calculadora de arqueo de caja** (billetes y monedas en euros, lo esperado, la diferencia y el efectivo que se retira, con
+plantilla de Excel) y **calculadora de margen y precio de venta** (del coste y el margen al precio con IVA, o del precio al margen,
+con recargo y el efecto de un descuento).
+
+- **No se envía ni se guarda nada:** todo se calcula en el navegador (`assets/herramientas.js`, sin red ni almacenamiento; lo
+  comprueba `tests/web-herramientas.test.mjs`). Los importes se manejan en céntimos enteros y los números se leen como se escriben en
+  España (`1.234,56`).
+- **Medición:** al empezar a usarlas cuentan `herramienta-arqueo` y `herramienta-margen`, y al descargar la hoja `plantilla-arqueo`
+  (mismos eventos sin cookies que el resto, ver más arriba). Un enlace o botón cualquiera puede contar un evento con
+  `data-evento="nombre-en-minusculas"` y, si quieres, `data-evento-titulo="Texto que verás en el panel"`.
+- **Añadir o cambiar una herramienta:** el texto va en `ops/herramientas_texto.py`, el formulario en `widget_…()` de `ops/guias.py`
+  y la cuenta en `assets/herramientas.js` (con su prueba en `tests/web-herramientas.test.mjs`). Después `python ops/guias.py`.
+- **La plantilla de Excel** la crea `python ops/plantillas.py` (`--check` comprueba que la publicada es la que sale del script) y
+  `sales_manager/tests/test_plantillas.py` comprueba que sus fórmulas dan las mismas cuentas que la calculadora.
+
+### La página de pequeñas empresas
+
+`programa-gestion-pequenas-empresas/` es el sector que faltaba (la portada ya tenía la tarjeta «Pymes»). Es HTML escrito a mano
+como los otros cinco y dice solo lo que ya dicen la portada y los demás sectores: roles de administrador, encargado y empleado,
+registro de actividad, caja contada a ciegas, compras y stock, acceso de solo lectura para la gestoría… y que **hoy cada negocio
+trabaja con un solo local** (lo mismo que dice la página de tiendas), así que no se promete nada de varias sedes.
+
+### La entrada de TikTok (`tiktok/`)
+
+Pon **`https://nirkana.es/tiktok/`** como enlace de la biografía de TikTok. Es una página corta para quien llega desde un vídeo:
+qué es NirKanA en dos líneas, la prueba de 24 horas, la demo, el correo, las calculadoras y las guías, y un enlace por tipo de
+negocio. Se genera con `python ops/guias.py` (`render_tiktok()`, texto en `TIKTOK` de `ops/guias_texto.py`).
+
+- **No se indexa** (`noindex, follow`), no está en `sitemap.xml` y ninguna página de la web la enlaza: solo existe para ese enlace. No
+  la cierres en `robots.txt`: los buscadores tienen que poder entrar para leer el `noindex`.
+- **Cómo medir los vídeos sin cookies ni parámetros:** en GoatCounter, la ruta `/tiktok/` son las visitas que llegan desde la
+  biografía; `tiktok-prueba`, `tiktok-demo` y `tiktok-correo` son los clics en cada botón de esa página. Si quieres comparar un
+  vídeo con otro, mira la fecha: cada día se publica uno. Para saber cuántos de esos visitantes acaban escribiendo, el correo cuenta
+  como `tiktok-correo`; el formulario de la portada no distingue de dónde viene el visitante.
+- **Las pruebas** (`tests/web-guias.test.mjs`) comprueban que sigue sin indexarse, que no sale en el mapa del sitio, que nada la
+  enlaza y que sus botones cuentan cada uno su evento.
 
 ## Las capturas y los textos: solo lo que la app hace
 
