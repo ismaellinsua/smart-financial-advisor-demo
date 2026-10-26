@@ -8,6 +8,7 @@ Checks, from outside, what GitHub Pages and the DNS provider do and nobody else 
     DNS changes, renewal fails silently and the site breaks the day it expires),
   - http:// and www. send visitors to https://domain/ (Enforce HTTPS),
   - every page in docs/ answers 200 (the published site is the one in the repository),
+  - connection and HTTP protocol errors are reported per address without skipping the remaining checks,
   - with the 24-hour trial switched on (TRIAL_URL in docs/assets/site.js), the published home page offers it in the header
     and on the first screen, and the trial itself answers «ok» (it sleeps when nobody visits it: it is given up to
     TRIAL_WAIT seconds to wake up).
@@ -24,6 +25,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from http.client import HTTPException
 from pathlib import Path
 
 DOCS = Path(__file__).resolve().parent.parent / "docs"
@@ -111,14 +113,29 @@ def fetch(url: str, follow: bool = True) -> tuple[int, str, str]:
 def http_problems(name: str, get=fetch) -> list[str]:
     home = f"https://{name}/"
     problems = []
-    status, where, _ = get(f"http://{name}/", follow=False)
-    if status not in (301, 308) or not where.startswith(home):
-        problems.append(f"HTTPS: http://{name}/ no redirige a {home} (respuesta {status}): activa «Enforce HTTPS»")
-    status, where, _ = get(f"https://www.{name}/")
-    if status != 200 or not where.startswith(home):
-        problems.append(f"Web: https://www.{name}/ no lleva a {home} (termina en {where}, {status})")
+
+    def checked_get(url: str, follow: bool = True) -> tuple[int, str, str] | None:
+        try:
+            return get(url, follow=follow)
+        except (OSError, HTTPException) as exc:
+            problems.append(f"Web: {url} no responde ({exc})")
+            return None
+
+    response = checked_get(f"http://{name}/", follow=False)
+    if response is not None:
+        status, where, _ = response
+        if status not in (301, 308) or not where.startswith(home):
+            problems.append(f"HTTPS: http://{name}/ no redirige a {home} (respuesta {status}): activa «Enforce HTTPS»")
+    response = checked_get(f"https://www.{name}/")
+    if response is not None:
+        status, where, _ = response
+        if status != 200 or not where.startswith(home):
+            problems.append(f"Web: https://www.{name}/ no lleva a {home} (termina en {where}, {status})")
     for path in pages():
-        status, _, body = get(f"https://{name}{path}")
+        response = checked_get(f"https://{name}{path}")
+        if response is None:
+            continue
+        status, _, body = response
         if status != 200:
             problems.append(f"Web: https://{name}{path} responde {status}")
         elif path == "/" and "NirKanA" not in body:
@@ -158,7 +175,7 @@ def trial_problems(url: str, get=fetch, wait: float = TRIAL_WAIT, sleep=time.sle
     while True:
         try:
             status, _, body = get(f"{url}/api/health")
-        except OSError as exc:  # timeouts and resets while the instance starts
+        except (OSError, HTTPException) as exc:  # timeouts, resets and incomplete responses while the instance starts
             last = f"sin respuesta ({exc})"
         else:
             last = f"HTTP {status}"
@@ -182,7 +199,7 @@ def main() -> int:
     url = trial_url()
     try:
         status, _, home = fetch(f"https://{name}/")
-    except OSError:  # a site that does not answer is already reported by the checks above and below
+    except (OSError, HTTPException):  # the per-address checks below report unavailable or incomplete responses
         status, home = 0, ""
     problems = (dns_problems(name) + certificate_problems(name) + http_problems(name)
                 + (home_trial_problems(home, url) if status == 200 else []) + trial_problems(url))
