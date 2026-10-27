@@ -189,3 +189,13 @@ test('el pie de todas las páginas enseña Instagram y TikTok solo con el usuari
     .map((m) => JSON.parse(m[1])).find((data) => data['@type'] === 'Organization');
   assert.deepEqual(organization.sameAs, PROFILES.map((p) => p.href));
 });
+
+test('la portada es corta: nueve secciones como mucho y la app se explica una sola vez', () => {
+  const sections = [...home.matchAll(/<section\b[^>]*\bid="([^"]+)"/g)].map((m) => m[1]);
+  assert.ok(sections.length <= 9, `la portada tiene ${sections.length} secciones: ${sections.join(', ')}`);
+  for (const gone of ['cambio', 'movil']) assert.ok(!sections.includes(gone), `«${gone}» repetía lo que ya dice «La app por dentro»`);
+  assert.equal((home.match(/class="bento"/g) || []).length, 1, 'un solo bloque de capturas');
+  // los enlaces antiguos (/#recorrido, /#como) siguen llevando a su sitio
+  assert.match(home, /<div class="bento" id="recorrido">/);
+  assert.match(home, /<div class="steps" id="como"/);
+});

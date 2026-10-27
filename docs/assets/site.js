@@ -384,26 +384,6 @@ const ANALYTICS = { goatcounter: "nirkana" };
     });
   }
 
-  // ------------------------------------------------------------ scroll story: device follows the text
-  const steps = [...document.querySelectorAll(".step-card")];
-  const shots = [...document.querySelectorAll(".screens img")];
-  const dots = [...document.querySelectorAll(".dots i")];
-  const device = document.querySelector(".device");
-  const angles = [-12, 12, -8, 10];
-  const show = (i) => {
-    steps.forEach((el, k) => el.classList.toggle("active", k === i));
-    shots.forEach((el, k) => el.classList.toggle("on", k === i));
-    dots.forEach((el, k) => el.classList.toggle("on", k === i));
-    if (device) device.style.setProperty("--dy", `${angles[i] || 0}deg`);
-  };
-  if (steps.length && "IntersectionObserver" in window) {
-    const io = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => { if (entry.isIntersecting) show(steps.indexOf(entry.target)); });
-    }, { rootMargin: "-45% 0px -45% 0px" });
-    steps.forEach((el) => io.observe(el));
-    show(0);
-  }
-
   // ------------------------------------------------------------ counters (supports a suffix such as "25+")
   const counters = document.querySelectorAll("[data-count]");
   const count = (el) => {
@@ -707,10 +687,9 @@ const ANALYTICS = { goatcounter: "nirkana" };
     }
   }
 
-  // The header turns dark glass while it sits over a dark section (the hero, the features story, the mobile band), and light
-  // glass over the rest: it used to be dark over the hero only, and washed out over the other dark sections.
+  // The header turns dark glass while it sits over the dark hero, and light glass over the rest.
   if (top) {
-    const darkSections = [...document.querySelectorAll(".hero, .dark, .mobile-band")];
+    const darkSections = [...document.querySelectorAll(".hero")];
     let queued = false;
     const onDark = () => {
       queued = false;

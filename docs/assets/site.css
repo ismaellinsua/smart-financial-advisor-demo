@@ -58,16 +58,15 @@ p { margin: 0 0 1rem; }
 .wrap { width: min(1220px, 100% - 48px); margin-inline: auto; }
 .narrow { width: min(760px, 100% - 32px); }
 @media (max-width: 560px) { .wrap { width: calc(100% - 32px); } }
-section { padding: clamp(72px, 10vw, 136px) 0; }
+section { padding: clamp(56px, 7vw, 100px) 0; }
 .band { background: var(--surface); border-block: 1px solid var(--line); }
-.head { margin-bottom: clamp(32px, 5vw, 56px); max-width: 760px; }
+.head { margin-bottom: clamp(24px, 4vw, 44px); max-width: 760px; }
 .head.center { text-align: center; margin-inline: auto; }
 .head.center .sub { margin-inline: auto; }
 .head.split { max-width: none; display: grid; grid-template-columns: 1.2fr 1fr; gap: 32px; align-items: end; }
 .head.split .sub { margin: 0; }
 @media (max-width: 860px) { .head.split { grid-template-columns: 1fr; gap: 8px; } }
 .sub { color: var(--muted); max-width: 62ch; font-size: 1.08rem; margin-bottom: 0; }
-.sub.on-dark { color: #AEBBDA; }
 .eyebrow {
   display: inline-flex; align-items: center; gap: .5rem; font-size: .78rem; font-weight: 800; letter-spacing: .16em;
   text-transform: uppercase; color: var(--brand-text); margin-bottom: 1rem;
@@ -286,27 +285,6 @@ html:not(.has-demo) .only-demo, html.has-demo .no-demo { display: none !importan
 .trust-row .ic { color: var(--brand); width: 1.25em; height: 1.25em; }
 @media (max-width: 760px) { .trust-row { justify-content: center; } }
 
-/* ------------------------------------------------------------------ before / after */
-.compare { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; position: relative; }
-.compare::after { /* arrow between columns */
-  content: "→"; position: absolute; left: 50%; top: 50%; translate: -50% -50%; width: 52px; height: 52px; border-radius: 50%;
-  display: grid; place-items: center; font-size: 1.4rem; font-weight: 800; color: #fff; background: var(--grad);
-  box-shadow: 0 12px 26px -10px rgba(59, 91, 253, .9), 0 0 0 8px var(--bg);
-}
-.compare .col { border-radius: var(--radius); padding: clamp(28px, 4vw, 44px); border: 1px solid var(--line); }
-.compare h3 { font-size: 1.3rem; margin-bottom: 1.2rem; }
-.compare ul { list-style: none; margin: 0; padding: 0; display: grid; gap: .95rem; }
-.compare li { display: flex; gap: .8rem; align-items: flex-start; }
-.compare li .ic { margin-top: .2rem; width: 1.5rem; height: 1.5rem; padding: .25rem; border-radius: 50%; }
-.before { background: var(--surface); }
-.before h3 { color: var(--muted); }
-.before li { color: var(--muted); }
-.before li .ic { color: var(--bad); background: color-mix(in srgb, var(--bad) 12%, transparent); }
-.after { background: linear-gradient(160deg, color-mix(in srgb, var(--brand) 9%, var(--surface)), color-mix(in srgb, var(--brand-2) 9%, var(--surface)));
-  border-color: color-mix(in srgb, var(--brand) 30%, var(--line)); box-shadow: var(--shadow); }
-.after li { font-weight: 600; }
-.after li .ic { color: #fff; background: var(--grad); }
-@media (max-width: 860px) { .compare { grid-template-columns: 1fr; } .compare::after { content: "↓"; } }
 
 /* ------------------------------------------------------------------ sector tabs */
 .tabs { display: flex; gap: 8px; padding: 6px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--line);
@@ -346,35 +324,6 @@ html:not(.has-demo) .only-demo, html.has-demo .no-demo { display: none !importan
 .zoomable:hover .zoom-hint, .zoomable:focus-visible .zoom-hint { opacity: 1; transform: none; }
 @media (max-width: 960px) { .panel { grid-template-columns: 1fr; } .browser { transform: none; order: -1; } }
 
-/* ------------------------------------------------------------------ scroll story */
-.dark { background: #070D1C; color: #EAF0FF; position: relative; overflow: clip; }
-.dark::before { content: ""; position: absolute; inset: 0; pointer-events: none;
-  background: radial-gradient(900px 500px at 85% 20%, rgba(59, 91, 253, .18), transparent 60%), radial-gradient(700px 400px at 0% 90%, rgba(20, 184, 166, .12), transparent 60%); }
-.dark .eyebrow { color: #8FE9DB; }
-.story { display: grid; grid-template-columns: 1fr 1.3fr; gap: clamp(24px, 5vw, 80px); position: relative; }
-.step-card { min-height: 78vh; display: flex; flex-direction: column; justify-content: center; opacity: .42; transition: opacity .5s ease; }
-.step-card.active { opacity: 1; }
-.step-card .num { font-size: .85rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: #8EA2FF; }
-.step-card h3 { font-size: clamp(2rem, 3.8vw, 3rem); letter-spacing: -.03em; margin: .5rem 0 .9rem; }
-.step-card p { color: #AEBBDA; font-size: 1.12rem; max-width: 42ch; }
-.m-shot { display: none; }
-.story-device { position: sticky; top: 12vh; height: 76vh; display: flex; flex-direction: column; justify-content: center; perspective: 1400px; }
-.device { border-radius: 16px; overflow: hidden; background: #fff; transform-style: preserve-3d;
-  transform: rotateY(var(--dy, -12deg)) rotateX(5deg); transition: transform .8s cubic-bezier(.2, .8, .2, 1);
-  box-shadow: 0 60px 100px -30px rgba(0, 0, 0, .9), 0 0 0 1px rgba(255, 255, 255, .1), 0 0 120px -20px rgba(59, 91, 253, .45); }
-.screens { position: relative; aspect-ratio: 16 / 10; }
-.screens img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: top left; opacity: 0; transform: scale(1.04);
-  transition: opacity .6s ease, transform .8s ease; }
-.screens img.on { opacity: 1; transform: none; }
-.dots { display: flex; gap: 8px; justify-content: center; margin-top: 22px; }
-.dots i { width: 8px; height: 8px; border-radius: 999px; background: rgba(255, 255, 255, .25); transition: width .4s, background .4s; }
-.dots i.on { width: 28px; background: linear-gradient(90deg, #3B5BFD, #14B8A6); }
-@media (max-width: 900px) {
-  .story { grid-template-columns: 1fr; }
-  .story-device, .desk-only { display: none; }
-  .step-card { min-height: auto; opacity: 1; padding: 28px 0; }
-  .m-shot { display: block; border-radius: 12px; margin-top: 1rem; box-shadow: 0 30px 60px -20px rgba(0, 0, 0, .8); }
-}
 
 /* ------------------------------------------------------------------ product tour (bento) */
 .bento { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; grid-auto-flow: dense; }
@@ -406,20 +355,6 @@ html:not(.has-demo) .only-demo, html.has-demo .no-demo { display: none !importan
   .swipe-hint { display: flex; }
 }
 
-/* ------------------------------------------------------------------ mobile band */
-.mobile-band { color: #EAF0FF; overflow: hidden; position: relative; isolation: isolate;
-  background: radial-gradient(700px 420px at 80% 50%, rgba(109, 75, 255, .35), transparent 65%), linear-gradient(135deg, #0B1B33, #13235A 60%, #0E3B4A); }
-.mobile-band .eyebrow { color: #8FE9DB; }
-.mobile-grid { display: grid; grid-template-columns: 1fr 1.1fr; gap: clamp(32px, 5vw, 72px); align-items: center; }
-.phones { position: relative; height: clamp(420px, 46vw, 600px); perspective: 1400px; }
-.ph { position: absolute; top: 50%; left: 50%; margin: 0; width: clamp(160px, 17vw, 236px); border-radius: 30px; overflow: hidden;
-  border: 7px solid #0B1220; background: #0B1220; box-shadow: 0 50px 80px -30px rgba(0, 0, 0, .85), 0 0 0 1px rgba(255, 255, 255, .08); }
-.ph img { width: 100%; }
-.p1 { transform: translate(-128%, -46%) rotateY(22deg) rotateZ(-4deg) scale(.88); opacity: .9; }
-.p2 { transform: translate(-50%, -54%); z-index: 2; }
-.p3 { transform: translate(28%, -46%) rotateY(-22deg) rotateZ(4deg) scale(.88); opacity: .9; }
-@media (prefers-reduced-motion: no-preference) { .p2 { animation: float 8s ease-in-out infinite; } }
-@media (max-width: 860px) { .mobile-grid { grid-template-columns: 1fr; } .phones { height: 460px; } .ph { width: 170px; } }
 
 /* ------------------------------------------------------------------ calculator */
 .calc { display: grid; grid-template-columns: 1fr 1.1fr; gap: 0; border-radius: 24px; overflow: hidden; border: 1px solid var(--line); box-shadow: var(--shadow); }
@@ -917,10 +852,52 @@ html:not(.has-trial) .demo-grid, html:not(.has-demo) .demo-grid { grid-template-
 .tool-link-title { margin: 0 0 .3rem; font-size: .78rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--brand-text); }
 .tool-link ul { margin: 0; padding-left: 1.1rem; }
 .tool-link a { color: var(--brand-text); font-weight: 700; }
-.tools-title { margin: clamp(28px, 4vw, 44px) 0 1rem; font-size: clamp(1.3rem, 2.4vw, 1.7rem); }
 .tools-feats { grid-template-columns: repeat(2, 1fr); }
 @media (max-width: 600px) { .tools-feats { grid-template-columns: 1fr; } }
 .guides-all .btn + .btn { margin-left: .6rem; }
+/* ------------------------------------------------------------------ shorter home page: points, steps and a list of links */
+/* What used to be four sections (before/after, features story, product tour, mobile band) is one: a few points and the screenshots. */
+.points { list-style: none; margin: 0 0 clamp(24px, 4vw, 40px); padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: clamp(16px, 2.4vw, 28px); }
+.points.three { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-bottom: 0; }
+.points li { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: .85rem; row-gap: .2rem; align-content: start; }
+.points .ico { grid-row: span 2; display: grid; place-items: center; width: 42px; height: 42px; border-radius: 12px; color: var(--brand-text);
+  background: color-mix(in srgb, var(--brand) 10%, transparent); }
+.points .ico .ic { width: 21px; height: 21px; }
+.points b { font-size: 1.02rem; line-height: 1.3; }
+.points li > span:last-child { color: var(--muted); font-size: .95rem; line-height: 1.5; }
+@media (max-width: 1000px) { .points { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 600px) { .points, .points.three { grid-template-columns: 1fr; gap: 18px; } }
+/* The four steps sit under the price instead of in a section of their own. */
+.steps { max-width: 1040px; margin: clamp(32px, 4.5vw, 52px) auto 0; }
+.steps h3 { text-align: center; font-size: clamp(1.15rem, 2vw, 1.35rem); margin-bottom: clamp(18px, 3vw, 28px); }
+.steps .timeline .n { width: 44px; height: 44px; border-radius: 14px; margin-bottom: .8rem; font-size: 1rem; }
+.steps .timeline::before { top: 22px; }
+.steps .timeline b { font-size: 1.02rem; }
+.steps .timeline span:last-child { font-size: .93rem; }
+@media (max-width: 560px) {
+  .steps h3 { text-align: left; }
+  .steps .timeline { gap: 16px; }
+  .steps .timeline li { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: .85rem; text-align: left; padding: 0; }
+  .steps .timeline .n { grid-row: span 2; margin: 0; width: 36px; height: 36px; border-radius: 11px; font-size: .9rem; }
+  .steps .timeline b { margin-bottom: .15rem; }
+}
+/* Guides and free tools: a list of links instead of eight cards. */
+#precio, #guias { background: var(--surface); border-block: 1px solid var(--line); } /* like .band; the tests pin these two tags */
+.link-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 18px; }
+.link-grid a { display: flex; align-items: center; gap: .75rem; height: 100%; padding: .8rem 1rem; border: 1px solid var(--line); border-radius: 14px;
+  background: var(--bg); color: var(--ink); font-weight: 600; line-height: 1.35; text-decoration: none;
+  transition: border-color .2s ease, transform .2s ease; }
+.link-grid a:hover { border-color: color-mix(in srgb, var(--brand) 45%, var(--line)); transform: translateY(-1px); }
+.link-grid .ic { flex: none; color: var(--brand-text); }
+.link-grid span { min-width: 0; }
+.link-grid small { flex: none; margin-left: auto; padding: .15rem .55rem; border-radius: 999px; font-size: .7rem; font-weight: 800; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--brand-text); background: color-mix(in srgb, var(--brand) 10%, transparent); }
+@media (max-width: 700px) { .link-grid { grid-template-columns: 1fr; gap: 8px; } .link-grid a { padding: .7rem .9rem; } }
+/* On a phone each kind of business shows one screenshot (it still opens full size); the row of thumbnails was one more screen. */
+@media (max-width: 560px) { .panel .thumbs { display: none; } }
+/* On a phone the demonstration does not repeat the screenshot «La app por dentro» has just shown. */
+@media (max-width: 760px) { .trial-shot { display: none; } }
 @media print {
   .top, .foot, .skip, .band, .crumbs, .tc-actions, .guide-head .lead, .tool-page .guide-body, .tool-link, .sprite { display: none !important; }
   body { background: #fff; color: #000; }
