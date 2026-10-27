@@ -68,7 +68,7 @@ test('el formulario pide solo lo necesario: nombre, email, tipo de negocio, qué
 
 test('el mensaje principal, la demostración y «Así trabajamos» dicen lo que deben', () => {
   assert.match(home, /<h1>Soluciones digitales para <span class="grad">hacer crecer tu negocio\.<\/span><\/h1>/);
-  assert.match(visible, /Desarrollamos herramientas digitales para autónomos, comercios y empresas que quieren simplificar su gestión y trabajar de forma más eficiente\./);
+  assert.match(visible, /Cobra, organiza las citas, controla el stock y haz las facturas desde el móvil o la tablet\. Para bares, tiendas, peluquerías, autónomos y pymes, sin instalar nada\./);
   assert.match(home, /href="#soluciones">Descubrir soluciones/);
   assert.match(home, /data-demo href="\/demo\/">Probar demostración/);
   assert.match(visible, /Cuéntanos cómo funciona tu negocio y estudiaremos qué solución digital puede adaptarse a tus necesidades\./);
@@ -119,13 +119,13 @@ test('la demostración de 24 horas se presenta con su texto, su captura real y s
   assert.match(demo, /<img src="assets\/img\/shots\/resumen-c\.webp" width="1200" height="750" alt="[^"]+"/);
 });
 
-test('la promoción del 20 % solo habla de la instalación y no inventa fechas, urgencia ni precios originales', () => {
-  assert.match(visible, /Oferta especial: 20 % de descuento en la instalación de tu solución NirKanA\./);
+test('la promoción del 20 % solo habla de la puesta en marcha y no inventa fechas, urgencia ni precios originales', () => {
+  assert.match(visible, /Oferta especial: 20 % de descuento en la puesta en marcha de tu solución NirKanA\./);
   assert.match(visible, /Contacta ahora con nosotros para solicitar información y aprovechar la promoción\./);
   assert.match(visible, /Contactar y conseguir mi 20 % de descuento/);
   assert.match(home, /data-promo data-request="Solicitar información">/);
   const terms = home.match(/<details class="more-box" id="promocion-condiciones">[\s\S]*?<\/details>/)[0].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
-  assert.match(terms, /solo al precio de instalación/);
+  assert.match(terms, /solo al precio de la puesta en marcha/);
   assert.match(terms, /No se aplica a cuotas mensuales, mantenimiento, desarrollos adicionales ni otros conceptos/);
   const promo = [home.match(/<aside class="promo-strip"[\s\S]*?<\/aside>/)[0], home.match(/<div class="promo-card"[\s\S]*?<\/details>/)[0]].join(' ').replace(/<[^>]+>/g, ' ');
   assert.doesNotMatch(promo, /(hasta el|hasta (?:el )?\d|últimas?|solo hoy|solo por tiempo|tiempo limitado|quedan|antes\b.*€|acumulable|\d+ ?€)/i);
@@ -148,7 +148,7 @@ test('la pantalla «Tu demostración ha finalizado» existe, no se indexa y llev
   assert.match(end, /<link rel="canonical" href="https:\/\/nirkana\.es\/demo-finalizada\/">/);
   assert.match(end, /<h1>Tu demostración ha finalizado<\/h1>/);
   assert.match(end, /Gracias por conocer NirKanA\. Si quieres implementar una solución digital en tu negocio, podemos ayudarte\./);
-  assert.match(end.replace(/<[^>]+>/g, ''), /Contacta ahora y aprovecha un 20 % de descuento en la instalación\./);
+  assert.match(end.replace(/<[^>]+>/g, ''), /Contacta ahora y aprovecha un 20 % de descuento en la puesta en marcha\./);
   assert.match(end, /data-forward href="\/\?promo=20&amp;solicitud=presupuesto#contacto">Solicitar mi presupuesto con descuento/);
   assert.doesNotMatch(end, /\sstyle="|\son(click|load)=/i);
   assert.doesNotMatch(readFileSync(resolve(root, 'docs/sitemap.xml'), 'utf8'), /demo-finalizada/, 'no se indexa');

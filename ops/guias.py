@@ -28,7 +28,7 @@ import herramientas_texto as TT  # noqa: E402
 ROOT = HERE.parent
 DOCS = ROOT / "docs"
 SITE = "https://nirkana.es"
-DATE = "2026-10-22"       # fecha de la última modificación de las páginas que genera o que toca este cambio
+DATE = "2026-10-27"       # fecha de la última modificación de las páginas que genera o que toca este cambio
 PUBLISHED = "2026-10-21"  # cuándo salieron las primeras guías; cada guía puede traer su propio `published` y `updated`
 MONTHS = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
 REFERENCE = "tpv-tiendas/index.html"

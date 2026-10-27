@@ -82,7 +82,10 @@ test('cada página tiene título, descripción, canonical, Open Graph y datos es
     titles.add(title);
     descriptions.add(description);
     assert.match(html, /<link rel="canonical" href="https:\/\/nirkana\.es\//, name);
-    assert.match(html, /<meta property="og:image" content="https:\/\/nirkana\.es\/assets\/img\/og\.jpg"/, name);
+    // la imagen para compartir: la general (og.jpg) o una propia de la página (og-<sector>.jpg), que tiene que existir
+    const og = html.match(/<meta property="og:image" content="https:\/\/nirkana\.es\/assets\/img\/(og(?:-[a-z]+)?\.jpg)"/);
+    assert.ok(og && existsSync(resolve(docs, 'assets', 'img', og[1])), `${name}: og:image`);
+    assert.ok(html.includes(`<meta name="twitter:image" content="https://nirkana.es/assets/img/${og[1]}">`), `${name}: twitter:image`);
     const blocks = [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map((m) => JSON.parse(m[1]));
     assert.ok(blocks.length >= 2, `${name}: JSON-LD`);
     const faq = blocks.find((b) => b['@type'] === 'FAQPage');
@@ -110,4 +113,18 @@ test('ningún dato personal ni secreto en el código de la web', () => {
     assert.doesNotMatch(code, /(?:\+34|0034)?\s?[6-9]\d{2}[ -]?\d{3}[ -]?\d{3}\b/, `${f}: teléfono`);
   }
   assert.match(readFileSync(resolve(docs, 'assets/site.js'), 'utf8'), /whatsapp: "",/);
+});
+
+test('la página de peluquerías y barberías enseña la reserva online sin prometer lo que no hace', () => {
+  const html = read('programa-peluquerias-estetica/');
+  const text = visible(html).replace(/\s+/g, ' ');
+  assert.match(html, /<h1>Programa para peluquerías y barberías, con reserva online, agenda y caja<\/h1>/);
+  assert.match(html, /<section class="band" id="reserva-online">/);
+  for (const shot of ['movil-reserva-servicios', 'movil-reserva-hora', 'movil-reserva-pedida', 'movil-agenda-confirmar'])
+    assert.ok(html.includes(`/assets/img/shots/${shot}.webp`), shot);
+  assert.match(html, /<video controls playsinline preload="none" poster="\/assets\/video\/reserva-online-barberia\.jpg"/);
+  assert.match(text, /No envía mensajes por su cuenta/);                       // WhatsApp sale escrito; lo envía el negocio
+  assert.match(text, /no cobra señal ni pagos por adelantado/);               // sin pasarela de pago en la reserva
+  assert.doesNotMatch(text, /recordatorios? autom[aá]tic|env[ií]a (los )?recordatorios|cobr(a|o) la señal/i);
+  assert.match(html, /href="\/\?sector=belleza#contacto"[^>]*>Pide tu demo gratis/);  // el anuncio dice «Pide tu demo gratis»
 });
