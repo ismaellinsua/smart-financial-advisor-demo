@@ -292,48 +292,26 @@ html:not(.has-demo) .only-demo, html.has-demo .no-demo { display: none !importan
 .trust-row .ic { color: var(--brand); width: 1.25em; height: 1.25em; }
 @media (max-width: 760px) { .trust-row { justify-content: center; } }
 
-/* ------------------------------------------------------------------ the 12-second video */
-.reel-band { position: relative; isolation: isolate; overflow: hidden;
-  background: radial-gradient(60% 90% at 28% 50%, color-mix(in srgb, var(--violet) 10%, transparent), transparent 70%), var(--bg); }
-.reel-layout { display: grid; align-items: center; justify-content: center; gap: 0 clamp(40px, 7vw, 104px);
-  grid-template-columns: auto minmax(0, 520px); grid-template-areas: "video head" "video body"; }
-.reel-head { grid-area: head; align-self: end; }
-.reel-head h2 { margin-bottom: .8rem; }
-.reel-body { grid-area: body; align-self: start; }
-.reel-body .ticks { margin: 1.5rem 0 1.9rem; }
-.reel { grid-area: video; position: relative; margin: 0; width: min(300px, 74vw); justify-self: center; }
-.reel::before { content: ""; position: absolute; inset: -8% -38%; z-index: -1; pointer-events: none;
-  background: radial-gradient(closest-side, rgba(109, 75, 255, .42), rgba(20, 184, 166, .18) 62%, transparent); filter: blur(28px); }
-.reel-frame { position: relative; aspect-ratio: 9 / 16; border-radius: 30px; overflow: hidden; background: #0B1B33;
-  box-shadow: 0 50px 90px -40px rgba(27, 22, 102, .75), 0 18px 40px -24px rgba(14, 23, 38, .5); }
-.reel-frame::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .12); }
-.reel-video { display: block; width: 100%; height: 100%; object-fit: cover; cursor: pointer; }
-.reel figcaption { margin-top: .9rem; text-align: center; font-size: .85rem; color: var(--muted); }
-.reel-btn { position: absolute; bottom: 12px; z-index: 1; display: inline-flex; align-items: center; justify-content: center; gap: .45rem;
-  height: 44px; min-width: 44px; padding: 0 .95rem; border: 1px solid rgba(255, 255, 255, .26); border-radius: 999px;
-  color: #fff; background: rgba(8, 13, 30, .58); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-  font-size: .82rem; font-weight: 700; cursor: pointer;
-  transition: left .3s ease, bottom .3s ease, width .3s ease, height .3s ease, background .2s ease; }
-.reel-btn:hover { background: rgba(8, 13, 30, .78); }
-.reel-btn:focus-visible { outline: 3px solid #8FE9DB; outline-offset: 2px; }
-.reel-btn .ic { width: 1.15rem; height: 1.15rem; }
-.reel-toggle { left: 12px; width: 44px; padding: 0; }
-.reel-toggle .ic { fill: currentColor; stroke-width: 2.4; }
-.reel-sound { right: 12px; }
-/* Paused (before it first plays, with reduced motion, or after a tap): one big play button in the middle. */
-.reel.is-paused .reel-toggle { left: calc(50% - 36px); bottom: calc(50% - 36px); width: 72px; height: 72px;
-  background: var(--grad); border-color: rgba(255, 255, 255, .45); box-shadow: 0 16px 36px -10px rgba(59, 91, 253, .85); }
-.reel.is-paused .reel-toggle .ic { width: 1.7rem; height: 1.7rem; margin-left: 3px; }
-@media (prefers-reduced-motion: reduce) { .reel-btn { transition: none; } }
-@media (max-width: 860px) {
-  .reel-layout { grid-template-columns: minmax(0, 1fr); grid-template-areas: "head" "video" "body"; gap: 28px; text-align: center; }
-  .reel-head { align-self: auto; }
-  .reel-head .sub { margin-inline: auto; }
-  .reel-body { justify-self: center; }
-  .reel-body .ticks { display: none; } /* on a phone the video already says it */
+/* ------------------------------------------------------------------ brand film, right under the hero */
+/* Like a product page: it plays by itself, muted, in the hero's own dark blue, so the two read as one piece. Nothing is
+   laid over the rest of the page. At most 1040 px wide: the file is 848 px and grows soft beyond that. */
+.film { padding: 0 0 clamp(36px, 5vw, 72px); background: linear-gradient(180deg, #13235A, #0B1430); }
+.film-frame { position: relative; width: min(1040px, 100% - 48px); margin-inline: auto; border-radius: 28px; overflow: hidden;
+  background: #000; box-shadow: 0 50px 100px -40px rgba(0, 0, 0, .9), 0 0 0 1px rgba(255, 255, 255, .08); }
+.film-video { display: block; width: 100%; height: auto; aspect-ratio: 848 / 370; cursor: pointer; }
+.film-controls { position: absolute; right: 16px; bottom: 16px; display: flex; gap: 10px; }
+.film-btn { display: grid; place-items: center; width: 40px; height: 40px; padding: 0; border-radius: 50%; cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, .22); background: rgba(20, 22, 30, .5); color: #fff;
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); transition: background .2s ease; }
+.film-btn:hover { background: rgba(20, 22, 30, .75); }
+.film-btn:focus-visible { outline: 3px solid #8FE9DB; outline-offset: 2px; }
+.film-btn .ic { width: 1.05rem; height: 1.05rem; }
+[data-film-toggle] .ic { fill: currentColor; stroke-width: 2.4; }
+@media (max-width: 760px) {
+  .film-frame { width: 100%; border-radius: 0; box-shadow: none; } /* edge to edge on a phone */
+  .film-controls { right: 10px; bottom: 10px; gap: 8px; }
+  .film-btn { width: 36px; height: 36px; }
 }
-@media (max-width: 560px) { .reel-head .sub { display: none; } }
 
 
 /* ------------------------------------------------------------------ sector tabs */

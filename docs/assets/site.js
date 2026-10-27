@@ -572,58 +572,58 @@ const ANALYTICS = { goatcounter: "nirkana" };
     update();
   }
 
-  // ------------------------------------------------------------ the 12-second video
-  // Muted and in a loop, it plays only while half of it is on screen, never by itself with reduced motion or Save-Data,
-  // and the visitor can pause it (WCAG 2.2.2) or turn the sound on. Without JavaScript the browser's own controls stay.
-  document.querySelectorAll(".reel").forEach((reel) => {
-    const video = reel.querySelector("video");
-    const toggle = reel.querySelector("[data-reel-toggle]");
-    const sound = reel.querySelector("[data-reel-sound]");
-    if (!video || !toggle || !sound) return;
-    video.controls = false;
+  // ------------------------------------------------------------ brand film: plays by itself, muted, while it is on screen
+  // Like a product page, with no button to press: it only moves while 40 % of it is on screen, never by itself with
+  // reduced motion or Save-Data, and the visitor can pause it (WCAG 2.2.2) or turn the sound on. Without JavaScript the
+  // browser's own controls stay.
+  document.querySelectorAll(".film-frame").forEach((frame) => {
+    const film = frame.querySelector("video");
+    const toggle = frame.querySelector("[data-film-toggle]");
+    const sound = frame.querySelector("[data-film-sound]");
+    if (!film || !toggle || !sound) return;
+    film.controls = false;
     toggle.hidden = false;
     sound.hidden = false;
     let wanted = !reduceMotion && !(navigator.connection && navigator.connection.saveData);
     const setIcon = (button, name) => button.querySelector("use").setAttribute("href", `#i-${name}`);
     const sync = () => {
-      reel.classList.toggle("is-paused", video.paused);
-      toggle.setAttribute("aria-label", video.paused ? "Reproducir el vídeo" : "Pausar el vídeo");
-      setIcon(toggle, video.paused ? "play" : "pause");
+      toggle.setAttribute("aria-label", film.paused ? "Reproducir el vídeo" : "Pausar el vídeo");
+      setIcon(toggle, film.paused ? "play" : "pause");
     };
-    // Blocked autoplay or a source that cannot play: back to paused, so the big play button shows (not «pause» on a still frame).
-    const play = () => { const started = video.play(); if (started) started.catch(() => { video.pause(); sync(); }); };
-    video.addEventListener("play", sync);
-    video.addEventListener("pause", sync);
-    // A browser that cannot decode the file (or a failed download) does not reject play(): it waits for another source.
-    // The error on the last <source> is the signal to go back to paused.
-    const lastSource = video.querySelector("source:last-of-type");
-    if (lastSource) lastSource.addEventListener("error", () => { video.pause(); sync(); });
+    const stop = () => { film.pause(); sync(); };
+    const play = () => { const started = film.play(); if (started) started.catch(stop); }; // blocked autoplay: stays paused
+    // A browser that cannot decode the file (or a failed download) does not reject play(): the error on the last
+    // <source> is the signal to go back to paused.
+    const lastSource = film.querySelector("source:last-of-type");
+    if (lastSource) lastSource.addEventListener("error", stop);
+    film.addEventListener("play", sync);
+    film.addEventListener("pause", sync);
     const playOrPause = () => {
-      if (video.paused) {
+      if (film.paused) {
         wanted = true;
         play();
         countVisit("video-reproducir", "Vídeo: lo reproduce", true);
       } else {
         wanted = false;
-        video.pause();
+        film.pause();
       }
     };
     toggle.addEventListener("click", playOrPause);
-    video.addEventListener("click", playOrPause);
+    film.addEventListener("click", playOrPause);
     sound.addEventListener("click", () => {
-      video.muted = !video.muted;
-      sound.querySelector("span").textContent = video.muted ? "Activar sonido" : "Silenciar";
-      setIcon(sound, video.muted ? "mute" : "sound");
-      if (!video.muted) {
+      film.muted = !film.muted;
+      sound.setAttribute("aria-label", film.muted ? "Activar sonido" : "Silenciar");
+      setIcon(sound, film.muted ? "mute" : "sound");
+      if (!film.muted) {
         countVisit("video-sonido", "Vídeo: activa el sonido", true);
-        if (video.paused) { wanted = true; play(); }
+        if (film.paused) { wanted = true; play(); }
       }
     });
     if ("IntersectionObserver" in window) {
       new IntersectionObserver(([entry]) => {
         if (entry.isIntersecting && wanted) play();
-        else if (!entry.isIntersecting && !video.paused) video.pause(); // off screen: stop, and resume when it is back
-      }, { threshold: 0.5 }).observe(video);
+        else if (!entry.isIntersecting && !film.paused) film.pause(); // off screen: stop, and carry on when it is back
+      }, { threshold: 0.4 }).observe(film);
     }
     sync();
   });

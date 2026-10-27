@@ -1,7 +1,8 @@
 // Ejecutar: node --test tests/web-video.test.mjs
-// El vídeo de 12 segundos de la portada y la letra de los títulos (Sora, la de los vídeos y los anuncios). Los dos se sirven
-// desde la propia web y no molestan: el vídeo no se descarga hasta que hace falta, va sin sonido, solo se mueve mientras se
-// ve, se puede pausar, y nunca arranca solo si el visitante pide menos movimiento o ahorro de datos.
+// El vídeo de marca de la portada y la letra de los títulos (Sora, la de los vídeos y los anuncios). Los dos se sirven desde
+// la propia web y no molestan: el vídeo va justo debajo del inicio sin tapar nada, no se descarga hasta que hace falta, va
+// sin sonido, solo se mueve mientras se ve, se puede pausar, y nunca arranca solo si el visitante pide menos movimiento o
+// ahorro de datos.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, statSync, readdirSync } from 'node:fs';
@@ -14,53 +15,58 @@ const read = (rel) => readFileSync(resolve(docs, rel), 'utf8');
 const home = read('index.html');
 const css = read('assets/site.css');
 const js = read('assets/site.js');
-const VIDEO = 'assets/video/nirkana-en-12-segundos.mp4';
-const POSTER = 'assets/video/nirkana-en-12-segundos.webp';
+const VIDEO = 'assets/video/nirkana-marca.mp4';
+const POSTER = 'assets/video/nirkana-marca.webp';
 
-test('el vídeo está en la portada, después de lo esencial y antes de las soluciones', () => {
-  const at = home.indexOf('<section id="video" class="reel-band"');
-  assert.ok(at > home.indexOf('<div class="trust"'), 'después de la franja de lo esencial');
-  assert.ok(at < home.indexOf('<section id="soluciones"'), 'antes de las soluciones');
-  assert.match(home, /<h2 id="video-titulo">Mira NirKanA en marcha<\/h2>/);
-  assert.match(home, /<figcaption>Pantallas reales con datos de ejemplo<\/figcaption>/);
+test('el vídeo va justo debajo del inicio y no quita ni tapa nada de la portada', () => {
+  const at = home.indexOf('<section class="film" id="video"');
+  assert.ok(at > home.indexOf('<section class="hero" id="inicio">'), 'después del inicio');
+  assert.ok(at < home.indexOf('<aside class="promo-strip"'), 'antes de la franja de la promoción');
+  // Everything else is still there, in its place.
+  for (const part of ['<section class="hero" id="inicio">', '<aside class="promo-strip"', '<div class="trust"', '<section id="soluciones"',
+    '<section id="temas"', '<section id="contacto"']) assert.ok(home.includes(part), `falta ${part}`);
+  assert.doesNotMatch(home, /nirkana-en-12-segundos|reel-band/, 'el vídeo de 12 segundos lo sustituye este');
+  assert.doesNotMatch(css, /\.film[^{]*\{[^}]*position: fixed/, 'el vídeo no flota sobre la página');
 });
 
 test('el vídeo no se descarga ni suena por su cuenta', () => {
-  const tag = home.match(/<video class="reel-video"[^>]*>/)[0];
-  for (const attr of [' muted', ' loop', ' playsinline', ' preload="none"', ` poster="${POSTER}"`, ' controls', ' width="720" height="1280"']) {
+  const tag = home.match(/<video class="film-video"[^>]*>/)[0];
+  for (const attr of [' controls', ' muted', ' loop', ' playsinline', ' preload="none"', ` poster="${POSTER}"`, ' width="848" height="370"',
+    ' aria-describedby="video-descripcion"']) {
     assert.ok(tag.includes(attr), `falta ${attr.trim()}`);
   }
   assert.doesNotMatch(tag, /autoplay/, 'lo arranca site.js solo cuando se ve, nunca el navegador al cargar');
   assert.match(home, new RegExp(`<source src="${VIDEO.replace(/\./g, '\\.')}" type="video/mp4">`));
+  assert.match(home, /<p class="sr-only" id="video-descripcion">Vídeo sin diálogos, con música\./);
 });
 
 test('el vídeo y su portada pesan poco', () => {
-  assert.ok(statSync(resolve(docs, VIDEO)).size < 2_000_000, 'el vídeo debe quedar por debajo de 2 MB');
-  assert.ok(statSync(resolve(docs, POSTER)).size < 80_000, 'la portada debe quedar por debajo de 80 KB');
+  assert.ok(statSync(resolve(docs, VIDEO)).size < 2_500_000, 'el vídeo debe quedar por debajo de 2,5 MB');
+  assert.ok(statSync(resolve(docs, POSTER)).size < 60_000, 'la portada debe quedar por debajo de 60 KB');
 });
 
-test('se ve solo cuando está en pantalla, se puede pausar y activar el sonido, y sin JavaScript quedan los controles del navegador', () => {
-  assert.match(js, /document\.querySelectorAll\("\.reel"\)/);
+test('se ve solo mientras está en pantalla, se puede pausar y activar el sonido, y sin JavaScript quedan los controles del navegador', () => {
+  assert.match(js, /document\.querySelectorAll\("\.film-frame"\)/);
   assert.match(js, /let wanted = !reduceMotion && !\(navigator\.connection && navigator\.connection\.saveData\);/);
   assert.match(js, /new IntersectionObserver\(/);
-  assert.match(js, /started\.catch\(\(\) => \{ video\.pause\(\); sync\(\); \}\)/);
-  assert.match(js, /lastSource\.addEventListener\("error", \(\) => \{ video\.pause\(\); sync\(\); \}\)/);
-  assert.match(js, /video\.controls = false;/);
+  assert.match(js, /film\.controls = false;/);
+  assert.match(js, /started\.catch\(stop\)/);
+  assert.match(js, /lastSource\.addEventListener\("error", stop\)/);
   assert.match(js, /"Pausar el vídeo"/);
   assert.match(js, /"Activar sonido" : "Silenciar"/);
   // The page's own buttons start hidden: without JavaScript only the browser's controls are there.
-  assert.match(home, /data-reel-toggle aria-label="Reproducir el vídeo" hidden>/);
-  assert.match(home, /data-reel-sound hidden>/);
-  for (const icon of ['i-pause', 'i-sound', 'i-mute']) assert.match(home, new RegExp(`<symbol id="${icon}"`));
+  assert.match(home, /data-film-sound aria-label="Activar sonido" hidden>/);
+  assert.match(home, /data-film-toggle aria-label="Reproducir el vídeo" hidden>/);
+  for (const icon of ['i-play', 'i-pause', 'i-sound', 'i-mute']) assert.match(home, new RegExp(`<symbol id="${icon}"`));
 });
 
 test('el vídeo tiene sus datos estructurados (VideoObject) y apuntan a archivos que existen', () => {
   const blocks = [...home.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map((m) => JSON.parse(m[1]));
-  const video = blocks.find((b) => b['@type'] === 'VideoObject');
-  assert.ok(video, 'falta el bloque VideoObject');
-  assert.equal(video.duration, 'PT12S');
-  assert.equal(video.contentUrl, `https://nirkana.es/${VIDEO}`);
-  assert.equal(video.thumbnailUrl, `https://nirkana.es/${POSTER}`);
+  const video = blocks.filter((b) => b['@type'] === 'VideoObject');
+  assert.equal(video.length, 1, 'un solo bloque VideoObject');
+  assert.equal(video[0].duration, 'PT40S');
+  assert.equal(video[0].contentUrl, `https://nirkana.es/${VIDEO}`);
+  assert.equal(video[0].thumbnailUrl, `https://nirkana.es/${POSTER}`);
 });
 
 test('los títulos grandes usan Sora servida desde la web, sin saltos al llegar, y la portada la precarga', () => {

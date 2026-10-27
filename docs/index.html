@@ -58,10 +58,10 @@
   {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "¿NirKanA sirve para mi tipo de negocio?", "acceptedAnswer": {"@type": "Answer", "text": "Está pensada para hostelería, belleza y estética, comercio, autónomos y pequeñas empresas. Cada tipo de negocio tiene su plantilla y activas solo las funciones que usas. Si el tuyo es distinto, cuéntanoslo y te diremos con sinceridad si encaja."}}, {"@type": "Question", "name": "¿Puedo solicitar una solución personalizada?", "acceptedAnswer": {"@type": "Answer", "text": "Sí. Si lo que necesitas no está en NirKanA, estudiamos contigo si tiene sentido adaptarla o desarrollarlo a medida. Lo valoramos caso a caso y te lo proponemos antes de empezar, sin compromiso."}}, {"@type": "Question", "name": "¿Cómo puedo conocer el producto?", "acceptedAnswer": {"@type": "Answer", "text": "Abre la demostración: un negocio de ejemplo con datos ficticios, sin registro, donde puedes cobrar, abrir y cerrar caja, devolver y facturar. Si quieres verla con tus productos, escríbenos y la preparamos."}}, {"@type": "Question", "name": "¿Cómo solicito un presupuesto?", "acceptedAnswer": {"@type": "Answer", "text": "Con el formulario de contacto: elige «Pedir presupuesto», cuéntanos tu negocio y lo que necesitas, y te respondemos con el precio para tu caso, sin compromiso."}}, {"@type": "Question", "name": "¿Necesito conocimientos informáticos?", "acceptedAnswer": {"@type": "Answer", "text": "No. Funciona en el navegador del móvil, la tablet o el ordenador, sin instalar nada. Además configuramos contigo el catálogo, el equipo y los datos fiscales para que empieces a vender cuanto antes."}}, {"@type": "Question", "name": "¿Cuánto cuesta?", "acceptedAnswer": {"@type": "Answer", "text": "Desde 60 € al mes + IVA. El precio final depende de las funciones que necesites: escríbenos y te decimos exactamente cuánto sería para tu negocio, sin compromiso. Se paga por transferencia bancaria o con tarjeta (Stripe), como prefieras."}}, {"@type": "Question", "name": "¿Qué pasa con mis datos?", "acceptedAnswer": {"@type": "Answer", "text": "Se guardan en una base de datos en la nube, con conexión cifrada y separados de los de otros negocios. Puedes descargar una copia completa cuando quieras. Ventas, facturas, gastos, compras, productos, clientes y cierres de caja se exportan a Excel para tu gestoría. Para ella hay además un paquete del trimestre en un ZIP y un acceso de solo lectura."}}, {"@type": "Question", "name": "¿Y si no hay internet?", "acceptedAnswer": {"@type": "Answer", "text": "Si ese dispositivo ya ha abierto la app con conexión, puede seguir cobrando: las ventas se guardan en él y se envían solas al volver la red. Mientras tanto no hay stock actualizado de otros dispositivos ni descuentos por puntos."}}, {"@type": "Question", "name": "¿Qué impresoras y lectores admite?", "acceptedAnswer": {"@type": "Answer", "text": "Imprime tickets desde el navegador. La conexión directa con impresoras térmicas y lectores de códigos depende del modelo y del navegador: lo probamos contigo antes de que te decidas."}}, {"@type": "Question", "name": "¿Cumple con VERI*FACTU?", "acceptedAnswer": {"@type": "Answer", "text": "NirKanA ya registra cada ticket y factura de forma encadenada y genera el código QR, pero todavía no afirmamos conformidad con el sistema de la Agencia Tributaria: seguimos con las pruebas y la revisión. Si lo necesitas para tu negocio, escríbenos y te contamos cómo está."}}]}
   </script>
   <script type="application/ld+json">
-  {"@context": "https://schema.org", "@type": "VideoObject", "name": "NirKanA en 12 segundos", "inLanguage": "es",
-   "description": "Cobrar desde el móvil con el stock y los tickets al día, y una agenda para cada profesional con el aviso por WhatsApp a un clic. Pantallas reales con datos de ejemplo.",
-   "thumbnailUrl": "https://nirkana.es/assets/video/nirkana-en-12-segundos.webp", "contentUrl": "https://nirkana.es/assets/video/nirkana-en-12-segundos.mp4",
-   "uploadDate": "2026-10-27", "duration": "PT12S"}
+  {"@context": "https://schema.org", "@type": "VideoObject", "name": "NirKanA: tu ambición, nuestra tecnología", "inLanguage": "es",
+   "description": "Vídeo de NirKanA: «No es solo un negocio», «Tecnología que mueve tu empresa» (captura real de la app con datos de ejemplo) y «Piensa en grande».",
+   "thumbnailUrl": "https://nirkana.es/assets/video/nirkana-marca.webp", "contentUrl": "https://nirkana.es/assets/video/nirkana-marca.mp4",
+   "uploadDate": "2026-10-27", "duration": "PT40S"}
   </script>
 </head>
 <body>
@@ -166,6 +166,24 @@
       </div>
     </section>
 
+    <!-- ============================================================ BRAND FILM: plays by itself, muted, right under the hero -->
+    <section class="film" id="video" aria-label="Vídeo de NirKanA">
+      <div class="film-frame" data-reveal>
+        <video class="film-video" controls muted loop playsinline preload="none" width="848" height="370"
+          poster="assets/video/nirkana-marca.webp" aria-label="Vídeo de NirKanA, 40 segundos" aria-describedby="video-descripcion">
+          <source src="assets/video/nirkana-marca.mp4" type="video/mp4">
+        </video>
+        <!-- Without JavaScript these stay hidden and the browser's own controls are used. -->
+        <div class="film-controls">
+          <button class="film-btn" type="button" data-film-sound aria-label="Activar sonido" hidden><svg class="ic"><use href="#i-mute"/></svg></button>
+          <button class="film-btn" type="button" data-film-toggle aria-label="Reproducir el vídeo" hidden><svg class="ic"><use href="#i-play"/></svg></button>
+        </div>
+      </div>
+      <p class="sr-only" id="video-descripcion">Vídeo sin diálogos, con música. «No es solo un negocio.» Una cafetería, un almacén,
+        un restaurante y gente trabajando con el ordenador y la tableta. «Tecnología que mueve tu empresa.», con una captura real
+        de NirKanA con datos de ejemplo. «Piensa en grande.» Cierre: NirKanA, «Tu ambición. Nuestra tecnología.», nirkana.es.</p>
+    </section>
+
     <!-- ============================================================ PROMOTION (compact) -->
     <aside class="promo-strip" aria-label="Promoción">
       <div class="wrap promo-strip-row">
@@ -183,39 +201,6 @@
         <span><svg class="ic"><use href="#i-download"/></svg>Tus datos, siempre descargables</span>
       </div>
     </div>
-
-    <!-- ============================================================ VIDEO: NirKanA in 12 seconds -->
-    <section id="video" class="reel-band" aria-labelledby="video-titulo">
-      <div class="wrap reel-layout">
-        <div class="reel-head">
-          <p class="eyebrow">En 12 segundos</p>
-          <h2 id="video-titulo">Mira NirKanA en marcha</h2>
-          <p class="sub" id="video-texto">Cobrar desde el móvil con el stock y los tickets al día, y una agenda para cada profesional,
-            con el aviso por WhatsApp a un clic.</p>
-        </div>
-        <figure class="reel" data-reveal>
-          <div class="reel-frame">
-            <video class="reel-video" controls muted loop playsinline preload="none" width="720" height="1280"
-              poster="assets/video/nirkana-en-12-segundos.webp" aria-label="Vídeo: NirKanA en 12 segundos" aria-describedby="video-texto">
-              <source src="assets/video/nirkana-en-12-segundos.mp4" type="video/mp4">
-            </video>
-            <!-- Without JavaScript these stay hidden and the browser's own controls are used. -->
-            <button class="reel-btn reel-toggle" type="button" data-reel-toggle aria-label="Reproducir el vídeo" hidden><svg class="ic"><use href="#i-play"/></svg></button>
-            <button class="reel-btn reel-sound" type="button" data-reel-sound hidden><svg class="ic"><use href="#i-mute"/></svg><span>Activar sonido</span></button>
-          </div>
-          <figcaption>Pantallas reales con datos de ejemplo</figcaption>
-        </figure>
-        <div class="reel-body">
-          <ul class="ticks">
-            <li><svg class="ic"><use href="#i-check"/></svg>Cobra desde el móvil o la tablet</li>
-            <li><svg class="ic"><use href="#i-check"/></svg>Stock, tickets y facturas al día</li>
-            <li><svg class="ic"><use href="#i-check"/></svg>Una agenda para cada profesional</li>
-          </ul>
-          <a class="btn magnet only-trial" data-trial href="#contacto">Probar gratis 24 horas <svg class="ic"><use href="#i-arrow"/></svg></a>
-          <a class="btn magnet no-trial" href="#contacto" data-request="Solicitar información">Solicitar información <svg class="ic"><use href="#i-arrow"/></svg></a>
-        </div>
-      </div>
-    </section>
 
     <!-- ============================================================ SOLUTIONS (one per kind of business) -->
     <section id="soluciones" class="band">
