@@ -118,7 +118,8 @@ test('ningún dato personal ni secreto en el código de la web', () => {
 test('la página de peluquerías y barberías enseña la reserva online sin prometer lo que no hace', () => {
   const html = read('programa-peluquerias-estetica/');
   const text = visible(html).replace(/\s+/g, ' ');
-  assert.match(html, /<h1>Programa para peluquerías y barberías, con reserva online, agenda y caja<\/h1>/);
+  assert.match(html, /<h1>Programa para peluquerías, barberías y centros de estética, con reserva online, agenda y caja<\/h1>/);
+  assert.match(html, /<title>[^<]*estética[^<]*<\/title>/, 'la búsqueda «agenda estética» ya trae visitas: el título no la pierde');
   assert.match(html, /<section class="band" id="reserva-online">/);
   for (const shot of ['movil-reserva-servicios', 'movil-reserva-hora', 'movil-reserva-pedida', 'movil-agenda-confirmar'])
     assert.ok(html.includes(`/assets/img/shots/${shot}.webp`), shot);
