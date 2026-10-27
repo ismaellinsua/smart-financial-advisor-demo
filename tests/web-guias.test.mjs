@@ -128,8 +128,8 @@ test('cada página de sector enlaza a tres guías y enseña el correo en su llam
 
 test('la portada enlaza al índice de guías y al de herramientas, y declara el sitio con datos estructurados WebSite', () => {
   const home = read('index.html');
-  assert.match(home, /<section id="guias">[\s\S]*href="\/guias\/">Ver todas las guías/);
-  assert.match(home, /<section id="guias">[\s\S]*href="\/herramientas\/">Ver las herramientas/);
+  assert.match(home, /<section id="guias"[^>]*>[\s\S]*href="\/guias\/">Ver todas las guías/);
+  assert.match(home, /<section id="guias"[^>]*>[\s\S]*href="\/herramientas\/">Ver las herramientas/);
   for (const t of tools) assert.ok(home.includes(`href="/herramientas/${t}/"`), `${t}: la portada no la enlaza`);
   const site = blocks(home).find((b) => b['@type'] === 'WebSite');
   assert.ok(site && site.url === 'https://nirkana.es/' && site.name === 'NirKanA' && site.inLanguage === 'es');

@@ -58,7 +58,7 @@ p { margin: 0 0 1rem; }
 .wrap { width: min(1220px, 100% - 48px); margin-inline: auto; }
 .narrow { width: min(760px, 100% - 32px); }
 @media (max-width: 560px) { .wrap { width: calc(100% - 32px); } }
-section { padding: clamp(56px, 7vw, 100px) 0; }
+section { padding: clamp(44px, 7vw, 100px) 0; }
 .band { background: var(--surface); border-block: 1px solid var(--line); }
 .head { margin-bottom: clamp(24px, 4vw, 44px); max-width: 760px; }
 .head.center { text-align: center; margin-inline: auto; }
@@ -859,7 +859,6 @@ html:not(.has-trial) .demo-grid, html:not(.has-demo) .demo-grid { grid-template-
 /* What used to be four sections (before/after, features story, product tour, mobile band) is one: a few points and the screenshots. */
 .points { list-style: none; margin: 0 0 clamp(24px, 4vw, 40px); padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: clamp(16px, 2.4vw, 28px); }
-.points.three { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-bottom: 0; }
 .points li { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: .85rem; row-gap: .2rem; align-content: start; }
 .points .ico { grid-row: span 2; display: grid; place-items: center; width: 42px; height: 42px; border-radius: 12px; color: var(--brand-text);
   background: color-mix(in srgb, var(--brand) 10%, transparent); }
@@ -867,7 +866,7 @@ html:not(.has-trial) .demo-grid, html:not(.has-demo) .demo-grid { grid-template-
 .points b { font-size: 1.02rem; line-height: 1.3; }
 .points li > span:last-child { color: var(--muted); font-size: .95rem; line-height: 1.5; }
 @media (max-width: 1000px) { .points { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 600px) { .points, .points.three { grid-template-columns: 1fr; gap: 18px; } }
+@media (max-width: 600px) { .points { grid-template-columns: 1fr; gap: 16px; } }
 /* The four steps sit under the price instead of in a section of their own. */
 .steps { max-width: 1040px; margin: clamp(32px, 4.5vw, 52px) auto 0; }
 .steps h3 { text-align: center; font-size: clamp(1.15rem, 2vw, 1.35rem); margin-bottom: clamp(18px, 3vw, 28px); }
@@ -882,11 +881,20 @@ html:not(.has-trial) .demo-grid, html:not(.has-demo) .demo-grid { grid-template-
   .steps .timeline .n { grid-row: span 2; margin: 0; width: 36px; height: 36px; border-radius: 11px; font-size: .9rem; }
   .steps .timeline b { margin-bottom: .15rem; }
 }
-/* Guides and free tools: a list of links instead of eight cards. */
-#precio, #guias { background: var(--surface); border-block: 1px solid var(--line); } /* like .band; the tests pin these two tags */
+/* ------------------------------------------------------------------ «¿Qué quieres saber?»: one topic open at a time */
+/* The page keeps everything; each visitor opens the topic they care about (links such as /#precio open theirs). */
+.topics { padding-bottom: clamp(16px, 3vw, 40px); }
+.topic-tabs { margin-bottom: clamp(4px, 1.5vw, 12px); }
+.topic-panel { padding: clamp(28px, 4vw, 48px) 0 clamp(8px, 2vw, 24px); }
+.topic-panel.enter { animation: panelIn .5s cubic-bezier(.2, .8, .2, 1); }
+.topic-panel .eyebrow { display: none; } /* the selected card above already names the topic */
+.security-list { max-width: 980px; margin: 0; }
+.security-list li { font-weight: 500; color: var(--muted); }
+.security-list b { color: var(--ink); }
+/* Guides and free tools: a list of links. */
 .link-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 18px; }
 .link-grid a { display: flex; align-items: center; gap: .75rem; height: 100%; padding: .8rem 1rem; border: 1px solid var(--line); border-radius: 14px;
-  background: var(--bg); color: var(--ink); font-weight: 600; line-height: 1.35; text-decoration: none;
+  background: var(--surface); color: var(--ink); font-weight: 600; line-height: 1.35; text-decoration: none;
   transition: border-color .2s ease, transform .2s ease; }
 .link-grid a:hover { border-color: color-mix(in srgb, var(--brand) 45%, var(--line)); transform: translateY(-1px); }
 .link-grid .ic { flex: none; color: var(--brand-text); }
@@ -898,6 +906,19 @@ html:not(.has-trial) .demo-grid, html:not(.has-demo) .demo-grid { grid-template-
 @media (max-width: 560px) { .panel .thumbs { display: none; } }
 /* On a phone the demonstration does not repeat the screenshot «La app por dentro» has just shown. */
 @media (max-width: 760px) { .trial-shot { display: none; } }
+/* Computers: the gallery shows five screenshots in two rows; Resultados and Equipo are in the sectors and in the phone carousel. */
+@media (min-width: 561px) { .bento .tile.wide { display: none; } }
+/* Phones: the repeated extras go. */
+@media (max-width: 560px) {
+  #demostracion .trial-copy .cta .btn.ghost { display: none; } /* «Solicitar información» is in the header and in the form */
+  .contact-copy .ticks { display: none; }
+  .foot-grid { gap: 22px 16px; padding: 36px 0 24px; }
+  .foot-grid nav { gap: .4rem; font-size: .9rem; }
+  .steps .timeline li > span:last-child { display: none; } /* on a phone the four steps read well from their titles */
+  .price-cta .mail-line { display: none; } /* the address is in «Cuéntanos tu caso» */
+  .promo-card { padding: 20px; }
+  .promo-card h3 { font-size: 1.15rem; }
+}
 @media print {
   .top, .foot, .skip, .band, .crumbs, .tc-actions, .guide-head .lead, .tool-page .guide-body, .tool-link, .sprite { display: none !important; }
   body { background: #fff; color: #000; }
