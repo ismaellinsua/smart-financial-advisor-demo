@@ -3,7 +3,7 @@
 // preselecciona y lo que promete tienen que coincidir.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { resolve, dirname } from 'node:path';
 
@@ -161,4 +161,31 @@ test('ninguna etiqueta <meta> ni <link> de ninguna página lleva marcas dentro d
     for (const [tag] of head.matchAll(/<(?:meta|link)\b[^>]*>/g)) assert.doesNotMatch(tag, /="[^"]*<[a-z]/i, `${rel}: ${tag}`);
     assert.match(head, /<link rel="icon" href="\/?assets\/favicon\.svg"/, `${rel}: falta el icono`);
   }
+});
+
+test('el pie de todas las páginas enseña Instagram y TikTok solo con el usuario, y la portada los declara como suyos', () => {
+  const PROFILES = [
+    { href: 'https://www.instagram.com/nirkana.oficial/', user: '@nirkana.oficial', icon: 'i-instagram', event: 'red-instagram' },
+    { href: 'https://www.tiktok.com/@nirkkana', user: '@nirkkana', icon: 'i-tiktok', event: 'red-tiktok' },
+  ];
+  const pages = readdirSync(resolve(root, 'docs'), { recursive: true }).filter((rel) => rel.endsWith('.html'))
+    .filter((rel) => readFileSync(resolve(root, 'docs', rel), 'utf8').includes('<div class="foot-brand">'));
+  assert.ok(pages.length >= 20, `solo ${pages.length} páginas con el pie completo`);
+  for (const rel of pages) {
+    const page = readFileSync(resolve(root, 'docs', rel), 'utf8');
+    const social = page.match(/<p class="social">([\s\S]*?)<\/p>/);
+    assert.ok(social, `${rel}: el pie no tiene las redes`);
+    for (const { href, user, icon, event } of PROFILES) {
+      const link = social[1].match(new RegExp(`<a href="${href.replace(/[.]/g, '\\.')}"([^>]*)>([\\s\\S]*?)</a>`));
+      assert.ok(link, `${rel}: falta ${href}`);
+      assert.match(link[1], /target="_blank" rel="me noopener noreferrer"/, `${rel}: ${href} sin rel seguro`);
+      assert.match(link[1], new RegExp(`data-evento="${event}"`), `${rel}: ${href} no se cuenta`);
+      assert.equal(link[2].replace(/<span\s+class="sr-only">[^<]*<\/span>/, '').replace(/<[^>]+>/g, '').trim(), user, `${rel}: solo el usuario`);
+      assert.match(page, new RegExp(`<symbol id="${icon}" `), `${rel}: falta el icono ${icon}`);
+      assert.ok(page.includes(`<use href="#${icon}"/>`), `${rel}: no usa el icono ${icon}`);
+    }
+  }
+  const organization = [...home.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)]
+    .map((m) => JSON.parse(m[1])).find((data) => data['@type'] === 'Organization');
+  assert.deepEqual(organization.sameAs, PROFILES.map((p) => p.href));
 });

@@ -539,6 +539,8 @@ details p { color: var(--muted); margin: .8rem 0 0; max-width: 64ch; }
 .foot-grid b { color: var(--ink); margin-bottom: .3rem; }
 .foot-brand p { margin-top: 1rem; max-width: 36ch; }
 .foot-brand .brand { color: var(--ink); }
+.foot-brand .social { display: flex; flex-wrap: wrap; gap: .45rem 1.25rem; margin-top: .9rem; max-width: none; }
+.foot-brand .social a { display: inline-flex; align-items: center; gap: .45rem; }
 .foot-bottom { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; padding: 20px 0 28px; border-top: 1px solid var(--line); font-size: .86rem; }
 @media (max-width: 860px) { .foot-grid { grid-template-columns: 1fr 1fr; } .foot-brand { grid-column: 1 / -1; } }
 
