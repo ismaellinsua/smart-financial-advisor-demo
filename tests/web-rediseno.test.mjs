@@ -219,19 +219,16 @@ test('la portada se organiza por temas: cada visitante abre lo que quiere saber 
   for (const gone of ['id="cambio"', 'id="movil"']) assert.ok(!home.includes(gone), gone);
 });
 
-test('nuestra historia: breve, con fechas reales en orden y datos que cuadran con la web', () => {
+test('nuestra historia: un texto breve, sin fechas ni cifras, con el lema del vídeo', () => {
   const panel = home.match(/<section id="historia" class="topic-panel"[\s\S]*?<\/section>/)[0];
   assert.match(home, /<button class="tt-wide" role="tab" id="t-historia" aria-controls="historia"/);
-  assert.match(panel, /<h2>De la libreta a una sola app<\/h2>/);
-  const dates = [...panel.matchAll(/<time datetime="(\d{4}-\d{2}-\d{2})">/g)].map((m) => m[1]);
-  assert.ok(dates.length >= 4 && dates.length <= 6, 'breve: entre 4 y 6 hitos');
-  assert.deepEqual([...dates].sort(), dates, 'los hitos van en orden');
-  assert.equal(dates[0], '2026-10-01', 'NirKanA nace el 1 de octubre de 2026 (primera versión y primera portada)');
-  // The facts are counted from the site itself, so they cannot go stale without this test noticing.
-  const dirs = (rel) => readdirSync(resolve(root, 'docs', rel), { withFileTypes: true }).filter((e) => e.isDirectory()).length;
-  const sectors = (home.match(/<section id="soluciones"[\s\S]*?<\/section>/)[0].match(/role="tab"/g) || []).length;
-  assert.match(panel, new RegExp(`<dt>tipos de negocio</dt><dd>${sectors}</dd>`));
-  assert.match(panel, new RegExp(`<dt>guías y calculadoras gratis</dt><dd>${dirs('guias') + dirs('herramientas')}</dd>`));
+  assert.match(panel, /<article class="story">/);
+  assert.match(panel, /<h2>No es solo un negocio\.<\/h2>/);
+  const paragraphs = panel.match(/<p(?: class="story-lead")?>/g) || [];
+  assert.ok(paragraphs.length >= 2 && paragraphs.length <= 4, 'breve: entre 2 y 4 párrafos');
+  assert.match(panel, /<p class="story-motto"><span>Tu ambición\.<\/span> <span>Nuestra tecnología\.<\/span><\/p>/);
+  // Text, not a timeline: no dates, no list of milestones, no figures.
+  assert.doesNotMatch(panel, /<time|<ol|<dl|\b20\d\d\b/);
   // Nothing that is not live yet: the online booking is not in the public trial.
   assert.doesNotMatch(panel, /reserva online/i);
 });
