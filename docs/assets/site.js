@@ -713,9 +713,9 @@ const ANALYTICS = { goatcounter: "nirkana" };
     }
   }
 
-  // The header turns dark glass while it sits over the dark hero, and light glass over the rest.
+  // The header turns dark glass while it sits over a dark band (the hero, the topics), and light glass over the rest.
   if (top) {
-    const darkSections = [...document.querySelectorAll(".hero")];
+    const darkSections = [...document.querySelectorAll(".hero, .topics-stage")];
     let queued = false;
     const onDark = () => {
       queued = false;

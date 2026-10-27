@@ -324,19 +324,27 @@
 
     <!-- ============================================================ TOPICS: the visitor opens what they want to know -->
     <section id="temas" class="topics">
-      <div class="wrap">
-        <div class="head center" data-reveal>
-          <p class="eyebrow">Todo sobre NirKanA</p>
-          <h2>¿Qué quieres saber?</h2>
-          <p class="sub">Toca un tema y te lo enseñamos.</p>
-        </div>
-        <div class="tabs cards topic-tabs" role="tablist" aria-label="Temas" data-reveal>
-          <button role="tab" id="t-funciones" aria-controls="funciones" aria-selected="true"><svg class="ic"><use href="#i-device"/></svg><b>La app por dentro</b><small>Qué hace y cómo se ve</small></button>
-          <button role="tab" id="t-demostracion" aria-controls="demostracion" aria-selected="false" tabindex="-1"><svg class="ic"><use href="#i-play"/></svg><b>Prueba gratis</b><small>24 horas y la oferta del 20 %</small></button>
-          <button role="tab" id="t-precio" aria-controls="precio" aria-selected="false" tabindex="-1"><svg class="ic"><use href="#i-receipt"/></svg><b>Precio</b><small>Cuánto cuesta y cómo empezamos</small></button>
-          <button role="tab" id="t-seguridad" aria-controls="seguridad" aria-selected="false" tabindex="-1"><svg class="ic"><use href="#i-shield"/></svg><b>Seguridad</b><small>Tus datos, protegidos</small></button>
-          <button role="tab" id="t-preguntas" aria-controls="preguntas" aria-selected="false" tabindex="-1"><svg class="ic"><use href="#i-chat"/></svg><b>Preguntas</b><small>Las dudas más habituales</small></button>
-          <button role="tab" id="t-guias" aria-controls="guias" aria-selected="false" tabindex="-1"><svg class="ic"><use href="#i-list"/></svg><b>Guías gratis</b><small>Guías y calculadoras</small></button>
+      <div class="topics-stage">
+        <div class="wrap">
+          <div class="head center" data-reveal>
+            <p class="eyebrow">Todo sobre NirKanA</p>
+            <h2>¿Qué quieres saber?</h2>
+            <p class="sub">Toca un tema y te lo enseñamos aquí debajo.</p>
+          </div>
+          <div class="topic-tiles" role="tablist" aria-label="Temas" data-reveal>
+            <button role="tab" id="t-funciones" aria-controls="funciones" aria-selected="true"><span class="tt-visual"><img
+              src="assets/img/shots/resumen-c.webp" alt="" width="1200" height="750" loading="lazy"></span><span class="tt-text"><b>La app por dentro</b><small>Capturas reales de lo que hace</small></span></button>
+            <button role="tab" id="t-demostracion" aria-controls="demostracion" aria-selected="false" tabindex="-1"><span class="tt-big">24 h</span><span
+              class="tt-text"><b>Prueba gratis</b><small>Sin tarjeta, y un <span class="nw">20 %</span> en la puesta en marcha</small></span></button>
+            <button role="tab" id="t-precio" aria-controls="precio" aria-selected="false" tabindex="-1"><span class="tt-big"><small>desde</small> 60 €</span><span
+              class="tt-text"><b>Precio</b><small>Al mes + IVA, y cómo empezamos</small></span></button>
+            <button role="tab" id="t-seguridad" aria-controls="seguridad" aria-selected="false" tabindex="-1"><span class="tt-icon"><svg class="ic"><use
+              href="#i-shield"/></svg></span><span class="tt-text"><b>Seguridad</b><small>Datos cifrados, separados y siempre tuyos</small></span></button>
+            <button role="tab" id="t-preguntas" aria-controls="preguntas" aria-selected="false" tabindex="-1"><span class="tt-icon"><svg class="ic"><use
+              href="#i-chat"/></svg></span><span class="tt-text"><b>Preguntas</b><small>Las dudas más habituales, resueltas</small></span></button>
+            <button role="tab" id="t-guias" aria-controls="guias" aria-selected="false" tabindex="-1"><span class="tt-icon"><svg class="ic"><use
+              href="#i-list"/></svg></span><span class="tt-text"><b>Guías gratis</b><small>Guías y calculadoras para tu negocio</small></span></button>
+          </div>
         </div>
       </div>
 

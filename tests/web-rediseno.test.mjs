@@ -194,7 +194,7 @@ test('el pie de todas las páginas enseña Instagram y TikTok solo con el usuari
 
 test('la portada se organiza por temas: cada visitante abre lo que quiere saber y no se pierde nada', () => {
   const TOPICS = ['funciones', 'demostracion', 'precio', 'seguridad', 'preguntas', 'guias'];
-  const topics = home.match(/<section id="temas" class="topics">[\s\S]*?<div class="tabs cards topic-tabs" role="tablist" aria-label="Temas"[\s\S]*?<\/div>/)[0];
+  const topics = home.match(/<section id="temas" class="topics">[\s\S]*?<div class="topic-tiles" role="tablist" aria-label="Temas"[\s\S]*?<\/button>\s*<\/div>/)[0];
   assert.match(topics, /<h2>¿Qué quieres saber\?<\/h2>/);
   for (const id of TOPICS) {
     assert.match(topics, new RegExp(`role="tab" id="t-${id}" aria-controls="${id}"`), id);
@@ -209,6 +209,9 @@ test('la portada se organiza por temas: cada visitante abre lo que quiere saber 
   assert.match(site, /countVisit\(`tema-\$\{tab\.id\.replace\("t-", ""\)\}`/);
   // without JavaScript every topic shows
   assert.match(readFileSync(resolve(root, 'docs/assets/sin-js.css'), 'utf8'), /\.topic-panel\[hidden\] \{ display: block !important; \}/);
+  // the price tile says the same price as the price section
+  const price = home.match(/<h2>Desde (\d+) € al mes \+ IVA<\/h2>/)[1];
+  assert.match(topics, new RegExp(`<span class="tt-big"><small>desde</small> ${price} €</span>`));
   // the app's screenshots appear once; the old anchors still lead somewhere (/#recorrido, /#como, /#calculadora)
   assert.equal((home.match(/class="bento"/g) || []).length, 1, 'un solo bloque de capturas');
   assert.match(home, /<div class="bento" id="recorrido">/);

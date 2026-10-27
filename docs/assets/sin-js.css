@@ -10,4 +10,4 @@
 
 /* Without JavaScript the topics cannot switch: every topic shows, one after another, and the cards to pick one go. */
 .topic-panel[hidden] { display: block !important; }
-#temas > .wrap { display: none; }
+#temas .topics-stage { display: none; }

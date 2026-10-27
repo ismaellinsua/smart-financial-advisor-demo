@@ -883,8 +883,42 @@ html:not(.has-trial) .demo-grid, html:not(.has-demo) .demo-grid { grid-template-
 }
 /* ------------------------------------------------------------------ «¿Qué quieres saber?»: one topic open at a time */
 /* The page keeps everything; each visitor opens the topic they care about (links such as /#precio open theirs). */
-.topics { padding-bottom: clamp(16px, 3vw, 40px); }
-.topic-tabs { margin-bottom: clamp(4px, 1.5vw, 12px); }
+.topics { padding-top: 0; padding-bottom: clamp(16px, 3vw, 40px); }
+/* The choice sits on a dark stage, like the hero: six tiles, each with what it holds in sight (a screenshot, 24 h, the price). */
+.topics-stage { position: relative; isolation: isolate; overflow: hidden; color: #EAF0FF; padding-block: clamp(44px, 7vw, 88px);
+  background: radial-gradient(800px 420px at 85% 0%, rgba(109, 75, 255, .38), transparent 60%),
+    radial-gradient(700px 380px at 0% 100%, rgba(20, 184, 166, .22), transparent 60%), linear-gradient(160deg, #070D1C, #0E1A3A); }
+.topics-stage .eyebrow { color: #8FE9DB; }
+.topics-stage h2 { color: #fff; }
+.topics-stage .sub { color: #AEBBDA; }
+.topic-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(12px, 1.8vw, 20px); }
+.topic-tiles [role="tab"] { position: relative; display: grid; grid-template-rows: auto 1fr; gap: .9rem; padding: 16px; min-height: 172px;
+  text-align: left; font: inherit; color: #EAF0FF; cursor: pointer; border-radius: 20px; background: rgba(255, 255, 255, .05);
+  border: 1px solid rgba(255, 255, 255, .12); transition: transform .2s ease, border-color .2s ease, background .2s ease, box-shadow .2s ease; }
+.topic-tiles [role="tab"]:hover { transform: translateY(-3px); border-color: rgba(142, 162, 255, .55); background: rgba(255, 255, 255, .08); }
+.topic-tiles [role="tab"]:focus-visible { outline: 3px solid #8FE9DB; outline-offset: 3px; }
+.topic-tiles [role="tab"][aria-selected="true"] { border-color: #8EA2FF; background: linear-gradient(160deg, rgba(59, 91, 253, .38), rgba(109, 75, 255, .24));
+  box-shadow: 0 0 0 1px #8EA2FF, 0 22px 50px -22px rgba(59, 91, 253, .9); }
+.tt-visual { display: block; height: 80px; border-radius: 12px; overflow: hidden; background: #fff; box-shadow: 0 10px 24px -12px rgba(0, 0, 0, .8); }
+.tt-visual img { width: 100%; height: 100%; object-fit: cover; object-position: top left; }
+.tt-big { align-self: start; font-size: clamp(2.1rem, 4vw, 2.7rem); font-weight: 900; letter-spacing: -.03em; line-height: 1; color: #8FE9DB; }
+.tt-big small { font-size: .45em; font-weight: 800; letter-spacing: 0; color: #AEBBDA; }
+.tt-icon { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 16px; color: #fff; background: var(--grad);
+  box-shadow: 0 12px 26px -12px rgba(59, 91, 253, .9); }
+.tt-icon .ic { width: 26px; height: 26px; }
+.tt-text { display: grid; gap: .3rem; align-content: end; }
+.tt-text b { font-size: 1.08rem; color: #fff; }
+.tt-text small { font-size: .86rem; line-height: 1.35; color: #AEBBDA; }
+@media (max-width: 760px) {
+  .topic-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .topic-tiles [role="tab"] { min-height: 158px; padding: 14px; gap: .7rem; }
+  .tt-visual { height: 62px; }
+  .tt-big { font-size: 2rem; }
+  .tt-icon { width: 44px; height: 44px; border-radius: 13px; }
+  .tt-icon .ic { width: 22px; height: 22px; }
+  .tt-text b { font-size: 1rem; }
+  .tt-text small { font-size: .8rem; }
+}
 .topic-panel { padding: clamp(28px, 4vw, 48px) 0 clamp(8px, 2vw, 24px); }
 .topic-panel.enter { animation: panelIn .5s cubic-bezier(.2, .8, .2, 1); }
 .topic-panel .eyebrow { display: none; } /* the selected card above already names the topic */
