@@ -17,6 +17,8 @@ const css = read('assets/site.css');
 const js = read('assets/site.js');
 const VIDEO = 'assets/video/nirkana-marca.mp4';
 const POSTER = 'assets/video/nirkana-marca.webp';
+const PHONE = 'assets/video/nirkana-marca-movil.mp4';
+const PHONE_MEDIA = '(max-width: 600px) and (orientation: portrait)';
 
 test('el vídeo va arriba del todo, justo debajo de la cabecera, y no quita ni tapa nada de la portada', () => {
   const main = home.indexOf('<main id="contenido">');
@@ -56,10 +58,25 @@ test('el vídeo no se descarga ni suena por su cuenta', () => {
   assert.doesNotMatch(tag, /autoplay/, 'lo arranca site.js solo cuando se ve, nunca el navegador al cargar');
   assert.match(home, new RegExp(`<source src="${VIDEO.replace(/\./g, '\\.')}" type="video/mp4">`));
   assert.match(home, /<p class="sr-only" id="video-descripcion">Vídeo sin diálogos, con música\./);
+  // A phone held upright gets the 4:3 cut first; any other screen, the panoramic film.
+  const phone = `<source src="${PHONE}" type="video/mp4" media="${PHONE_MEDIA}">`;
+  assert.ok(home.includes(phone), 'falta la versión del móvil');
+  assert.ok(home.indexOf(phone) < home.indexOf(`<source src="${VIDEO}"`), 'la del móvil va antes que la panorámica');
+});
+
+test('en el móvil en vertical el vídeo es más alto (4:3) y su portada se encuadra como la primera escena', () => {
+  const block = css.slice(css.indexOf(`@media ${PHONE_MEDIA} {`));
+  assert.ok(block.length < css.length, 'falta el bloque del móvil en vertical');
+  assert.match(block, /^@media[^{]*\{\s*\.film-video \{ aspect-ratio: 4 \/ 3; object-position: 6\.8% 50%; \}/);
+  // Turning the phone round loads the cut that fits, from the same second.
+  assert.match(js, /film\.querySelector\("source\[media\]"\)/);
+  assert.match(js, /window\.matchMedia\(phoneCut\.media\)/);
+  assert.match(js, /film\.currentTime = at;/);
 });
 
 test('el vídeo y su portada pesan poco', () => {
   assert.ok(statSync(resolve(docs, VIDEO)).size < 2_500_000, 'el vídeo debe quedar por debajo de 2,5 MB');
+  assert.ok(statSync(resolve(docs, PHONE)).size < 2_500_000, 'el del móvil, también');
   assert.ok(statSync(resolve(docs, POSTER)).size < 60_000, 'la portada debe quedar por debajo de 60 KB');
 });
 

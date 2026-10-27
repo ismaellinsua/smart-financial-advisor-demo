@@ -307,6 +307,11 @@ html:not(.has-demo) .only-demo, html.has-demo .no-demo { display: none !importan
   .film-controls { gap: 8px; }
   .film-btn { width: 36px; height: 36px; }
 }
+/* A phone held upright gets its own cut of the film in 4:3, reframed scene by scene so every line of text and every person
+   stays in the picture: much taller than the panoramic strip. Until it plays, the poster is framed like its first scene. */
+@media (max-width: 600px) and (orientation: portrait) {
+  .film-video { aspect-ratio: 4 / 3; object-position: 6.8% 50%; }
+}
 
 
 /* ------------------------------------------------------------------ sector tabs */
