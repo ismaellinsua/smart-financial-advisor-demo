@@ -53,6 +53,13 @@ h1 { font-size: clamp(2.1rem, 4.4vw, 3.3rem); font-weight: 800; }
 h2 { font-size: clamp(1.8rem, 3.6vw, 2.9rem); font-weight: 800; }
 h3 { font-size: 1.15rem; }
 p { margin: 0 0 1rem; }
+/* Big headings, the wordmark and big figures in Sora, the typeface of the videos and the ads (SIL Open Font License 1.1,
+   © 2019 The Sora Project Authors; the notice travels inside the file). One weight, served from this site and preloaded
+   by the home page, latin subset: Spanish accents, ñ, ¿ ¡ and €. Smaller headings keep the system font.
+   «optional»: if the file is not there by the first paint it is skipped for that visit, so the page never jumps. */
+@font-face { font-family: "Sora"; src: url("fonts/sora-latin-800.woff2") format("woff2"); font-weight: 800 900; font-display: optional; }
+h1, h2, .brand, .tt-big, .stats b, .kpi b, .timeline .n {
+  font-family: "Sora", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
 .sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
 .ic { width: 1.15em; height: 1.15em; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .wrap { width: min(1220px, 100% - 48px); margin-inline: auto; }
@@ -187,7 +194,7 @@ section { padding: clamp(44px, 7vw, 100px) 0; }
   backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); margin-bottom: 1.6rem;
 }
 .live { width: 8px; height: 8px; border-radius: 50%; background: #5EEAD4; box-shadow: 0 0 0 0 rgba(94, 234, 212, .6); }
-.hero h1 { font-size: clamp(2.8rem, 4.8vw, 4.35rem); line-height: 1.04; letter-spacing: -.045em; margin-bottom: 1.5rem; font-weight: 900; }
+.hero h1 { font-size: clamp(2.8rem, 4.8vw, 4.35rem); line-height: 1.04; letter-spacing: -.03em; margin-bottom: 1.5rem; font-weight: 900; }
 .grad {
   background: linear-gradient(90deg, #8EA2FF, #B79CFF 35%, #5EEAD4, #5EEAD4); -webkit-background-clip: text; background-clip: text;
   color: transparent; background-size: 200% 100%;
@@ -272,7 +279,7 @@ html:not(.has-demo) .only-demo, html.has-demo .no-demo { display: none !importan
   .stats { grid-template-columns: repeat(2, 1fr); }
   .scene { padding: 0 6%; }
   .chip { font-size: .72rem; padding: .45rem .6rem; }
-  .c1 { left: 0; top: 6%; }
+  .c1 { left: 0; top: 17%; }
   .c2 { display: none; }
   .c3 { left: 10%; }
   .phone { width: 28%; right: 0; }
@@ -284,6 +291,49 @@ html:not(.has-demo) .only-demo, html.has-demo .no-demo { display: none !importan
 .trust-row span { display: inline-flex; align-items: center; gap: .55rem; color: var(--muted); font-weight: 600; font-size: .93rem; }
 .trust-row .ic { color: var(--brand); width: 1.25em; height: 1.25em; }
 @media (max-width: 760px) { .trust-row { justify-content: center; } }
+
+/* ------------------------------------------------------------------ the 12-second video */
+.reel-band { position: relative; isolation: isolate; overflow: hidden;
+  background: radial-gradient(60% 90% at 28% 50%, color-mix(in srgb, var(--violet) 10%, transparent), transparent 70%), var(--bg); }
+.reel-layout { display: grid; align-items: center; justify-content: center; gap: 0 clamp(40px, 7vw, 104px);
+  grid-template-columns: auto minmax(0, 520px); grid-template-areas: "video head" "video body"; }
+.reel-head { grid-area: head; align-self: end; }
+.reel-head h2 { margin-bottom: .8rem; }
+.reel-body { grid-area: body; align-self: start; }
+.reel-body .ticks { margin: 1.5rem 0 1.9rem; }
+.reel { grid-area: video; position: relative; margin: 0; width: min(300px, 74vw); justify-self: center; }
+.reel::before { content: ""; position: absolute; inset: -8% -38%; z-index: -1; pointer-events: none;
+  background: radial-gradient(closest-side, rgba(109, 75, 255, .42), rgba(20, 184, 166, .18) 62%, transparent); filter: blur(28px); }
+.reel-frame { position: relative; aspect-ratio: 9 / 16; border-radius: 30px; overflow: hidden; background: #0B1B33;
+  box-shadow: 0 50px 90px -40px rgba(27, 22, 102, .75), 0 18px 40px -24px rgba(14, 23, 38, .5); }
+.reel-frame::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .12); }
+.reel-video { display: block; width: 100%; height: 100%; object-fit: cover; cursor: pointer; }
+.reel figcaption { margin-top: .9rem; text-align: center; font-size: .85rem; color: var(--muted); }
+.reel-btn { position: absolute; bottom: 12px; z-index: 1; display: inline-flex; align-items: center; justify-content: center; gap: .45rem;
+  height: 44px; min-width: 44px; padding: 0 .95rem; border: 1px solid rgba(255, 255, 255, .26); border-radius: 999px;
+  color: #fff; background: rgba(8, 13, 30, .58); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  font-size: .82rem; font-weight: 700; cursor: pointer;
+  transition: left .3s ease, bottom .3s ease, width .3s ease, height .3s ease, background .2s ease; }
+.reel-btn:hover { background: rgba(8, 13, 30, .78); }
+.reel-btn:focus-visible { outline: 3px solid #8FE9DB; outline-offset: 2px; }
+.reel-btn .ic { width: 1.15rem; height: 1.15rem; }
+.reel-toggle { left: 12px; width: 44px; padding: 0; }
+.reel-toggle .ic { fill: currentColor; stroke-width: 2.4; }
+.reel-sound { right: 12px; }
+/* Paused (before it first plays, with reduced motion, or after a tap): one big play button in the middle. */
+.reel.is-paused .reel-toggle { left: calc(50% - 36px); bottom: calc(50% - 36px); width: 72px; height: 72px;
+  background: var(--grad); border-color: rgba(255, 255, 255, .45); box-shadow: 0 16px 36px -10px rgba(59, 91, 253, .85); }
+.reel.is-paused .reel-toggle .ic { width: 1.7rem; height: 1.7rem; margin-left: 3px; }
+@media (prefers-reduced-motion: reduce) { .reel-btn { transition: none; } }
+@media (max-width: 860px) {
+  .reel-layout { grid-template-columns: minmax(0, 1fr); grid-template-areas: "head" "video" "body"; gap: 28px; text-align: center; }
+  .reel-head { align-self: auto; }
+  .reel-head .sub { margin-inline: auto; }
+  .reel-body { justify-self: center; }
+  .reel-body .ticks { display: none; } /* on a phone the video already says it */
+}
+@media (max-width: 560px) { .reel-head .sub { display: none; } }
 
 
 /* ------------------------------------------------------------------ sector tabs */
@@ -612,7 +662,8 @@ a, button, input, textarea, select { -webkit-tap-highlight-color: transparent; }
 :root[data-theme="dark"] { --bg: #090F1B; --surface-2: #152138; --line: #29364D; }
 body { letter-spacing: -.008em; }
 h1, h2, h3 { letter-spacing: -.038em; }
-h1 { letter-spacing: -.05em; }
+h1, h2 { letter-spacing: -.02em; } /* Sora is wider: tighter and the words run together */
+h1 { letter-spacing: -.028em; }
 .eyebrow { letter-spacing: .13em; }
 .btn { transition: transform .18s ease, box-shadow .18s ease, background-color .18s ease, border-color .18s ease; }
 @media (hover: hover) and (pointer: fine) {

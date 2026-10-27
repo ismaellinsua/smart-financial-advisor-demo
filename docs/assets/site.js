@@ -572,6 +572,62 @@ const ANALYTICS = { goatcounter: "nirkana" };
     update();
   }
 
+  // ------------------------------------------------------------ the 12-second video
+  // Muted and in a loop, it plays only while half of it is on screen, never by itself with reduced motion or Save-Data,
+  // and the visitor can pause it (WCAG 2.2.2) or turn the sound on. Without JavaScript the browser's own controls stay.
+  document.querySelectorAll(".reel").forEach((reel) => {
+    const video = reel.querySelector("video");
+    const toggle = reel.querySelector("[data-reel-toggle]");
+    const sound = reel.querySelector("[data-reel-sound]");
+    if (!video || !toggle || !sound) return;
+    video.controls = false;
+    toggle.hidden = false;
+    sound.hidden = false;
+    let wanted = !reduceMotion && !(navigator.connection && navigator.connection.saveData);
+    const setIcon = (button, name) => button.querySelector("use").setAttribute("href", `#i-${name}`);
+    const sync = () => {
+      reel.classList.toggle("is-paused", video.paused);
+      toggle.setAttribute("aria-label", video.paused ? "Reproducir el vídeo" : "Pausar el vídeo");
+      setIcon(toggle, video.paused ? "play" : "pause");
+    };
+    // Blocked autoplay or a source that cannot play: back to paused, so the big play button shows (not «pause» on a still frame).
+    const play = () => { const started = video.play(); if (started) started.catch(() => { video.pause(); sync(); }); };
+    video.addEventListener("play", sync);
+    video.addEventListener("pause", sync);
+    // A browser that cannot decode the file (or a failed download) does not reject play(): it waits for another source.
+    // The error on the last <source> is the signal to go back to paused.
+    const lastSource = video.querySelector("source:last-of-type");
+    if (lastSource) lastSource.addEventListener("error", () => { video.pause(); sync(); });
+    const playOrPause = () => {
+      if (video.paused) {
+        wanted = true;
+        play();
+        countVisit("video-reproducir", "Vídeo: lo reproduce", true);
+      } else {
+        wanted = false;
+        video.pause();
+      }
+    };
+    toggle.addEventListener("click", playOrPause);
+    video.addEventListener("click", playOrPause);
+    sound.addEventListener("click", () => {
+      video.muted = !video.muted;
+      sound.querySelector("span").textContent = video.muted ? "Activar sonido" : "Silenciar";
+      setIcon(sound, video.muted ? "mute" : "sound");
+      if (!video.muted) {
+        countVisit("video-sonido", "Vídeo: activa el sonido", true);
+        if (video.paused) { wanted = true; play(); }
+      }
+    });
+    if ("IntersectionObserver" in window) {
+      new IntersectionObserver(([entry]) => {
+        if (entry.isIntersecting && wanted) play();
+        else if (!entry.isIntersecting && !video.paused) video.pause(); // off screen: stop, and resume when it is back
+      }, { threshold: 0.5 }).observe(video);
+    }
+    sync();
+  });
+
   // ------------------------------------------------------------ scroll reveal, staggered among siblings
   if ("IntersectionObserver" in window && !reduceMotion) {
     document.documentElement.classList.add("reveal");
