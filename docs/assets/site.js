@@ -769,13 +769,13 @@ const ANALYTICS = { goatcounter: "nirkana" };
     }
   }
 
-  // The header turns dark glass while it sits over a dark band (the hero, the topics), and light glass over the rest.
+  // The header turns dark glass while it sits over a dark band (the film, the hero, the topics), and light glass over the rest.
   if (top) {
-    const darkSections = [...document.querySelectorAll(".hero, .topics-stage")];
+    const darkSections = [...document.querySelectorAll(".film, .hero, .topics-stage")];
     let queued = false;
     const onDark = () => {
       queued = false;
-      const edge = top.offsetHeight + 1, mid = top.offsetHeight / 2; // a dark section right under the bar counts too (the hero at the top)
+      const edge = top.offsetHeight + 1, mid = top.offsetHeight / 2; // a dark section right under the bar counts too (the film at the top)
       top.classList.toggle("on-dark", darkSections.some((s) => { const r = s.getBoundingClientRect(); return r.top <= edge && r.bottom >= mid; }));
     };
     const queue = () => { if (!queued) { queued = true; requestAnimationFrame(onDark); } };

@@ -127,6 +127,24 @@
   </header>
 
   <main id="contenido">
+    <!-- ============================================================ BRAND FILM: the first thing on the page, from edge to edge; plays by itself, muted -->
+    <section class="film" id="video" aria-label="Vídeo de NirKanA">
+      <div class="film-frame">
+        <video class="film-video" controls muted loop playsinline preload="none" width="848" height="370"
+          poster="assets/video/nirkana-marca.webp" aria-label="Vídeo de NirKanA, 40 segundos" aria-describedby="video-descripcion">
+          <source src="assets/video/nirkana-marca.mp4" type="video/mp4">
+        </video>
+        <!-- Without JavaScript these stay hidden and the browser's own controls are used. -->
+        <div class="film-controls">
+          <button class="film-btn" type="button" data-film-sound aria-label="Activar sonido" hidden><svg class="ic"><use href="#i-mute"/></svg></button>
+          <button class="film-btn" type="button" data-film-toggle aria-label="Reproducir el vídeo" hidden><svg class="ic"><use href="#i-play"/></svg></button>
+        </div>
+      </div>
+      <p class="sr-only" id="video-descripcion">Vídeo sin diálogos, con música. «No es solo un negocio.» Una cafetería, un almacén,
+        un restaurante y gente trabajando con el ordenador y la tableta. «Tecnología que mueve tu empresa.», con una captura real
+        de NirKanA con datos de ejemplo. «Piensa en grande.» Cierre: NirKanA, «Tu ambición. Nuestra tecnología.», nirkana.es.</p>
+    </section>
+
     <!-- ============================================================ HERO -->
     <section class="hero" id="inicio">
       <canvas class="orb" aria-hidden="true"></canvas>
@@ -148,40 +166,20 @@
       </div>
 
       <div class="scene" data-tilt aria-label="La app en ordenador y móvil">
-        <p class="preview-label"><span>Así se ve NirKanA</span><span>Datos de ejemplo</span></p>
         <div class="stage">
           <div class="glow" aria-hidden="true"></div>
           <figure class="screen">
-            <div class="chrome" aria-hidden="true"><i></i><i></i><i></i><span>nirkana · panel</span></div>
-            <img src="assets/img/panel.webp" width="1100" height="725" fetchpriority="high" alt="Resumen de NirKanA con ventas por día, lo más vendido y la reposición">
+            <div class="chrome" aria-hidden="true"><i></i><i></i><i></i><span>nirkana · datos de ejemplo</span></div>
+            <img src="assets/img/panel.webp" width="1100" height="725" fetchpriority="high" alt="Resumen de NirKanA con datos de ejemplo: ventas por día, lo más vendido y la reposición">
           </figure>
           <figure class="phone">
             <img src="assets/img/movil.webp" width="360" height="779" alt="La misma app en un móvil">
           </figure>
-          <div class="chip c1" aria-hidden="true"><b>Cierre de caja</b><span>con el descuadre a la vista</span></div>
           <div class="chip c2" aria-hidden="true"><i class="dot red"></i><span>Solomillo se agota en 1 día</span></div>
           <div class="chip c3" aria-hidden="true"><i class="dot green"></i><span>Mesa 4 cobrada · 86,40 €</span></div>
         </div>
       </div>
       </div>
-    </section>
-
-    <!-- ============================================================ BRAND FILM: plays by itself, muted, right under the hero -->
-    <section class="film" id="video" aria-label="Vídeo de NirKanA">
-      <div class="film-frame" data-reveal>
-        <video class="film-video" controls muted loop playsinline preload="none" width="848" height="370"
-          poster="assets/video/nirkana-marca.webp" aria-label="Vídeo de NirKanA, 40 segundos" aria-describedby="video-descripcion">
-          <source src="assets/video/nirkana-marca.mp4" type="video/mp4">
-        </video>
-        <!-- Without JavaScript these stay hidden and the browser's own controls are used. -->
-        <div class="film-controls">
-          <button class="film-btn" type="button" data-film-sound aria-label="Activar sonido" hidden><svg class="ic"><use href="#i-mute"/></svg></button>
-          <button class="film-btn" type="button" data-film-toggle aria-label="Reproducir el vídeo" hidden><svg class="ic"><use href="#i-play"/></svg></button>
-        </div>
-      </div>
-      <p class="sr-only" id="video-descripcion">Vídeo sin diálogos, con música. «No es solo un negocio.» Una cafetería, un almacén,
-        un restaurante y gente trabajando con el ordenador y la tableta. «Tecnología que mueve tu empresa.», con una captura real
-        de NirKanA con datos de ejemplo. «Piensa en grande.» Cierre: NirKanA, «Tu ambición. Nuestra tecnología.», nirkana.es.</p>
     </section>
 
     <!-- ============================================================ PROMOTION (compact) -->

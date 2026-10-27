@@ -170,6 +170,7 @@ section { padding: clamp(44px, 7vw, 100px) 0; }
   background-size: 64px 64px; transform: perspective(500px) rotateX(65deg); transform-origin: 50% 100%;
   mask-image: linear-gradient(to top, #000 0%, transparent 80%); -webkit-mask-image: linear-gradient(to top, #000 0%, transparent 80%);
 }
+.film + .hero { padding-top: clamp(40px, 5vw, 72px); }
 .hero-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.12fr);
   gap: clamp(32px, 4vw, 64px); align-items: center; text-align: left; }
 .hero-copy { min-width: 0; }
@@ -185,9 +186,6 @@ section { padding: clamp(44px, 7vw, 100px) 0; }
   border: 1px solid rgba(234,240,255,.2); border-radius: 10px; color: #D7E2FA; text-decoration: none;
   font-size: .8rem; font-weight: 600; background: rgba(255,255,255,.035); }
 .hero-sectors a:hover, .hero-sectors a:focus-visible { color: #fff; background: rgba(255,255,255,.1); border-color: #8EA2FF; }
-.preview-label { display: flex; justify-content: space-between; gap: 1rem; color: #AEBBDA; font-size: .72rem;
-  margin: 0 0 40px; letter-spacing: .035em; }
-.preview-label > span:first-child { color: #EAF0FF; font-weight: 700; }
 .pill {
   display: inline-flex; align-items: center; gap: .55rem; padding: .45rem 1rem; border-radius: 999px; font-size: .88rem;
   font-weight: 600; color: #CFE0FF; background: rgba(255, 255, 255, .07); border: 1px solid rgba(255, 255, 255, .14);
@@ -230,10 +228,9 @@ html:not(.has-demo) .only-demo, html.has-demo .no-demo { display: none !importan
   border: 6px solid #0B1220; background: #0B1220; transform: translateZ(120px); box-shadow: 0 40px 60px -20px rgba(0, 0, 0, .8); }
 .chip { position: absolute; display: flex; align-items: center; gap: .55rem; padding: .65rem .9rem; border-radius: 14px;
   background: rgba(255, 255, 255, .95); color: #0E1726; font-size: .85rem; white-space: nowrap; box-shadow: 0 20px 34px -12px rgba(0, 0, 0, .55); }
-.chip b { font-size: 1.1rem; color: var(--ok); }
 .chip span { color: #4A5568; }
-/* The chips float over the corners of the screenshot, never over its figures. */
-.c1 { top: -4%; left: 27%; transform: translateZ(170px); flex-direction: column; align-items: flex-start; gap: 0; }
+/* The chips float over the corners of the screenshot, never over its figures, and nothing sits on the window's title bar
+   (its three dots and «datos de ejemplo» stay in sight). */
 .c2 { top: 68%; left: -2%; transform: translateZ(220px); }
 .c3 { bottom: -10%; left: 30%; transform: translateZ(150px); }
 .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
@@ -248,7 +245,6 @@ html:not(.has-demo) .only-demo, html.has-demo .no-demo { display: none !importan
 .stats span { font-size: .86rem; color: #AEBBDA; }
 
 @media (prefers-reduced-motion: no-preference) {
-  .c1 { animation: float 6s ease-in-out infinite; }
   .c2 { animation: float 7s ease-in-out infinite .8s; }
   .c3 { animation: float 6.5s ease-in-out infinite 1.6s; }
   .phone { animation: float 8s ease-in-out infinite; }
@@ -273,13 +269,11 @@ html:not(.has-demo) .only-demo, html.has-demo .no-demo { display: none !importan
   .hero .cta .btn { width: 100%; min-height: 50px; }
   .hero-sectors { gap: 8px; }
   .hero-sectors a { font-size: .78rem; }
-  .preview-label { font-size: .68rem; }
 }
 @media (max-width: 760px) {
   .stats { grid-template-columns: repeat(2, 1fr); }
   .scene { padding: 0 6%; }
   .chip { font-size: .72rem; padding: .45rem .6rem; }
-  .c1 { left: 0; top: 17%; }
   .c2 { display: none; }
   .c3 { left: 10%; }
   .phone { width: 28%; right: 0; }
@@ -292,14 +286,15 @@ html:not(.has-demo) .only-demo, html.has-demo .no-demo { display: none !importan
 .trust-row .ic { color: var(--brand); width: 1.25em; height: 1.25em; }
 @media (max-width: 760px) { .trust-row { justify-content: center; } }
 
-/* ------------------------------------------------------------------ brand film, right under the hero */
-/* Like a product page: it plays by itself, muted, from edge to edge of the screen, right under the hero, so the two read
-   as one piece. Nothing is laid over the rest of the page. The film is panoramic: it fills the width without cutting
-   anything; it is never taller than the screen (on a very wide monitor the top and bottom are trimmed instead). */
+/* ------------------------------------------------------------------ brand film, the first thing on the page */
+/* Like a product page: it is the first thing under the header and plays by itself, muted, from edge to edge of the
+   screen; the headline follows right below it. Nothing is laid over the rest of the page. The film is panoramic: it fills
+   the width without cutting anything and always fits on the first screen, under the 68 px header (on a very wide or very
+   short screen the top and bottom are trimmed instead). */
 .film { padding: 0; background: #000; }
 .film-frame { position: relative; width: 100%; background: #000; }
-.film-video { display: block; width: 100%; height: auto; aspect-ratio: 848 / 370; max-height: 100vh; max-height: 100svh;
-  object-fit: cover; cursor: pointer; }
+.film-video { display: block; width: 100%; height: auto; aspect-ratio: 848 / 370; max-height: calc(100vh - 68px);
+  max-height: calc(100svh - 68px); object-fit: cover; cursor: pointer; }
 .film-controls { position: absolute; right: clamp(10px, 2vw, 28px); bottom: clamp(10px, 2vw, 28px); display: flex; gap: 10px; }
 .film-btn { display: grid; place-items: center; width: 40px; height: 40px; padding: 0; border-radius: 50%; cursor: pointer;
   border: 1px solid rgba(255, 255, 255, .22); background: rgba(20, 22, 30, .5); color: #fff;

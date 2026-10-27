@@ -1,8 +1,8 @@
 // Ejecutar: node --test tests/web-video.test.mjs
 // El vídeo de marca de la portada y la letra de los títulos (Sora, la de los vídeos y los anuncios). Los dos se sirven desde
-// la propia web y no molestan: el vídeo va justo debajo del inicio sin tapar nada, no se descarga hasta que hace falta, va
-// sin sonido, solo se mueve mientras se ve, se puede pausar, y nunca arranca solo si el visitante pide menos movimiento o
-// ahorro de datos.
+// la propia web y no molestan: el vídeo va arriba del todo, justo debajo de la cabecera, sin tapar nada; no se descarga hasta
+// que hace falta, va sin sonido, solo se mueve mientras se ve, se puede pausar, y nunca arranca solo si el visitante pide
+// menos movimiento o ahorro de datos.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, statSync, readdirSync } from 'node:fs';
@@ -18,18 +18,33 @@ const js = read('assets/site.js');
 const VIDEO = 'assets/video/nirkana-marca.mp4';
 const POSTER = 'assets/video/nirkana-marca.webp';
 
-test('el vídeo va justo debajo del inicio y no quita ni tapa nada de la portada', () => {
+test('el vídeo va arriba del todo, justo debajo de la cabecera, y no quita ni tapa nada de la portada', () => {
+  const main = home.indexOf('<main id="contenido">');
   const at = home.indexOf('<section class="film" id="video"');
-  assert.ok(at > home.indexOf('<section class="hero" id="inicio">'), 'después del inicio');
-  assert.ok(at < home.indexOf('<aside class="promo-strip"'), 'antes de la franja de la promoción');
+  assert.ok(main > 0 && at > main, 'dentro del contenido');
+  assert.match(home.slice(main + '<main id="contenido">'.length, at), /^\s*(<!--[^]*?-->\s*)*$/, 'es lo primero del contenido');
+  assert.ok(at < home.indexOf('<section class="hero" id="inicio">'), 'el inicio (el titular y «Probar gratis») va justo después');
+  assert.match(home, /<div class="film-frame">/, 'arriba del todo se ve al momento: no espera a aparecer al bajar');
+  assert.match(css, /\.film \+ \.hero \{ padding-top: /, 'el titular sigue al vídeo de cerca');
+  assert.match(js, /querySelectorAll\("\.film, \.hero, \.topics-stage"\)/, 'la cabecera sigue oscura sobre el vídeo');
   // Everything else is still there, in its place.
   for (const part of ['<section class="hero" id="inicio">', '<aside class="promo-strip"', '<div class="trust"', '<section id="soluciones"',
     '<section id="temas"', '<section id="contacto"']) assert.ok(home.includes(part), `falta ${part}`);
   assert.doesNotMatch(home, /nirkana-en-12-segundos|reel-band/, 'el vídeo de 12 segundos lo sustituye este');
   assert.doesNotMatch(css, /\.film[^{]*\{[^}]*position: fixed/, 'el vídeo no flota sobre la página');
-  // From edge to edge of the screen, never taller than it, and nothing cut on a normal screen (the film is panoramic).
+  // From edge to edge of the screen and always whole on the first screen, under the 68 px header (the film is panoramic:
+  // nothing is cut on a normal screen).
   assert.match(css, /\.film-frame \{ position: relative; width: 100%;/);
-  assert.match(css, /\.film-video \{[^}]*aspect-ratio: 848 \/ 370; max-height: 100vh; max-height: 100svh;/);
+  assert.match(css, /\.film-video \{[^}]*aspect-ratio: 848 \/ 370; max-height: calc\(100vh - 68px\);\s*max-height: calc\(100svh - 68px\);/);
+});
+
+test('la ventana de la portada: nada encima de sus tres puntos y las capturas siguen marcadas como datos de ejemplo', () => {
+  // The line above the window and the card that sat on its title bar (on a phone, right on the three dots) are gone.
+  assert.doesNotMatch(home, /preview-label|chip c1/);
+  assert.doesNotMatch(css, /\.preview-label|\.c1\b/);
+  assert.match(home, /<div class="chrome" aria-hidden="true"><i><\/i><i><\/i><i><\/i><span>nirkana · datos de ejemplo<\/span><\/div>/);
+  assert.match(home, /<img src="assets\/img\/panel\.webp"[^>]*alt="Resumen de NirKanA con datos de ejemplo: /);
+  for (const chip of ['chip c2', 'chip c3']) assert.ok(home.includes(`class="${chip}"`), `sigue ${chip}`);
 });
 
 test('el vídeo no se descarga ni suena por su cuenta', () => {
