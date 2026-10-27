@@ -18,7 +18,7 @@ def guide(**data):
 
 SECTOR = {
     "restaurantes": ("/tpv-restaurantes/", "TPV para restaurantes y bares"),
-    "peluquerias": ("/programa-peluquerias-estetica/", "Programa para peluquerías y estética"),
+    "peluquerias": ("/programa-peluquerias-estetica/", "Programa para peluquerías y barberías"),
     "tiendas": ("/tpv-tiendas/", "TPV para tiendas y comercios"),
     "autonomos": ("/programa-facturacion-autonomos/", "Programa de facturación para autónomos"),
     "online": ("/tpv-tienda-online/", "Gestión de tiendas online"),
@@ -994,8 +994,8 @@ TIKTOK = dict(
     guides=("Guías para llevar mejor tu negocio", "Cobrar, cuadrar la caja, pasar comandas, controlar el stock, gestionar devoluciones, organizar citas y tener las facturas en orden.", "i-list"),
     sectors_title="Cómo se usa en tu tipo de negocio",
     sectors=[
+        ("peluquerias", "i-calendar", "Reserva online desde tu enlace, agenda por persona y cobro con un toque."),
         ("restaurantes", "i-utensils", "Mesas, comandas desde el móvil, pantalla de cocina y cierre de caja."),
-        ("peluquerias", "i-calendar", "Agenda por persona, aviso de la cita por WhatsApp y cobro con un toque."),
         ("tiendas", "i-bag", "Venta rápida, stock que se mueve solo y reposición."),
         ("autonomos", "i-briefcase", "Citas, facturas y el paquete del trimestre para tu gestoría."),
         ("online", "i-cloud", "Catálogo, stock y márgenes de la web y del local en un solo sitio."),

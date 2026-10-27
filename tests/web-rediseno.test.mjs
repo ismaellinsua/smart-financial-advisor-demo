@@ -3,7 +3,7 @@
 // preselecciona y lo que promete tienen que coincidir.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { resolve, dirname } from 'node:path';
 
@@ -68,7 +68,7 @@ test('el formulario pide solo lo necesario: nombre, email, tipo de negocio, qué
 
 test('el mensaje principal, la demostración y «Así trabajamos» dicen lo que deben', () => {
   assert.match(home, /<h1>Soluciones digitales para <span class="grad">hacer crecer tu negocio\.<\/span><\/h1>/);
-  assert.match(visible, /Desarrollamos herramientas digitales para autónomos, comercios y empresas que quieren simplificar su gestión y trabajar de forma más eficiente\./);
+  assert.match(visible, /Cobra, organiza las citas, controla el stock y haz las facturas desde el móvil o la tablet\. Para bares, tiendas, peluquerías, autónomos y pymes, sin instalar nada\./);
   assert.match(home, /href="#soluciones">Descubrir soluciones/);
   assert.match(home, /data-demo href="\/demo\/">Probar demostración/);
   assert.match(visible, /Cuéntanos cómo funciona tu negocio y estudiaremos qué solución digital puede adaptarse a tus necesidades\./);
@@ -119,13 +119,13 @@ test('la demostración de 24 horas se presenta con su texto, su captura real y s
   assert.match(demo, /<img src="assets\/img\/shots\/resumen-c\.webp" width="1200" height="750" alt="[^"]+"/);
 });
 
-test('la promoción del 20 % solo habla de la instalación y no inventa fechas, urgencia ni precios originales', () => {
-  assert.match(visible, /Oferta especial: 20 % de descuento en la instalación de tu solución NirKanA\./);
+test('la promoción del 20 % solo habla de la puesta en marcha y no inventa fechas, urgencia ni precios originales', () => {
+  assert.match(visible, /Oferta especial: 20 % de descuento en la puesta en marcha de tu solución NirKanA\./);
   assert.match(visible, /Contacta ahora con nosotros para solicitar información y aprovechar la promoción\./);
   assert.match(visible, /Contactar y conseguir mi 20 % de descuento/);
   assert.match(home, /data-promo data-request="Solicitar información">/);
   const terms = home.match(/<details class="more-box" id="promocion-condiciones">[\s\S]*?<\/details>/)[0].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
-  assert.match(terms, /solo al precio de instalación/);
+  assert.match(terms, /solo al precio de la puesta en marcha/);
   assert.match(terms, /No se aplica a cuotas mensuales, mantenimiento, desarrollos adicionales ni otros conceptos/);
   const promo = [home.match(/<aside class="promo-strip"[\s\S]*?<\/aside>/)[0], home.match(/<div class="promo-card"[\s\S]*?<\/details>/)[0]].join(' ').replace(/<[^>]+>/g, ' ');
   assert.doesNotMatch(promo, /(hasta el|hasta (?:el )?\d|últimas?|solo hoy|solo por tiempo|tiempo limitado|quedan|antes\b.*€|acumulable|\d+ ?€)/i);
@@ -148,7 +148,7 @@ test('la pantalla «Tu demostración ha finalizado» existe, no se indexa y llev
   assert.match(end, /<link rel="canonical" href="https:\/\/nirkana\.es\/demo-finalizada\/">/);
   assert.match(end, /<h1>Tu demostración ha finalizado<\/h1>/);
   assert.match(end, /Gracias por conocer NirKanA\. Si quieres implementar una solución digital en tu negocio, podemos ayudarte\./);
-  assert.match(end.replace(/<[^>]+>/g, ''), /Contacta ahora y aprovecha un 20 % de descuento en la instalación\./);
+  assert.match(end.replace(/<[^>]+>/g, ''), /Contacta ahora y aprovecha un 20 % de descuento en la puesta en marcha\./);
   assert.match(end, /data-forward href="\/\?promo=20&amp;solicitud=presupuesto#contacto">Solicitar mi presupuesto con descuento/);
   assert.doesNotMatch(end, /\sstyle="|\son(click|load)=/i);
   assert.doesNotMatch(readFileSync(resolve(root, 'docs/sitemap.xml'), 'utf8'), /demo-finalizada/, 'no se indexa');
@@ -161,4 +161,31 @@ test('ninguna etiqueta <meta> ni <link> de ninguna página lleva marcas dentro d
     for (const [tag] of head.matchAll(/<(?:meta|link)\b[^>]*>/g)) assert.doesNotMatch(tag, /="[^"]*<[a-z]/i, `${rel}: ${tag}`);
     assert.match(head, /<link rel="icon" href="\/?assets\/favicon\.svg"/, `${rel}: falta el icono`);
   }
+});
+
+test('el pie de todas las páginas enseña Instagram y TikTok solo con el usuario, y la portada los declara como suyos', () => {
+  const PROFILES = [
+    { href: 'https://www.instagram.com/nirkana.oficial/', user: '@nirkana.oficial', icon: 'i-instagram', event: 'red-instagram' },
+    { href: 'https://www.tiktok.com/@nirkkana', user: '@nirkkana', icon: 'i-tiktok', event: 'red-tiktok' },
+  ];
+  const pages = readdirSync(resolve(root, 'docs'), { recursive: true }).filter((rel) => rel.endsWith('.html'))
+    .filter((rel) => readFileSync(resolve(root, 'docs', rel), 'utf8').includes('<div class="foot-brand">'));
+  assert.ok(pages.length >= 20, `solo ${pages.length} páginas con el pie completo`);
+  for (const rel of pages) {
+    const page = readFileSync(resolve(root, 'docs', rel), 'utf8');
+    const social = page.match(/<p class="social">([\s\S]*?)<\/p>/);
+    assert.ok(social, `${rel}: el pie no tiene las redes`);
+    for (const { href, user, icon, event } of PROFILES) {
+      const link = social[1].match(new RegExp(`<a href="${href.replace(/[.]/g, '\\.')}"([^>]*)>([\\s\\S]*?)</a>`));
+      assert.ok(link, `${rel}: falta ${href}`);
+      assert.match(link[1], /target="_blank" rel="me noopener noreferrer"/, `${rel}: ${href} sin rel seguro`);
+      assert.match(link[1], new RegExp(`data-evento="${event}"`), `${rel}: ${href} no se cuenta`);
+      assert.equal(link[2].replace(/<span\s+class="sr-only">[^<]*<\/span>/, '').replace(/<[^>]+>/g, '').trim(), user, `${rel}: solo el usuario`);
+      assert.match(page, new RegExp(`<symbol id="${icon}" `), `${rel}: falta el icono ${icon}`);
+      assert.ok(page.includes(`<use href="#${icon}"/>`), `${rel}: no usa el icono ${icon}`);
+    }
+  }
+  const organization = [...home.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)]
+    .map((m) => JSON.parse(m[1])).find((data) => data['@type'] === 'Organization');
+  assert.deepEqual(organization.sameAs, PROFILES.map((p) => p.href));
 });
