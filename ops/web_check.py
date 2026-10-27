@@ -194,31 +194,6 @@ def trial_problems(url: str, get=fetch, wait: float = TRIAL_WAIT, sleep=time.sle
         sleep(TRIAL_RETRY)
 
 
-def formspree_diagnostic() -> None:
-    """TEMPORARY: print what Formspree answers for the contact form's id and for an id that does not exist, to a GET and
-    to an EMPTY message (Formspree refuses empty messages: nothing is stored or emailed). Never fails the check."""
-    found = re.search(r'formspreeId: "([^"]*)"', (DOCS / "assets" / "site.js").read_text(encoding="utf-8"))
-    site = f"https://{domain()}"
-    for label, form in (("formulario de la web", found.group(1) if found else ""), ("id inexistente", "nirkanacheck0")):
-        url = f"https://formspree.io/f/{form}"
-        for method in ("GET", "POST"):
-            headers = {"User-Agent": "NirKanA web check", "Accept": "application/json"}
-            data = None
-            if method == "POST":
-                headers.update({"Content-Type": "application/json", "Origin": site, "Referer": f"{site}/"})
-                data = b"{}"
-            request = urllib.request.Request(url, data=data, method=method, headers=headers)
-            try:
-                with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
-                    status, where, body = response.status, response.geturl(), response.read(600)
-            except urllib.error.HTTPError as exc:
-                status, where, body = exc.code, url, exc.read(600)
-            except (OSError, HTTPException) as exc:
-                print(f"::notice::Formspree {method} {label}: sin respuesta ({exc!r})")
-                continue
-            print(f"::notice::Formspree {method} {label}: HTTP {status} {where} {body.decode('utf-8', 'replace')!r}")
-
-
 def main() -> int:
     name = domain()
     url = trial_url()
@@ -233,8 +208,6 @@ def main() -> int:
     if not problems:
         trial = " y la prueba de 24 horas, ofrecida y respondiendo" if url else ""
         print(f"OK {name}: DNS en GitHub Pages, certificado válido, redirecciones y {len(pages())} páginas{trial}.")
-    if os.environ.get("GITHUB_WORKFLOW") == "Web":  # TEMPORARY: only in the Web workflow, never in tests
-        formspree_diagnostic()
     return 1 if problems else 0
 
 
