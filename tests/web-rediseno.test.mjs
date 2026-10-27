@@ -19,19 +19,21 @@ const formOptions = (name) => {
 
 const SECTORS = ['hosteleria', 'belleza', 'comercio', 'autonomo', 'pyme', 'otros'];
 
+const sectorsBlock = home.match(/<section id="soluciones"[\s\S]*?<\/section>/)[0];
+
 test('hay seis soluciones por tipo de negocio, cada una con su pestaña y su panel', () => {
-  assert.match(home, /<h2>Una solución para cada tipo de negocio<\/h2>/);
+  assert.match(sectorsBlock, /<h2>Una solución para cada tipo de negocio<\/h2>/);
   for (const id of SECTORS) {
-    assert.match(home, new RegExp(`role="tab" id="tab-${id}" aria-controls="p-${id}"`), id);
-    assert.match(home, new RegExp(`role="tabpanel" id="p-${id}" aria-labelledby="tab-${id}"`), id);
+    assert.match(sectorsBlock, new RegExp(`role="tab" id="tab-${id}" aria-controls="p-${id}"`), id);
+    assert.match(sectorsBlock, new RegExp(`role="tabpanel" id="p-${id}" aria-labelledby="tab-${id}"`), id);
   }
-  assert.equal((home.match(/role="tab"/g) || []).length, SECTORS.length);
-  assert.equal((home.match(/aria-selected="true"/g) || []).length, 1, 'solo una pestaña seleccionada');
-  assert.equal((home.match(/role="tabpanel"[^>]*\bhidden\b/g) || []).length, SECTORS.length - 1, 'solo un panel visible');
+  assert.equal((sectorsBlock.match(/role="tab"/g) || []).length, SECTORS.length);
+  assert.equal((sectorsBlock.match(/aria-selected="true"/g) || []).length, 1, 'solo una pestaña seleccionada');
+  assert.equal((sectorsBlock.match(/role="tabpanel"[^>]*\bhidden\b/g) || []).length, SECTORS.length - 1, 'solo un panel visible');
 });
 
 test('cada solución cuenta el problema, la solución y el beneficio, y tiene su botón hacia el formulario', () => {
-  const panels = home.split('role="tabpanel"').slice(1);
+  const panels = sectorsBlock.split('role="tabpanel"').slice(1);
   assert.equal(panels.length, SECTORS.length);
   for (const panel of panels) {
     for (const part of ['El problema', 'La solución', 'Lo que ganas']) assert.ok(panel.includes(`<dt>${part}</dt>`), part);
@@ -190,12 +192,29 @@ test('el pie de todas las páginas enseña Instagram y TikTok solo con el usuari
   assert.deepEqual(organization.sameAs, PROFILES.map((p) => p.href));
 });
 
-test('la portada es corta: nueve secciones como mucho y la app se explica una sola vez', () => {
-  const sections = [...home.matchAll(/<section\b[^>]*\bid="([^"]+)"/g)].map((m) => m[1]);
-  assert.ok(sections.length <= 9, `la portada tiene ${sections.length} secciones: ${sections.join(', ')}`);
-  for (const gone of ['cambio', 'movil']) assert.ok(!sections.includes(gone), `«${gone}» repetía lo que ya dice «La app por dentro»`);
+test('la portada se organiza por temas: cada visitante abre lo que quiere saber y no se pierde nada', () => {
+  const TOPICS = ['funciones', 'demostracion', 'precio', 'seguridad', 'preguntas', 'guias'];
+  const topics = home.match(/<section id="temas" class="topics">[\s\S]*?<div class="topic-tiles" role="tablist" aria-label="Temas"[\s\S]*?<\/button>\s*<\/div>/)[0];
+  assert.match(topics, /<h2>¿Qué quieres saber\?<\/h2>/);
+  for (const id of TOPICS) {
+    assert.match(topics, new RegExp(`role="tab" id="t-${id}" aria-controls="${id}"`), id);
+    assert.match(home, new RegExp(`<section id="${id}" class="topic-panel" role="tabpanel" aria-labelledby="t-${id}"`), id);
+  }
+  // one topic open when the page loads: «La app por dentro»; the rest open with a tap or from a link like /#precio
+  const panels = [...home.matchAll(/<section id="([a-z]+)" class="topic-panel" role="tabpanel"[^>]*>/g)];
+  assert.deepEqual(panels.map((m) => m[1]), TOPICS);
+  assert.deepEqual(panels.filter((m) => !/\bhidden\b/.test(m[0])).map((m) => m[1]), ['funciones']);
+  assert.match(site, /const revealTarget = \(\) =>/);
+  assert.match(site, /target\.closest\('\[role="tabpanel"\]'\)/);
+  assert.match(site, /countVisit\(`tema-\$\{tab\.id\.replace\("t-", ""\)\}`/);
+  // without JavaScript every topic shows
+  assert.match(readFileSync(resolve(root, 'docs/assets/sin-js.css'), 'utf8'), /\.topic-panel\[hidden\] \{ display: block !important; \}/);
+  // the price tile says the same price as the price section
+  const price = home.match(/<h2>Desde (\d+) € al mes \+ IVA<\/h2>/)[1];
+  assert.match(topics, new RegExp(`<span class="tt-big"><small>desde</small> ${price} €</span>`));
+  // the app's screenshots appear once; the old anchors still lead somewhere (/#recorrido, /#como, /#calculadora)
   assert.equal((home.match(/class="bento"/g) || []).length, 1, 'un solo bloque de capturas');
-  // los enlaces antiguos (/#recorrido, /#como) siguen llevando a su sitio
   assert.match(home, /<div class="bento" id="recorrido">/);
   assert.match(home, /<div class="steps" id="como"/);
+  for (const gone of ['id="cambio"', 'id="movil"']) assert.ok(!home.includes(gone), gone);
 });

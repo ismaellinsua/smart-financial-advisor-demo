@@ -411,6 +411,8 @@ const ANALYTICS = { goatcounter: "nirkana" };
   const openFolded = () => {
     const box = location.hash.length > 1 ? document.getElementById(decodeURIComponent(location.hash.slice(1))) : null;
     if (box && box.matches("details")) box.open = true;
+    // a box folded inside another one («Ver más preguntas») opens with every box around it
+    for (let outer = box && box.parentElement && box.parentElement.closest("details"); outer; outer = outer.parentElement && outer.parentElement.closest("details")) outer.open = true;
   };
   openFolded();
   window.addEventListener("hashchange", openFolded);
@@ -419,13 +421,15 @@ const ANALYTICS = { goatcounter: "nirkana" };
     if (box && box.matches("details")) box.open = true;
   }));
 
-  // ------------------------------------------------------------ sector tabs (ARIA tabs with arrow keys)
+  // ------------------------------------------------------------ tabs (ARIA tabs with arrow keys): the sectors and «¿Qué quieres saber?»
+  // Each tablist switches only its own panels.
   const tabs = [...document.querySelectorAll('[role="tab"]')];
+  const groupOf = (tab) => [...tab.closest('[role="tablist"]').querySelectorAll('[role="tab"]')];
   const TAB_TYPES = { "tab-hosteleria": "Hostelería", "tab-belleza": "Belleza y estética", "tab-comercio": "Comercio",
                       "tab-autonomo": "Autónomo", "tab-pyme": "Pyme", "tab-otros": "Otro" };
   const selectTab = (tab, focus) => {
     suggestType(TAB_TYPES[tab.id]);
-    tabs.forEach((t) => {
+    groupOf(tab).forEach((t) => {
       const on = t === tab;
       t.setAttribute("aria-selected", String(on));
       t.tabIndex = on ? 0 : -1;
@@ -444,18 +448,40 @@ const ANALYTICS = { goatcounter: "nirkana" };
     }
     if (focus) tab.focus();
   };
-  tabs.forEach((tab, i) => {
+  tabs.forEach((tab) => {
     tab.addEventListener("click", () => {
       selectTab(tab);
-      countVisit(`sector-${tab.id.replace("tab-", "")}`, `Sector consultado: ${TAB_TYPES[tab.id]}`, true); // which businesses are asking
+      if (TAB_TYPES[tab.id]) countVisit(`sector-${tab.id.replace("tab-", "")}`, `Sector consultado: ${TAB_TYPES[tab.id]}`, true); // which businesses are asking
+      else countVisit(`tema-${tab.id.replace("t-", "")}`, `Tema consultado: ${tab.querySelector("b").textContent}`, true); // what they want to know
     });
     tab.addEventListener("keydown", (e) => {
+      const group = groupOf(tab);
+      const i = group.indexOf(tab);
       const step = { ArrowRight: 1, ArrowLeft: -1 }[e.key];
-      if (step) { e.preventDefault(); selectTab(tabs[(i + step + tabs.length) % tabs.length], true); }
+      if (step) { e.preventDefault(); selectTab(group[(i + step + group.length) % group.length], true); }
       if (e.key === "Home" || e.key === "End") {
-        e.preventDefault(); selectTab(e.key === "Home" ? tabs[0] : tabs[tabs.length - 1], true);
+        e.preventDefault(); selectTab(e.key === "Home" ? group[0] : group[group.length - 1], true);
       }
     });
+  });
+
+  // A link to something inside a closed topic (/#precio, /#seguridad, «Ver la oferta»…) opens that topic and goes there.
+  const revealTarget = () => {
+    const id = location.hash.length > 1 ? decodeURIComponent(location.hash.slice(1)) : "";
+    const target = id ? document.getElementById(id) : null;
+    const panel = target ? target.closest('[role="tabpanel"]') : null;
+    if (!panel || !panel.hidden) return;
+    const tab = document.querySelector(`[role="tab"][aria-controls="${panel.id}"]`);
+    if (!tab) return;
+    selectTab(tab);
+    target.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
+  };
+  revealTarget();
+  window.addEventListener("hashchange", revealTarget);
+  // The same link twice gives no hashchange: open the topic again if the visitor closed it in between.
+  document.addEventListener("click", (e) => {
+    const link = e.target.closest('a[href^="#"]');
+    if (link && link.getAttribute("href") === location.hash) revealTarget();
   });
   document.querySelectorAll("[data-tab]").forEach((link) => {
     link.addEventListener("click", () => { const t = document.getElementById(link.dataset.tab); if (t) selectTab(t); });
@@ -687,9 +713,9 @@ const ANALYTICS = { goatcounter: "nirkana" };
     }
   }
 
-  // The header turns dark glass while it sits over the dark hero, and light glass over the rest.
+  // The header turns dark glass while it sits over a dark band (the hero, the topics), and light glass over the rest.
   if (top) {
-    const darkSections = [...document.querySelectorAll(".hero")];
+    const darkSections = [...document.querySelectorAll(".hero, .topics-stage")];
     let queued = false;
     const onDark = () => {
       queued = false;

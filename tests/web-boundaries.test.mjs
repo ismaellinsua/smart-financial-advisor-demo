@@ -116,7 +116,7 @@ test('despertar la prueba pide una imagen y una página ocultas del propio servi
 // Price and contact: the home page shows the price as a section of its own, linked from the menu and the footer, and the
 // e-mail address itself is visible (not only behind a mailto: button) and can be copied.
 test('el precio tiene sección propia, enlazada desde el menú y el pie, y todas las cifras de la home coinciden', () => {
-  assert.match(home, /<section id="precio">/);
+  assert.match(home, /<section id="precio"[^>]*>/);
   const price = home.match(/<h2>Desde (\d+) € al mes \+ IVA<\/h2>/)?.[1];
   assert.ok(price, 'la sección de precio no dice «Desde N € al mes + IVA»');
   assert.equal((home.match(/href="#precio"/g) || []).length, 2, 'enlace en el menú y en el pie');

@@ -7,3 +7,7 @@
   html.js .menu-btn { display: none; }
   html.js .bar { flex-wrap: wrap; padding-block: 12px; }
 }
+
+/* Without JavaScript the topics cannot switch: every topic shows, one after another, and the cards to pick one go. */
+.topic-panel[hidden] { display: block !important; }
+#temas .topics-stage { display: none; }

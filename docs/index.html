@@ -181,8 +181,7 @@
         <div class="head center" data-reveal>
           <p class="eyebrow">Soluciones</p>
           <h2>Una solución para cada tipo de negocio</h2>
-          <p class="sub">Elige el tuyo y verás qué problema resolvemos y cómo. Lo que ves ya está en NirKanA; si necesitas algo más,
-            lo estudiamos como desarrollo a medida.</p>
+          <p class="sub">Elige el tuyo y verás qué resolvemos y cómo. Lo que ves ya está en NirKanA.</p>
         </div>
 
         <div class="tabs cards" role="tablist" aria-label="Tipo de negocio" data-reveal>
@@ -323,26 +322,51 @@
       </div>
     </section>
 
+    <!-- ============================================================ TOPICS: the visitor opens what they want to know -->
+    <section id="temas" class="topics">
+      <div class="topics-stage">
+        <div class="wrap">
+          <div class="head center" data-reveal>
+            <p class="eyebrow">Todo sobre NirKanA</p>
+            <h2>¿Qué quieres saber?</h2>
+            <p class="sub">Toca un tema y te lo enseñamos aquí debajo.</p>
+          </div>
+          <div class="topic-tiles" role="tablist" aria-label="Temas" data-reveal>
+            <button role="tab" id="t-funciones" aria-controls="funciones" aria-selected="true"><span class="tt-visual"><img
+              src="assets/img/shots/resumen-c.webp" alt="" width="1200" height="750" loading="lazy"></span><span class="tt-text"><b>La app por dentro</b><small>Capturas reales de lo que hace</small></span></button>
+            <button role="tab" id="t-demostracion" aria-controls="demostracion" aria-selected="false" tabindex="-1"><span class="tt-big">24 h</span><span
+              class="tt-text"><b>Prueba gratis</b><small>Sin tarjeta, y un <span class="nw">20 %</span> en la puesta en marcha</small></span></button>
+            <button role="tab" id="t-precio" aria-controls="precio" aria-selected="false" tabindex="-1"><span class="tt-big"><small>desde</small> 60 €</span><span
+              class="tt-text"><b>Precio</b><small>Al mes + IVA, y cómo empezamos</small></span></button>
+            <button role="tab" id="t-seguridad" aria-controls="seguridad" aria-selected="false" tabindex="-1"><span class="tt-icon"><svg class="ic"><use
+              href="#i-shield"/></svg></span><span class="tt-text"><b>Seguridad</b><small>Datos cifrados, separados y siempre tuyos</small></span></button>
+            <button role="tab" id="t-preguntas" aria-controls="preguntas" aria-selected="false" tabindex="-1"><span class="tt-icon"><svg class="ic"><use
+              href="#i-chat"/></svg></span><span class="tt-text"><b>Preguntas</b><small>Las dudas más habituales, resueltas</small></span></button>
+            <button role="tab" id="t-guias" aria-controls="guias" aria-selected="false" tabindex="-1"><span class="tt-icon"><svg class="ic"><use
+              href="#i-list"/></svg></span><span class="tt-text"><b>Guías gratis</b><small>Guías y calculadoras para tu negocio</small></span></button>
+          </div>
+        </div>
+      </div>
+
     <!-- ============================================================ THE APP INSIDE: what it does, with real screenshots -->
-    <section id="funciones">
+    <section id="funciones" class="topic-panel" role="tabpanel" aria-labelledby="t-funciones">
       <div class="wrap">
         <div class="head split" data-reveal>
           <div>
             <p class="eyebrow">La app por dentro</p>
             <h2>Todo tu negocio, en una sola app</h2>
           </div>
-          <p class="sub">En el móvil, la tablet o el ordenador, sin instalar nada. Son capturas reales con datos de ejemplo: pulsa una para
-            verla en grande.</p>
+          <p class="sub">Capturas reales con datos de ejemplo: pulsa una para verla en grande.</p>
         </div>
         <ul class="points" data-reveal>
           <li><span class="ico"><svg class="ic"><use href="#i-receipt"/></svg></span><b>Cobra con las cuentas hechas</b>
-            <span>Cambio calculado, pago mixto y cuenta dividida. Tickets, facturas y devoluciones desde la misma pantalla.</span></li>
+            <span>Pago mixto, cuenta dividida, tickets, facturas y devoluciones.</span></li>
           <li><span class="ico"><svg class="ic"><use href="#i-chart"/></svg></span><b>Sabe lo que de verdad ganas</b>
-            <span>Cierre de caja contado a ciegas, gastos, compras a proveedores y beneficio del periodo.</span></li>
+            <span>Cierre de caja a ciegas, gastos, compras y beneficio del periodo.</span></li>
           <li><span class="ico"><svg class="ic"><use href="#i-users"/></svg></span><b>Cada persona, desde su móvil</b>
-            <span>Administrador, encargado y empleado entran con su PIN y ven solo lo suyo. Lo que hace cada uno queda firmado.</span></li>
+            <span>Cada uno entra con su PIN y ve solo lo suyo; lo que hace queda firmado.</span></li>
           <li><span class="ico"><svg class="ic"><use href="#i-download"/></svg></span><b>Listo para tu gestoría</b>
-            <span>IVA del trimestre, descarga en Excel y un ZIP con las ventas, facturas, gastos y cierres.</span></li>
+            <span>IVA del trimestre, Excel y un ZIP con ventas, facturas, gastos y cierres.</span></li>
         </ul>
         <div class="bento" id="recorrido">
           <button class="tile big zoomable" data-full="assets/img/shots/resumen.webp" data-reveal>
@@ -379,7 +403,7 @@
     </section>
 
     <!-- ============================================================ 24-HOUR TRIAL + PROMOTION -->
-    <section id="demostracion" class="band">
+    <section id="demostracion" class="topic-panel" role="tabpanel" aria-labelledby="t-demostracion" hidden>
       <div class="wrap">
         <div class="trial-grid">
           <div class="trial-copy" data-reveal>
@@ -417,7 +441,7 @@
           </div>
         </div>
         <details class="more-box" id="promocion-condiciones">
-          <summary>Condiciones de la promoción del <span class="nw">20 %</span></summary>
+          <summary><span>Condiciones de la promoción del <span class="nw">20 %</span></span></summary>
           <ul class="ticks">
             <li><svg class="ic"><use href="#i-check"/></svg><span>El descuento del <span class="nw">20 %</span> se aplica <b>solo al precio de la puesta en marcha</b> de tu solución NirKanA: dejártela lista con tus datos, tu equipo y tu forma de trabajar.</span></li>
             <li><svg class="ic"><use href="#i-check"/></svg><span>No se aplica a cuotas mensuales, mantenimiento, desarrollos adicionales ni otros conceptos.</span></li>
@@ -428,41 +452,13 @@
       </div>
     </section>
 
-    <!-- ============================================================ SECURITY -->
-    <section id="seguridad">
-      <div class="wrap">
-        <div class="head" data-reveal>
-          <p class="eyebrow">Seguridad</p>
-          <h2>Tus datos, protegidos y siempre tuyos</h2>
-          <p class="sub">Pensado para un negocio real, con varias personas trabajando a la vez.</p>
-        </div>
-        <ul class="points three" data-reveal>
-          <li><span class="ico"><svg class="ic"><use href="#i-users"/></svg></span><b>Roles y permisos</b>
-            <span>Administrador, encargado y empleado. Cada página comprueba quién eres en el servidor.</span></li>
-          <li><span class="ico"><svg class="ic"><use href="#i-cloud"/></svg></span><b>Conexión cifrada</b>
-            <span>Los datos viajan cifrados (HTTPS) hasta una base de datos PostgreSQL en la nube.</span></li>
-          <li><span class="ico"><svg class="ic"><use href="#i-lock"/></svg></span><b>Cada negocio, aparte</b>
-            <span>Los datos de cada negocio están separados, y lo comprobamos con pruebas automáticas.</span></li>
-        </ul>
-        <details class="more-box">
-          <summary>Ver más medidas de seguridad</summary>
-          <ul class="ticks">
-            <li><svg class="ic"><use href="#i-check"/></svg><span><b>Contraseñas protegidas:</b> se guardan con un algoritmo de hash (Argon2), nunca en claro; tras varios intentos fallidos, la cuenta se bloquea un tiempo.</span></li>
-            <li><svg class="ic"><use href="#i-check"/></svg><span><b>Registro de actividad:</b> accesos, anulaciones, facturas, cierres de caja y cambios de configuración.</span></li>
-            <li><svg class="ic"><use href="#i-check"/></svg><span><b>Exportaciones seguras:</b> Excel listo para tu gestoría, sin fórmulas ocultas que puedan ejecutarse al abrirlo.</span></li>
-            <li><svg class="ic"><use href="#i-check"/></svg><span><b>Acceso de asesor:</b> tu gestoría puede entrar con un usuario de solo lectura: ve y descarga el IVA, las ventas, las facturas, los gastos y los cierres del trimestre, y no puede vender ni cambiar nada.</span></li>
-          </ul>
-        </details>
-      </div>
-    </section>
-
     <!-- ============================================================ PRICE AND HOW WE WORK -->
-    <section id="precio">
+    <section id="precio" class="topic-panel" role="tabpanel" aria-labelledby="t-precio" hidden>
       <div class="wrap">
         <div class="head center" data-reveal>
           <p class="eyebrow">Precio de NirKanA</p>
           <h2>Desde 60 € al mes + IVA</h2>
-          <p class="sub">Precios sin IVA: el IVA se añade en la factura. El precio final depende de las funciones que necesites; te decimos exactamente cuánto sería para tu negocio, sin compromiso.</p>
+          <p class="sub">Sin IVA: el IVA se añade en la factura. El precio final depende de las funciones que necesites.</p>
         </div>
         <div class="price-card" data-reveal>
           <ul class="ticks">
@@ -535,8 +531,27 @@
       </div>
     </section>
 
+    <section id="seguridad" class="topic-panel" role="tabpanel" aria-labelledby="t-seguridad" hidden>
+      <div class="wrap">
+        <div class="head">
+          <p class="eyebrow">Seguridad</p>
+          <h2>Tus datos, protegidos y siempre tuyos</h2>
+          <p class="sub">Pensado para un negocio real, con varias personas trabajando a la vez.</p>
+        </div>
+        <ul class="ticks security-list">
+          <li><svg class="ic"><use href="#i-check"/></svg><span><b>Roles y permisos:</b> Administrador, encargado y empleado. Cada página comprueba quién eres en el servidor.</span></li>
+          <li><svg class="ic"><use href="#i-check"/></svg><span><b>Conexión cifrada:</b> Los datos viajan cifrados (HTTPS) hasta una base de datos PostgreSQL en la nube.</span></li>
+          <li><svg class="ic"><use href="#i-check"/></svg><span><b>Cada negocio, aparte:</b> Los datos de cada negocio están separados, y lo comprobamos con pruebas automáticas.</span></li>
+          <li><svg class="ic"><use href="#i-check"/></svg><span><b>Contraseñas protegidas:</b> se guardan con un algoritmo de hash (Argon2), nunca en claro; tras varios intentos fallidos, la cuenta se bloquea un tiempo.</span></li>
+          <li><svg class="ic"><use href="#i-check"/></svg><span><b>Registro de actividad:</b> accesos, anulaciones, facturas, cierres de caja y cambios de configuración.</span></li>
+          <li><svg class="ic"><use href="#i-check"/></svg><span><b>Exportaciones seguras:</b> Excel listo para tu gestoría, sin fórmulas ocultas que puedan ejecutarse al abrirlo.</span></li>
+          <li><svg class="ic"><use href="#i-check"/></svg><span><b>Acceso de asesor:</b> tu gestoría puede entrar con un usuario de solo lectura: ve y descarga el IVA, las ventas, las facturas, los gastos y los cierres del trimestre, y no puede vender ni cambiar nada.</span></li>
+        </ul>
+      </div>
+    </section>
+
     <!-- ============================================================ FAQ -->
-    <section id="preguntas">
+    <section id="preguntas" class="topic-panel" role="tabpanel" aria-labelledby="t-preguntas" hidden>
       <div class="wrap faq">
         <div class="faq-side" data-reveal>
           <p class="eyebrow">Preguntas</p>
@@ -590,28 +605,30 @@
     </section>
 
     <!-- ============================================================ GUIDES AND FREE TOOLS -->
-    <section id="guias">
+    <section id="guias" class="topic-panel" role="tabpanel" aria-labelledby="t-guias" hidden>
       <div class="wrap">
-        <div class="head split" data-reveal>
+        <div class="head split">
           <div>
             <p class="eyebrow">Guías y herramientas gratis</p>
             <h2>Guías para llevar mejor tu negocio</h2>
           </div>
           <p class="sub">Explicaciones claras, con ejemplos y listas de comprobación.</p>
         </div>
-        <ul class="link-grid" data-reveal>
+        <ul class="link-grid">
           <li><a href="/guias/que-es-un-tpv/"><svg class="ic"><use href="#i-device"/></svg><span>Qué es un TPV y cómo elegirlo</span></a></li>
           <li><a href="/guias/arqueo-y-cierre-de-caja/"><svg class="ic"><use href="#i-receipt"/></svg><span>Arqueo y cierre de caja, paso a paso</span></a></li>
           <li><a href="/guias/control-de-stock-en-una-tienda/"><svg class="ic"><use href="#i-box"/></svg><span>Control de stock en una tienda</span></a></li>
           <li><a href="/guias/agenda-de-citas-para-peluquerias/"><svg class="ic"><use href="#i-calendar"/></svg><span>Agenda de citas para peluquerías</span></a></li>
           <li><a href="/guias/que-debe-llevar-una-factura/"><svg class="ic"><use href="#i-briefcase"/></svg><span>Qué debe llevar una factura</span></a></li>
-          <li><a href="/guias/documentos-del-trimestre-para-la-gestoria/"><svg class="ic"><use href="#i-download"/></svg><span>Documentos del trimestre para la gestoría</span></a></li>
+          <li><a href="/guias/calcular-el-margen-de-un-producto/"><svg class="ic"><use href="#i-chart"/></svg><span>Cómo calcular el margen de un producto</span></a></li>
           <li><a href="/herramientas/calculadora-de-arqueo-de-caja/"><svg class="ic"><use href="#i-receipt"/></svg><span>Calculadora de arqueo de caja</span><small>Gratis</small></a></li>
           <li><a href="/herramientas/calculadora-de-margen/"><svg class="ic"><use href="#i-chart"/></svg><span>Calculadora de margen y precio</span><small>Gratis</small></a></li>
         </ul>
-        <p class="guides-all" data-reveal><a class="btn ghost" href="/guias/">Ver todas las guías <svg class="ic"><use href="#i-arrow"/></svg></a>
+        <p class="guides-all"><a class="btn ghost" href="/guias/">Ver todas las guías <svg class="ic"><use href="#i-arrow"/></svg></a>
           <a class="btn ghost" href="/herramientas/">Ver las herramientas <svg class="ic"><use href="#i-arrow"/></svg></a></p>
       </div>
+    </section>
+
     </section>
 
     <!-- ============================================================ CONTACT -->
