@@ -193,7 +193,7 @@ test('el pie de todas las páginas enseña Instagram y TikTok solo con el usuari
 });
 
 test('la portada se organiza por temas: cada visitante abre lo que quiere saber y no se pierde nada', () => {
-  const TOPICS = ['funciones', 'demostracion', 'precio', 'seguridad', 'preguntas', 'guias'];
+  const TOPICS = ['funciones', 'demostracion', 'precio', 'seguridad', 'preguntas', 'guias', 'historia'];
   const topics = home.match(/<section id="temas" class="topics">[\s\S]*?<div class="topic-tiles" role="tablist" aria-label="Temas"[\s\S]*?<\/button>\s*<\/div>/)[0];
   assert.match(topics, /<h2>¿Qué quieres saber\?<\/h2>/);
   for (const id of TOPICS) {
@@ -217,4 +217,18 @@ test('la portada se organiza por temas: cada visitante abre lo que quiere saber 
   assert.match(home, /<div class="bento" id="recorrido">/);
   assert.match(home, /<div class="steps" id="como"/);
   for (const gone of ['id="cambio"', 'id="movil"']) assert.ok(!home.includes(gone), gone);
+});
+
+test('nuestra historia: un texto breve, sin fechas ni cifras, con el lema del vídeo', () => {
+  const panel = home.match(/<section id="historia" class="topic-panel"[\s\S]*?<\/section>/)[0];
+  assert.match(home, /<button class="tt-wide" role="tab" id="t-historia" aria-controls="historia"/);
+  assert.match(panel, /<article class="story">/);
+  assert.match(panel, /<h2>No es solo un negocio\.<\/h2>/);
+  const paragraphs = panel.match(/<p(?: class="story-lead")?>/g) || [];
+  assert.ok(paragraphs.length >= 2 && paragraphs.length <= 4, 'breve: entre 2 y 4 párrafos');
+  assert.match(panel, /<p class="story-motto"><span>Tu ambición\.<\/span> <span>Nuestra tecnología\.<\/span><\/p>/);
+  // Text, not a timeline: no dates, no list of milestones, no figures.
+  assert.doesNotMatch(panel, /<time|<ol|<dl|\b20\d\d\b/);
+  // Nothing that is not live yet: the online booking is not in the public trial.
+  assert.doesNotMatch(panel, /reserva online/i);
 });

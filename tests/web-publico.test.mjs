@@ -1,7 +1,7 @@
 // Ejecutar: node --test tests/web-publico.test.mjs
 // GitHub Pages sirve cada archivo de docs/ tal cual: lo que se guarde ahí lo puede abrir cualquiera en nirkana.es. Por eso docs/ solo
-// puede llevar archivos de la web (páginas, estilos, scripts, imágenes, vídeos en assets/video/, la plantilla de Excel, robots.txt y
-// sitemap.xml). Las notas internas, el código de apoyo, la configuración y los datos viven fuera, en notas/, ops/, tests/…; esta prueba
+// puede llevar archivos de la web (páginas, estilos, scripts, imágenes, vídeos en assets/video/, fuentes en assets/fonts/, la plantilla de
+// Excel, robots.txt y sitemap.xml). Las notas internas, el código de apoyo, la configuración y los datos viven fuera, en notas/, ops/, tests/…; esta prueba
 // falla si algo de eso acaba en docs/ (por ejemplo, una nota .md que se guarda en la carpeta equivocada).
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -15,7 +15,7 @@ const docs = resolve(root, 'docs');
 const files = (dir) => readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? files(resolve(dir, e.name)) : [resolve(dir, e.name)]));
 const all = files(docs).map((f) => relative(docs, f).split(sep).join('/'));
 
-const EXTENSIONS = new Set(['.html', '.css', '.js', '.svg', '.png', '.jpg', '.jpeg', '.webp', '.ico', '.webmanifest', '.xlsx', '.xml', '.txt', '.mp4']);
+const EXTENSIONS = new Set(['.html', '.css', '.js', '.svg', '.png', '.jpg', '.jpeg', '.webp', '.ico', '.webmanifest', '.xlsx', '.xml', '.txt', '.mp4', '.woff2']);
 const NAMES = new Set(['CNAME', '.nojekyll']);
 
 test('docs/ solo lleva archivos de la web: ninguna nota, ningún código de apoyo, ninguna configuración ni datos', () => {
@@ -23,6 +23,8 @@ test('docs/ solo lleva archivos de la web: ninguna nota, ningún código de apoy
   assert.deepEqual(intruders, [], `estos archivos se publicarían en nirkana.es y no son de la web (muévelos fuera de docs/): ${intruders.join(', ')}`);
   const videos = all.filter((f) => extname(f).toLowerCase() === '.mp4');
   assert.ok(videos.every((f) => f.startsWith('assets/video/')), `los vídeos van en docs/assets/video/: ${videos.join(', ')}`);
+  const fonts = all.filter((f) => extname(f).toLowerCase() === '.woff2');
+  assert.ok(fonts.every((f) => f.startsWith('assets/fonts/')), `las fuentes van en docs/assets/fonts/: ${fonts.join(', ')}`);
 });
 
 test('las notas internas no están en docs/ (viven en notas/)', () => {

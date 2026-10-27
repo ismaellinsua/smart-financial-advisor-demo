@@ -572,6 +572,62 @@ const ANALYTICS = { goatcounter: "nirkana" };
     update();
   }
 
+  // ------------------------------------------------------------ brand film: plays by itself, muted, while it is on screen
+  // Like a product page, with no button to press: it only moves while 40 % of it is on screen, never by itself with
+  // reduced motion or Save-Data, and the visitor can pause it (WCAG 2.2.2) or turn the sound on. Without JavaScript the
+  // browser's own controls stay.
+  document.querySelectorAll(".film-frame").forEach((frame) => {
+    const film = frame.querySelector("video");
+    const toggle = frame.querySelector("[data-film-toggle]");
+    const sound = frame.querySelector("[data-film-sound]");
+    if (!film || !toggle || !sound) return;
+    film.controls = false;
+    toggle.hidden = false;
+    sound.hidden = false;
+    let wanted = !reduceMotion && !(navigator.connection && navigator.connection.saveData);
+    const setIcon = (button, name) => button.querySelector("use").setAttribute("href", `#i-${name}`);
+    const sync = () => {
+      toggle.setAttribute("aria-label", film.paused ? "Reproducir el vídeo" : "Pausar el vídeo");
+      setIcon(toggle, film.paused ? "play" : "pause");
+    };
+    const stop = () => { film.pause(); sync(); };
+    const play = () => { const started = film.play(); if (started) started.catch(stop); }; // blocked autoplay: stays paused
+    // A browser that cannot decode the file (or a failed download) does not reject play(): the error on the last
+    // <source> is the signal to go back to paused.
+    const lastSource = film.querySelector("source:last-of-type");
+    if (lastSource) lastSource.addEventListener("error", stop);
+    film.addEventListener("play", sync);
+    film.addEventListener("pause", sync);
+    const playOrPause = () => {
+      if (film.paused) {
+        wanted = true;
+        play();
+        countVisit("video-reproducir", "Vídeo: lo reproduce", true);
+      } else {
+        wanted = false;
+        film.pause();
+      }
+    };
+    toggle.addEventListener("click", playOrPause);
+    film.addEventListener("click", playOrPause);
+    sound.addEventListener("click", () => {
+      film.muted = !film.muted;
+      sound.setAttribute("aria-label", film.muted ? "Activar sonido" : "Silenciar");
+      setIcon(sound, film.muted ? "mute" : "sound");
+      if (!film.muted) {
+        countVisit("video-sonido", "Vídeo: activa el sonido", true);
+        if (film.paused) { wanted = true; play(); }
+      }
+    });
+    if ("IntersectionObserver" in window) {
+      new IntersectionObserver(([entry]) => {
+        if (entry.isIntersecting && wanted) play();
+        else if (!entry.isIntersecting && !film.paused) film.pause(); // off screen: stop, and carry on when it is back
+      }, { threshold: 0.4 }).observe(film);
+    }
+    sync();
+  });
+
   // ------------------------------------------------------------ scroll reveal, staggered among siblings
   if ("IntersectionObserver" in window && !reduceMotion) {
     document.documentElement.classList.add("reveal");

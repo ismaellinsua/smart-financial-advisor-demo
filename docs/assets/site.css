@@ -53,6 +53,13 @@ h1 { font-size: clamp(2.1rem, 4.4vw, 3.3rem); font-weight: 800; }
 h2 { font-size: clamp(1.8rem, 3.6vw, 2.9rem); font-weight: 800; }
 h3 { font-size: 1.15rem; }
 p { margin: 0 0 1rem; }
+/* Big headings, the wordmark and big figures in Sora, the typeface of the videos and the ads (SIL Open Font License 1.1,
+   © 2019 The Sora Project Authors; the notice travels inside the file). One weight, served from this site and preloaded
+   by the home page, latin subset: Spanish accents, ñ, ¿ ¡ and €. Smaller headings keep the system font.
+   «optional»: if the file is not there by the first paint it is skipped for that visit, so the page never jumps. */
+@font-face { font-family: "Sora"; src: url("fonts/sora-latin-800.woff2") format("woff2"); font-weight: 800 900; font-display: optional; }
+h1, h2, .brand, .tt-big, .stats b, .kpi b, .timeline .n, .story-motto {
+  font-family: "Sora", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
 .sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
 .ic { width: 1.15em; height: 1.15em; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .wrap { width: min(1220px, 100% - 48px); margin-inline: auto; }
@@ -187,7 +194,7 @@ section { padding: clamp(44px, 7vw, 100px) 0; }
   backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); margin-bottom: 1.6rem;
 }
 .live { width: 8px; height: 8px; border-radius: 50%; background: #5EEAD4; box-shadow: 0 0 0 0 rgba(94, 234, 212, .6); }
-.hero h1 { font-size: clamp(2.8rem, 4.8vw, 4.35rem); line-height: 1.04; letter-spacing: -.045em; margin-bottom: 1.5rem; font-weight: 900; }
+.hero h1 { font-size: clamp(2.8rem, 4.8vw, 4.35rem); line-height: 1.04; letter-spacing: -.03em; margin-bottom: 1.5rem; font-weight: 900; }
 .grad {
   background: linear-gradient(90deg, #8EA2FF, #B79CFF 35%, #5EEAD4, #5EEAD4); -webkit-background-clip: text; background-clip: text;
   color: transparent; background-size: 200% 100%;
@@ -272,7 +279,7 @@ html:not(.has-demo) .only-demo, html.has-demo .no-demo { display: none !importan
   .stats { grid-template-columns: repeat(2, 1fr); }
   .scene { padding: 0 6%; }
   .chip { font-size: .72rem; padding: .45rem .6rem; }
-  .c1 { left: 0; top: 6%; }
+  .c1 { left: 0; top: 17%; }
   .c2 { display: none; }
   .c3 { left: 10%; }
   .phone { width: 28%; right: 0; }
@@ -284,6 +291,27 @@ html:not(.has-demo) .only-demo, html.has-demo .no-demo { display: none !importan
 .trust-row span { display: inline-flex; align-items: center; gap: .55rem; color: var(--muted); font-weight: 600; font-size: .93rem; }
 .trust-row .ic { color: var(--brand); width: 1.25em; height: 1.25em; }
 @media (max-width: 760px) { .trust-row { justify-content: center; } }
+
+/* ------------------------------------------------------------------ brand film, right under the hero */
+/* Like a product page: it plays by itself, muted, from edge to edge of the screen, right under the hero, so the two read
+   as one piece. Nothing is laid over the rest of the page. The film is panoramic: it fills the width without cutting
+   anything; it is never taller than the screen (on a very wide monitor the top and bottom are trimmed instead). */
+.film { padding: 0; background: #000; }
+.film-frame { position: relative; width: 100%; background: #000; }
+.film-video { display: block; width: 100%; height: auto; aspect-ratio: 848 / 370; max-height: 100vh; max-height: 100svh;
+  object-fit: cover; cursor: pointer; }
+.film-controls { position: absolute; right: clamp(10px, 2vw, 28px); bottom: clamp(10px, 2vw, 28px); display: flex; gap: 10px; }
+.film-btn { display: grid; place-items: center; width: 40px; height: 40px; padding: 0; border-radius: 50%; cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, .22); background: rgba(20, 22, 30, .5); color: #fff;
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); transition: background .2s ease; }
+.film-btn:hover { background: rgba(20, 22, 30, .75); }
+.film-btn:focus-visible { outline: 3px solid #8FE9DB; outline-offset: 2px; }
+.film-btn .ic { width: 1.05rem; height: 1.05rem; }
+[data-film-toggle] .ic { fill: currentColor; stroke-width: 2.4; }
+@media (max-width: 760px) {
+  .film-controls { gap: 8px; }
+  .film-btn { width: 36px; height: 36px; }
+}
 
 
 /* ------------------------------------------------------------------ sector tabs */
@@ -612,7 +640,8 @@ a, button, input, textarea, select { -webkit-tap-highlight-color: transparent; }
 :root[data-theme="dark"] { --bg: #090F1B; --surface-2: #152138; --line: #29364D; }
 body { letter-spacing: -.008em; }
 h1, h2, h3 { letter-spacing: -.038em; }
-h1 { letter-spacing: -.05em; }
+h1, h2 { letter-spacing: -.02em; } /* Sora is wider: tighter and the words run together */
+h1 { letter-spacing: -.028em; }
 .eyebrow { letter-spacing: .13em; }
 .btn { transition: transform .18s ease, box-shadow .18s ease, background-color .18s ease, border-color .18s ease; }
 @media (hover: hover) and (pointer: fine) {
@@ -909,6 +938,10 @@ html:not(.has-trial) .demo-grid, html:not(.has-demo) .demo-grid { grid-template-
 .tt-text { display: grid; gap: .3rem; align-content: end; }
 .tt-text b { font-size: 1.08rem; color: #fff; }
 .tt-text small { font-size: .86rem; line-height: 1.35; color: #AEBBDA; }
+/* The seventh card (our story) takes the whole row, on a computer (3 columns) and on a phone (2), laid out in a line. */
+.topic-tiles [role="tab"].tt-wide { grid-column: 1 / -1; min-height: 0; grid-template-rows: none; grid-template-columns: auto minmax(0, 1fr);
+  align-items: center; }
+.tt-wide .tt-text { align-content: center; }
 @media (max-width: 760px) {
   .topic-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
   .topic-tiles [role="tab"] { min-height: 158px; padding: 14px; gap: .7rem; }
@@ -961,3 +994,14 @@ html:not(.has-trial) .demo-grid, html:not(.has-demo) .demo-grid { grid-template-
   .tc-block, .tc-estado { background: #fff; break-inside: avoid; border-color: #999; }
   .tc input[type="text"] { border: 0; border-bottom: 1px solid #777; border-radius: 0; background: #fff; }
 }
+
+/* ------------------------------------------------------------------ our story (a topic), told as text */
+.story { max-width: 640px; margin-inline: auto; text-align: center; }
+.story h2 { font-size: clamp(2rem, 4.4vw, 3.2rem); margin-bottom: 1.4rem; }
+.story p { font-size: 1.08rem; line-height: 1.8; color: var(--muted); margin: 0 0 1.1rem; text-wrap: pretty;
+  text-align: left; } /* the title and the motto centred; the text, left-aligned in one column, reads better */
+.story .story-lead { font-size: clamp(1.15rem, 1.8vw, 1.3rem); line-height: 1.7; color: var(--ink); }
+.story .story-motto { margin: 2rem auto 0; width: fit-content; max-width: none; font-size: clamp(1.4rem, 2.8vw, 2rem); font-weight: 800;
+  letter-spacing: -.02em; line-height: 1.2; background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent;
+  text-align: center; }
+.story-motto span { display: inline-block; } /* it only breaks between the two sentences */
