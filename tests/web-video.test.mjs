@@ -27,6 +27,9 @@ test('el vídeo va justo debajo del inicio y no quita ni tapa nada de la portada
     '<section id="temas"', '<section id="contacto"']) assert.ok(home.includes(part), `falta ${part}`);
   assert.doesNotMatch(home, /nirkana-en-12-segundos|reel-band/, 'el vídeo de 12 segundos lo sustituye este');
   assert.doesNotMatch(css, /\.film[^{]*\{[^}]*position: fixed/, 'el vídeo no flota sobre la página');
+  // From edge to edge of the screen, never taller than it, and nothing cut on a normal screen (the film is panoramic).
+  assert.match(css, /\.film-frame \{ position: relative; width: 100%;/);
+  assert.match(css, /\.film-video \{[^}]*aspect-ratio: 848 \/ 370; max-height: 100vh; max-height: 100svh;/);
 });
 
 test('el vídeo no se descarga ni suena por su cuenta', () => {

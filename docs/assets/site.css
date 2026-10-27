@@ -293,13 +293,14 @@ html:not(.has-demo) .only-demo, html.has-demo .no-demo { display: none !importan
 @media (max-width: 760px) { .trust-row { justify-content: center; } }
 
 /* ------------------------------------------------------------------ brand film, right under the hero */
-/* Like a product page: it plays by itself, muted, in the hero's own dark blue, so the two read as one piece. Nothing is
-   laid over the rest of the page. At most 1040 px wide: the file is 848 px and grows soft beyond that. */
-.film { padding: 0 0 clamp(36px, 5vw, 72px); background: linear-gradient(180deg, #13235A, #0B1430); }
-.film-frame { position: relative; width: min(1040px, 100% - 48px); margin-inline: auto; border-radius: 28px; overflow: hidden;
-  background: #000; box-shadow: 0 50px 100px -40px rgba(0, 0, 0, .9), 0 0 0 1px rgba(255, 255, 255, .08); }
-.film-video { display: block; width: 100%; height: auto; aspect-ratio: 848 / 370; cursor: pointer; }
-.film-controls { position: absolute; right: 16px; bottom: 16px; display: flex; gap: 10px; }
+/* Like a product page: it plays by itself, muted, from edge to edge of the screen, right under the hero, so the two read
+   as one piece. Nothing is laid over the rest of the page. The film is panoramic: it fills the width without cutting
+   anything; it is never taller than the screen (on a very wide monitor the top and bottom are trimmed instead). */
+.film { padding: 0; background: #000; }
+.film-frame { position: relative; width: 100%; background: #000; }
+.film-video { display: block; width: 100%; height: auto; aspect-ratio: 848 / 370; max-height: 100vh; max-height: 100svh;
+  object-fit: cover; cursor: pointer; }
+.film-controls { position: absolute; right: clamp(10px, 2vw, 28px); bottom: clamp(10px, 2vw, 28px); display: flex; gap: 10px; }
 .film-btn { display: grid; place-items: center; width: 40px; height: 40px; padding: 0; border-radius: 50%; cursor: pointer;
   border: 1px solid rgba(255, 255, 255, .22); background: rgba(20, 22, 30, .5); color: #fff;
   backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); transition: background .2s ease; }
@@ -308,8 +309,7 @@ html:not(.has-demo) .only-demo, html.has-demo .no-demo { display: none !importan
 .film-btn .ic { width: 1.05rem; height: 1.05rem; }
 [data-film-toggle] .ic { fill: currentColor; stroke-width: 2.4; }
 @media (max-width: 760px) {
-  .film-frame { width: 100%; border-radius: 0; box-shadow: none; } /* edge to edge on a phone */
-  .film-controls { right: 10px; bottom: 10px; gap: 8px; }
+  .film-controls { gap: 8px; }
   .film-btn { width: 36px; height: 36px; }
 }
 
