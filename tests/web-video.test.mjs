@@ -30,6 +30,14 @@ test('en el ordenador el vídeo va arriba del todo, justo debajo de la cabecera,
   assert.match(home, /<div class="film-frame">/, 'arriba del todo se ve al momento: no espera a aparecer al bajar');
   assert.match(css, /\.film \+ \.hero \{ padding-top: /, 'el titular sigue al vídeo de cerca');
   assert.match(js, /querySelectorAll\("\.film, \.hero, \.topics-stage"\)/, 'la cabecera sigue oscura sobre el vídeo');
+  // No hard line between the film and the headline: the film's last strip fades to the hero's night blue (below every line of
+  // text in the film, which end at 81 % of its height), and the hero's glow and particles rise out of that blue.
+  assert.match(css, /\.film \.film-frame::before, \.film \.film-frame::after \{[^}]*inset: auto 0 0; height: 24%;/);
+  assert.match(css, /\.film \.film-frame::before \{[^}]*backdrop-filter: blur\(14px\);[^}]*mask-image: linear-gradient\(transparent 20%, #000\)/);
+  assert.match(css, /\.film \.film-frame::after \{ background: linear-gradient\(rgba\(7, 13, 28, 0\), rgba\(7, 13, 28, \.06\) 22%,[^}]*#070D1C\); \}/);
+  assert.match(css, /\.film \+ \.hero::before \{[^}]*linear-gradient\(#070D1C,[^}]*rgba\(7, 13, 28, 0\)\); \}/);
+  assert.match(css, /\.film \+ \.hero \.orb \{[^}]*mask-image: linear-gradient\(transparent, rgba\(0, 0, 0, \.25\)[^}]*#000 clamp/);
+  assert.match(css, /\.film-controls \{ position: absolute; z-index: 1;/, 'los botones quedan por encima del fundido');
   // Everything else is still there, in its place.
   for (const part of ['<section class="hero" id="inicio">', '<aside class="promo-strip"', '<div class="trust"', '<section id="soluciones"',
     '<section id="temas"', '<section id="contacto"']) assert.ok(home.includes(part), `falta ${part}`);
@@ -78,7 +86,7 @@ test('en el móvil en vertical el vídeo va después del titular y sus botones, 
   assert.match(css, /\.film-phone \.film-video \{ aspect-ratio: 4 \/ 3; max-height: none; object-position: 6\.8% 50%; \}/);
   const block = css.slice(css.indexOf(`@media ${PHONE_MEDIA} {`));
   assert.ok(block.length < css.length, 'falta el bloque del móvil en vertical');
-  assert.match(block, /^@media[^{]*\{\s*\.film \{ display: none; \}\s*\.film \+ \.hero \{ padding-top: 48px; \}\s*\.film-phone \{ display: block;/);
+  assert.match(block, /^@media[^{]*\{\s*\.film \{ display: none; \}\s*\.film \+ \.hero \{ padding-top: 48px; \}\s*\.film \+ \.hero::before \{ content: none; \}\s*\.film \+ \.hero \.orb \{ -webkit-mask-image: none; mask-image: none; \}\s*\.film-phone \{ display: block;/, 'en el móvil no hay vídeo arriba que fundir');
   // Both are driven by the same code: each plays only while it is on screen (a hidden one never is).
   assert.match(js, /document\.querySelectorAll\("\.film-frame"\)\.forEach/);
 });
