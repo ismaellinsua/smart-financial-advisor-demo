@@ -596,20 +596,6 @@ const ANALYTICS = { goatcounter: "nirkana" };
     // <source> is the signal to go back to paused.
     const lastSource = film.querySelector("source:last-of-type");
     if (lastSource) lastSource.addEventListener("error", stop);
-    // The 4:3 cut for a phone held upright and the panoramic one are chosen by <source media> when the page loads; when
-    // the phone is turned round, the cut that fits is loaded again, from the same second.
-    const phoneCut = film.querySelector("source[media]");
-    if (phoneCut && window.matchMedia) {
-      const fits = window.matchMedia(phoneCut.media);
-      const swap = () => {
-        if (!film.currentSrc || film.currentSrc.endsWith(phoneCut.getAttribute("src")) === fits.matches) return;
-        const at = film.currentTime, playing = !film.paused;
-        film.load();
-        if (at) film.addEventListener("loadedmetadata", () => { film.currentTime = at; }, { once: true });
-        if (playing) play(); else sync();
-      };
-      if (fits.addEventListener) fits.addEventListener("change", swap);
-    }
     film.addEventListener("play", sync);
     film.addEventListener("pause", sync);
     const playOrPause = () => {

@@ -1,8 +1,9 @@
 // Ejecutar: node --test tests/web-video.test.mjs
 // El vídeo de marca de la portada y la letra de los títulos (Sora, la de los vídeos y los anuncios). Los dos se sirven desde
-// la propia web y no molestan: el vídeo va arriba del todo, justo debajo de la cabecera, sin tapar nada; no se descarga hasta
-// que hace falta, va sin sonido, solo se mueve mientras se ve, se puede pausar, y nunca arranca solo si el visitante pide
-// menos movimiento o ahorro de datos.
+// la propia web y no molestan: en el ordenador el vídeo va arriba del todo, justo debajo de la cabecera; en el móvil en
+// vertical, después del titular y sus botones, en su versión 4:3. No tapa nada, no se descarga hasta que hace falta, va sin
+// sonido, solo se mueve mientras se ve, se puede pausar, y nunca arranca solo si el visitante pide menos movimiento o ahorro
+// de datos.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, statSync, readdirSync } from 'node:fs';
@@ -20,7 +21,7 @@ const POSTER = 'assets/video/nirkana-marca.webp';
 const PHONE = 'assets/video/nirkana-marca-movil.mp4';
 const PHONE_MEDIA = '(max-width: 600px) and (orientation: portrait)';
 
-test('el vídeo va arriba del todo, justo debajo de la cabecera, y no quita ni tapa nada de la portada', () => {
+test('en el ordenador el vídeo va arriba del todo, justo debajo de la cabecera, y no quita ni tapa nada de la portada', () => {
   const main = home.indexOf('<main id="contenido">');
   const at = home.indexOf('<section class="film" id="video"');
   assert.ok(main > 0 && at > main, 'dentro del contenido');
@@ -49,29 +50,37 @@ test('la ventana de la portada: nada encima de sus tres puntos y las capturas si
   for (const chip of ['chip c2', 'chip c3']) assert.ok(home.includes(`class="${chip}"`), `sigue ${chip}`);
 });
 
-test('el vídeo no se descarga ni suena por su cuenta', () => {
-  const tag = home.match(/<video class="film-video"[^>]*>/)[0];
-  for (const attr of [' controls', ' muted', ' loop', ' playsinline', ' preload="none"', ` poster="${POSTER}"`, ' width="848" height="370"',
-    ' aria-describedby="video-descripcion"']) {
-    assert.ok(tag.includes(attr), `falta ${attr.trim()}`);
+test('ningún vídeo se descarga ni suena por su cuenta', () => {
+  const tags = home.match(/<video class="film-video"[^>]*>/g);
+  assert.equal(tags.length, 2, 'el del ordenador (arriba) y el del móvil (tras el titular)');
+  for (const tag of tags) {
+    for (const attr of [' controls', ' muted', ' loop', ' playsinline', ' preload="none"', ` poster="${POSTER}"`,
+      ' aria-describedby="video-descripcion"']) {
+      assert.ok(tag.includes(attr), `falta ${attr.trim()}`);
+    }
+    assert.doesNotMatch(tag, /autoplay/, 'lo arranca site.js solo cuando se ve, nunca el navegador al cargar');
   }
-  assert.doesNotMatch(tag, /autoplay/, 'lo arranca site.js solo cuando se ve, nunca el navegador al cargar');
-  assert.match(home, new RegExp(`<source src="${VIDEO.replace(/\./g, '\\.')}" type="video/mp4">`));
+  assert.ok(tags[0].includes(' width="848" height="370"') && tags[1].includes(' width="640" height="480"'));
   assert.match(home, /<p class="sr-only" id="video-descripcion">Vídeo sin diálogos, con música\./);
-  // A phone held upright gets the 4:3 cut first; any other screen, the panoramic film.
-  const phone = `<source src="${PHONE}" type="video/mp4" media="${PHONE_MEDIA}">`;
-  assert.ok(home.includes(phone), 'falta la versión del móvil');
-  assert.ok(home.indexOf(phone) < home.indexOf(`<source src="${VIDEO}"`), 'la del móvil va antes que la panorámica');
 });
 
-test('en el móvil en vertical el vídeo es más alto (4:3) y su portada se encuadra como la primera escena', () => {
+test('en el móvil en vertical el vídeo va después del titular y sus botones, en su versión 4:3', () => {
+  // Each film carries only its own cut: the panoramic one above, the 4:3 one inside the hero.
+  const top = home.slice(home.indexOf('<section class="film" id="video"'), home.indexOf('<section class="hero" id="inicio">'));
+  assert.ok(top.includes(`<source src="${VIDEO}" type="video/mp4">`) && !top.includes(PHONE));
+  const copy = home.indexOf('<div class="hero-copy">'), at = home.indexOf('<div class="film-frame film-phone">');
+  assert.ok(copy > 0 && at > copy && at < home.indexOf('<div class="scene" data-tilt'), 'entre el titular con sus botones y la captura');
+  const phone = home.slice(at, home.indexOf('<div class="scene" data-tilt'));
+  assert.ok(phone.includes(`<source src="${PHONE}" type="video/mp4">`) && !phone.includes(VIDEO));
+  for (const button of ['data-film-sound', 'data-film-toggle']) assert.ok(phone.includes(button), `falta ${button}`);
+  // Only one of the two is ever shown: the phone one on a phone held upright, the one above everywhere else.
+  assert.match(css, /\.film-phone \{ display: none; \}/);
+  assert.match(css, /\.film-phone \.film-video \{ aspect-ratio: 4 \/ 3; max-height: none; object-position: 6\.8% 50%; \}/);
   const block = css.slice(css.indexOf(`@media ${PHONE_MEDIA} {`));
   assert.ok(block.length < css.length, 'falta el bloque del móvil en vertical');
-  assert.match(block, /^@media[^{]*\{\s*\.film-video \{ aspect-ratio: 4 \/ 3; object-position: 6\.8% 50%; \}/);
-  // Turning the phone round loads the cut that fits, from the same second.
-  assert.match(js, /film\.querySelector\("source\[media\]"\)/);
-  assert.match(js, /window\.matchMedia\(phoneCut\.media\)/);
-  assert.match(js, /film\.currentTime = at;/);
+  assert.match(block, /^@media[^{]*\{\s*\.film \{ display: none; \}\s*\.film \+ \.hero \{ padding-top: 48px; \}\s*\.film-phone \{ display: block;/);
+  // Both are driven by the same code: each plays only while it is on screen (a hidden one never is).
+  assert.match(js, /document\.querySelectorAll\("\.film-frame"\)\.forEach/);
 });
 
 test('el vídeo y su portada pesan poco', () => {

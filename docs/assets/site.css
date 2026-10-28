@@ -307,10 +307,17 @@ html:not(.has-demo) .only-demo, html.has-demo .no-demo { display: none !importan
   .film-controls { gap: 8px; }
   .film-btn { width: 36px; height: 36px; }
 }
-/* A phone held upright gets its own cut of the film in 4:3, reframed scene by scene so every line of text and every person
-   stays in the picture: much taller than the panoramic strip. Until it plays, the poster is framed like its first scene. */
+/* On a phone held upright a film under the header is the first thing seen and reads as a stray player, so there the
+   headline and its buttons come first and the film follows them, as on Apple's pages for phones: words first, then the
+   picture. It plays its own 4:3 cut, reframed scene by scene so every line of text and every person stays in the picture.
+   Until it plays, the poster is framed like its first scene. Only one of the two films is ever shown, played or loaded. */
+.film-phone { display: none; }
+.film-phone .film-video { aspect-ratio: 4 / 3; max-height: none; object-position: 6.8% 50%; }
 @media (max-width: 600px) and (orientation: portrait) {
-  .film-video { aspect-ratio: 4 / 3; object-position: 6.8% 50%; }
+  .film { display: none; }
+  .film + .hero { padding-top: 48px; }
+  .film-phone { display: block; border-radius: 18px; overflow: hidden; isolation: isolate;
+    box-shadow: 0 30px 60px -28px rgba(0, 0, 0, .85), 0 0 0 1px rgba(255, 255, 255, .14); }
 }
 
 

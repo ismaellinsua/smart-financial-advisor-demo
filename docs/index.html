@@ -132,7 +132,6 @@
       <div class="film-frame">
         <video class="film-video" controls muted loop playsinline preload="none" width="848" height="370"
           poster="assets/video/nirkana-marca.webp" aria-label="Vídeo de NirKanA, 40 segundos" aria-describedby="video-descripcion">
-          <source src="assets/video/nirkana-marca-movil.mp4" type="video/mp4" media="(max-width: 600px) and (orientation: portrait)">
           <source src="assets/video/nirkana-marca.mp4" type="video/mp4">
         </video>
         <!-- Without JavaScript these stay hidden and the browser's own controls are used. -->
@@ -164,6 +163,19 @@
         </div>
         <p class="cta-note only-trial">Prueba gratis 24 horas, sin tarjeta. Después, desde 60 € al mes + IVA.</p>
         <p class="cta-note no-trial only-demo">Sin registro · Datos ficticios · A tu ritmo</p>
+      </div>
+
+      <!-- On a phone held upright the film comes here instead of above: the headline and its buttons first, then the film,
+           in its own 4:3 cut. Only one of the two is ever shown, played or downloaded. -->
+      <div class="film-frame film-phone">
+        <video class="film-video" controls muted loop playsinline preload="none" width="640" height="480"
+          poster="assets/video/nirkana-marca.webp" aria-label="Vídeo de NirKanA, 40 segundos" aria-describedby="video-descripcion">
+          <source src="assets/video/nirkana-marca-movil.mp4" type="video/mp4">
+        </video>
+        <div class="film-controls">
+          <button class="film-btn" type="button" data-film-sound aria-label="Activar sonido" hidden><svg class="ic"><use href="#i-mute"/></svg></button>
+          <button class="film-btn" type="button" data-film-toggle aria-label="Reproducir el vídeo" hidden><svg class="ic"><use href="#i-play"/></svg></button>
+        </div>
       </div>
 
       <div class="scene" data-tilt aria-label="La app en ordenador y móvil">
