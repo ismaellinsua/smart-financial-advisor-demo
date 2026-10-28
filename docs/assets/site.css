@@ -171,6 +171,13 @@ section { padding: clamp(44px, 7vw, 100px) 0; }
   mask-image: linear-gradient(to top, #000 0%, transparent 80%); -webkit-mask-image: linear-gradient(to top, #000 0%, transparent 80%);
 }
 .film + .hero { padding-top: clamp(40px, 5vw, 72px); }
+/* The film melts into the headline instead of ending on a hard line: its last strip fades to the night blue the hero starts
+   with (below every line of text the film carries, which end at 81 % of its height), and the hero's glow and particles rise
+   out of that same blue. */
+.film + .hero::before { content: ""; position: absolute; inset: 0 0 auto; height: clamp(120px, 14vw, 220px); z-index: -1;
+  pointer-events: none; background: linear-gradient(#070D1C, rgba(7, 13, 28, 0)); }
+.film + .hero .orb { -webkit-mask-image: linear-gradient(transparent, #000 clamp(140px, 16vw, 260px));
+  mask-image: linear-gradient(transparent, #000 clamp(140px, 16vw, 260px)); }
 .hero-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.12fr);
   gap: clamp(32px, 4vw, 64px); align-items: center; text-align: left; }
 .hero-copy { min-width: 0; }
@@ -293,9 +300,11 @@ html:not(.has-demo) .only-demo, html.has-demo .no-demo { display: none !importan
    short screen the top and bottom are trimmed instead). */
 .film { padding: 0; background: #000; }
 .film-frame { position: relative; width: 100%; background: #000; }
+.film .film-frame::after { content: ""; position: absolute; inset: auto 0 0; height: 18%; pointer-events: none;
+  background: linear-gradient(rgba(7, 13, 28, 0), #070D1C); }
 .film-video { display: block; width: 100%; height: auto; aspect-ratio: 848 / 370; max-height: calc(100vh - 68px);
   max-height: calc(100svh - 68px); object-fit: cover; cursor: pointer; }
-.film-controls { position: absolute; right: clamp(10px, 2vw, 28px); bottom: clamp(10px, 2vw, 28px); display: flex; gap: 10px; }
+.film-controls { position: absolute; z-index: 1; right: clamp(10px, 2vw, 28px); bottom: clamp(10px, 2vw, 28px); display: flex; gap: 10px; }
 .film-btn { display: grid; place-items: center; width: 40px; height: 40px; padding: 0; border-radius: 50%; cursor: pointer;
   border: 1px solid rgba(255, 255, 255, .22); background: rgba(20, 22, 30, .5); color: #fff;
   backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); transition: background .2s ease; }
@@ -316,6 +325,8 @@ html:not(.has-demo) .only-demo, html.has-demo .no-demo { display: none !importan
 @media (max-width: 600px) and (orientation: portrait) {
   .film { display: none; }
   .film + .hero { padding-top: 48px; }
+  .film + .hero::before { content: none; }
+  .film + .hero .orb { -webkit-mask-image: none; mask-image: none; }
   .film-phone { display: block; border-radius: 18px; overflow: hidden; isolation: isolate;
     box-shadow: 0 30px 60px -28px rgba(0, 0, 0, .85), 0 0 0 1px rgba(255, 255, 255, .14); }
 }
