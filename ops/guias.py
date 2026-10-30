@@ -28,12 +28,12 @@ import herramientas_texto as TT  # noqa: E402
 ROOT = HERE.parent
 DOCS = ROOT / "docs"
 SITE = "https://nirkana.es"
-DATE = "2026-10-27"       # fecha de la última modificación de las páginas que genera o que toca este cambio
+DATE = "2026-10-30"       # fecha de la última modificación de las páginas que genera o que toca este cambio
 PUBLISHED = "2026-10-21"  # cuándo salieron las primeras guías; cada guía puede traer su propio `published` y `updated`
 MONTHS = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
 REFERENCE = "tpv-tiendas/index.html"
 CORE = ["", "tpv-restaurantes/", "programa-peluquerias-estetica/", "tpv-tiendas/", "programa-facturacion-autonomos/", "tpv-tienda-online/",
-        "programa-gestion-pequenas-empresas/"]
+        "programa-gestion-pequenas-empresas/", "programa-entrenadores-personales/"]
 CSP = ("default-src 'self'; img-src 'self' data: https://*.goatcounter.com https://nirkana-prueba.onrender.com; "
        "frame-src https://nirkana-prueba.onrender.com; style-src 'self'; script-src 'self'; connect-src 'self' https://formspree.io; "
        "form-action https://formspree.io; base-uri 'none'; object-src 'none'; upgrade-insecure-requests")
@@ -311,7 +311,7 @@ def render_hub() -> str:
         <div class="faq-side">
           <p class="eyebrow">Preguntas</p>
           <h2>Preguntas frecuentes</h2>
-          <p class="sub">Por sectores: <a href="/tpv-restaurantes/">Restaurantes</a> · <a href="/programa-peluquerias-estetica/">Peluquerías</a> · <a href="/tpv-tiendas/">Tiendas</a> · <a href="/programa-facturacion-autonomos/">Autónomos</a> · <a href="/tpv-tienda-online/">Tiendas online</a> · <a href="/programa-gestion-pequenas-empresas/">Pequeñas empresas</a>.</p>
+          <p class="sub">Por sectores: <a href="/tpv-restaurantes/">Restaurantes</a> · <a href="/programa-peluquerias-estetica/">Peluquerías</a> · <a href="/programa-entrenadores-personales/">Entrenadores personales</a> · <a href="/tpv-tiendas/">Tiendas</a> · <a href="/programa-facturacion-autonomos/">Autónomos</a> · <a href="/tpv-tienda-online/">Tiendas online</a> · <a href="/programa-gestion-pequenas-empresas/">Pequeñas empresas</a>.</p>
         </div>
 {faq_html(h["faq"])}      </div>
     </section>
@@ -467,6 +467,52 @@ def widget_margen() -> str:
 """
 
 
+def widget_iva() -> str:
+    others = "".join(
+        f'<tr data-otro="{pct}"><th scope="row">{pct} %</th><td data-o="base"></td><td data-o="cuota"></td><td data-o="total"></td></tr>'
+        for pct in (21, 10, 4))
+    return f"""      <section class="tool" aria-label="Calculadora de IVA">
+        <noscript><p class="callout"><strong>Esta calculadora necesita JavaScript.</strong> Si no puedes activarlo, haz las cuentas a mano con las fórmulas de más abajo: para añadir el IVA, multiplica por 1,21 (o 1,10 o 1,04); para quitarlo, divide entre lo mismo.</p></noscript>
+        <form class="tc" data-calc="iva" data-modo="anadir" autocomplete="off" novalidate>
+          <div class="tc-grid">
+            <fieldset class="tc-block">
+              <legend>1. Tu importe</legend>
+              <div class="seg" role="radiogroup" aria-label="Qué quieres hacer">
+                <input type="radio" id="modo-anadir" name="modo-iva" value="anadir" checked><label for="modo-anadir">Añadir el IVA</label>
+                <input type="radio" id="modo-quitar" name="modo-iva" value="quitar"><label for="modo-quitar">Quitar el IVA</label>
+              </div>
+              <p class="tc-hint" data-solo="anadir">Escribe el precio <strong>sin IVA</strong> (la base) y te damos el IVA y el total.</p>
+              <p class="tc-hint" data-solo="quitar" hidden>Escribe el precio <strong>con el IVA incluido</strong> y te damos la base y el IVA que lleva dentro.</p>
+              {field("i-importe", "importe", "Importe", "€", "100,00")}
+              <div class="tc-field"><label for="i-iva">Tipo de IVA</label>
+                <select id="i-iva" data-in="iva"><option value="21" selected>21 % (general)</option><option value="10">10 % (reducido)</option><option value="4">4 % (superreducido)</option></select></div>
+              <div class="tc-actions"><button type="reset" class="btn ghost small">Poner a cero</button></div>
+            </fieldset>
+            <div class="tc-block tc-results">
+              <p class="sr-only" role="status" data-out="resumen"></p>
+              <p class="tc-hint" data-out="aviso">Escribe un importe y aquí verás la base, el IVA y el total.</p>
+              <div data-out="resultados" hidden>
+                <dl class="result-cards">
+                  <div class="rc main" data-solo="anadir"><dt>Total con IVA</dt><dd data-out="total"></dd></div>
+                  <div class="rc main" data-solo="quitar" hidden><dt>Base sin IVA</dt><dd data-out="base"></dd></div>
+                  <div class="rc"><dt>IVA (<span data-out="tipo"></span>)</dt><dd data-out="cuota"></dd></div>
+                </dl>
+                <p class="tc-aviso" data-out="ojo" hidden></p>
+                <div class="tablewrap compact" role="region" aria-label="El mismo importe con cada tipo de IVA" tabindex="0">
+                  <table>
+                    <caption>El mismo importe con cada tipo</caption>
+                    <thead><tr><th scope="col">Tipo</th><th scope="col">Base</th><th scope="col">IVA</th><th scope="col">Total</th></tr></thead>
+                    <tbody>{others}</tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </form>
+      </section>
+"""
+
+
 def render_tool(slug: str) -> str:
     t = TT.TOOLS[slug]
     path = f"herramientas/{slug}/"
@@ -480,7 +526,7 @@ def render_tool(slug: str) -> str:
          "publisher": {"@type": "Organization", "name": "NirKanA", "url": f"{SITE}/"}},
         faq_block(t["faq"]),
     ]
-    widget = widget_arqueo() if t["widget"] == "arqueo" else widget_margen()
+    widget = {"arqueo": widget_arqueo, "margen": widget_margen, "iva": widget_iva}[t["widget"]]()
     body = "\n".join(f'        <section class="guide-sec" id="{sid}">\n          <h2>{esc(h2)}</h2>{text.rstrip()}\n        </section>\n' for sid, h2, text in t["sections"])
     shot_id, shot_alt, shot_caption = t["shot"]
     sector_links = " · ".join(f'<a href="{T.SECTOR[x][0]}">{esc(T.SECTOR[x][1])}</a>' for x in t["sectors"])
@@ -703,7 +749,7 @@ def validate() -> None:
         for s in t["sectors"]:
             if s not in T.SECTOR:
                 raise GuideError(f"herramienta {slug}: sector «{s}» no válido")
-        if t["widget"] not in ("arqueo", "margen"):
+        if t["widget"] not in ("arqueo", "margen", "iva"):
             raise GuideError(f"herramienta {slug}: widget «{t['widget']}» desconocido")
         if not (DOCS / "assets" / "img" / "shots" / f"{t['shot'][0]}.webp").exists():
             raise GuideError(f"herramienta {slug}: no existe la captura {t['shot'][0]}.webp")

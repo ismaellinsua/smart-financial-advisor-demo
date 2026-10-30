@@ -16,6 +16,7 @@ const C = (() => { const module = { exports: {} }; vm.runInNewContext(source, { 
 const near = (actual, expected, digits = 2) => assert.ok(Math.abs(actual - expected) < 0.5 * 10 ** -digits, `${actual} ≠ ${expected}`);
 // Los espacios de los importes en euros son «no separables»: se comparan sin ellos.
 const plain = (s) => s.replace(/\s/g, '');
+const pick = ({ base, cuota, total }) => ({ base, cuota, total });
 const slugs = readdirSync(resolve(docs, 'herramientas'), { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name).sort();
 const text = (html) => html.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<style[\s\S]*?<\/style>/g, ' ').replace(/<svg[\s\S]*?<\/svg>/g, ' ').replace(/<[^>]+>/g, ' ').replace(/&[a-z]+;/g, ' ').replace(/\s+/g, ' ').trim();
 
@@ -100,6 +101,36 @@ test('un descuento se aplica al precio con IVA y se dice cuántas unidades más 
   assert.equal(sinGanancia.pierde, true);
   assert.equal(sinGanancia.masUnidadesPct, null);
   assert.equal(C.margen({ modo: 'margen', coste: 10, margenPct: 20, ivaPct: 21, descuentoPct: 0 }).descuento, undefined);
+});
+
+test('el IVA se añade multiplicando y se quita dividiendo, nunca restando el porcentaje, al céntimo', () => {
+  assert.deepEqual(pick(C.iva({ modo: 'anadir', importe: 10000, ivaPct: 21 })), { base: 10000, cuota: 2100, total: 12100 });
+  const quitar = C.iva({ modo: 'quitar', importe: 12100, ivaPct: 21 });
+  assert.deepEqual(pick(quitar), { base: 10000, cuota: 2100, total: 12100 });
+  assert.equal(quitar.restarMal, 9559);                         // lo que sale restando el 21 %: no es la base
+  assert.deepEqual(pick(C.iva({ modo: 'quitar', importe: 1000, ivaPct: 10 })), { base: 909, cuota: 91, total: 1000 });
+  assert.deepEqual(pick(C.iva({ modo: 'anadir', importe: 1999, ivaPct: 4 })), { base: 1999, cuota: 80, total: 2079 });
+  assert.deepEqual(pick(C.iva({ modo: 'anadir', importe: 0, ivaPct: 21 })), { base: 0, cuota: 0, total: 0 });
+  for (const importe of [12100, 1000, 1, 99999, 123456789]) {      // al quitar, base + IVA es siempre el importe exacto
+    for (const ivaPct of [21, 10, 4]) {
+      const r = C.iva({ modo: 'quitar', importe, ivaPct });
+      assert.equal(r.base + r.cuota, importe);
+    }
+  }
+  assert.ok(C.iva({ modo: 'anadir', importe: -1, ivaPct: 21 }).error);
+  assert.ok(C.iva({ modo: 'anadir', importe: 10.5, ivaPct: 21 }).error);
+  assert.ok(C.iva({ modo: 'quitar', importe: 100, ivaPct: -4 }).error);
+});
+
+test('la calculadora de IVA deja elegir añadir o quitar, los tres tipos, y explica el error de restar el porcentaje', () => {
+  const html = read('herramientas/calculadora-de-iva/index.html');
+  assert.match(html, /data-calc="iva"/);
+  assert.match(html, /value="anadir"[^>]*checked/);
+  assert.match(html, /value="quitar"/);
+  for (const pct of ['21', '10', '4']) assert.match(html, new RegExp(`<option value="${pct}"`));
+  assert.match(html, /<label for="i-importe">/);
+  assert.match(html, /divide entre 1,21/i);
+  assert.match(html, /95,59/);
 });
 
 test('los datos que no valen se rechazan en vez de dar una cifra rara', () => {

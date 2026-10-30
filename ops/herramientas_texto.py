@@ -14,10 +14,10 @@ def tool(**data):
 
 
 HUB = dict(
-    title="Herramientas gratis para tu negocio: caja y margen · NirKanA",
-    description="Herramientas gratuitas para negocios: calculadora de arqueo de caja en euros, con plantilla de Excel, y calculadora de margen y precio de venta con IVA.",
+    title="Herramientas gratis para tu negocio: IVA, caja y margen · NirKanA",
+    description="Herramientas gratuitas para negocios: calculadora de IVA para añadirlo o quitarlo, arqueo de caja en euros con plantilla de Excel, y margen y precio de venta.",
     h1="Herramientas gratis para tu negocio",
-    lead="Calculadoras sencillas para las cuentas que haces a menudo: cuadrar la caja y fijar precios. Gratis, sin registro y sin que tus datos salgan del navegador.",
+    lead="Calculadoras sencillas para las cuentas que haces a menudo: el IVA de un precio, cuadrar la caja y fijar precios. Gratis, sin registro y sin que tus datos salgan del navegador.",
     demo="tienda",
     faq=[
         ("¿Las herramientas son gratis de verdad?",
@@ -28,6 +28,76 @@ HUB = dict(
          "Sí. Se adaptan a la pantalla del móvil y de la tableta, y los campos abren el teclado numérico."),
         ("¿Sustituyen a un programa de gestión?",
          "No: te ayudan a hacer una cuenta concreta. Un programa como NirKanA, además, guarda las ventas, el stock y los cierres de caja, y hace estas cuentas por ti."),
+    ],
+)
+
+# ---------------------------------------------------------------------------------------------------------------- 0
+tool(
+    slug="calculadora-de-iva",
+    title="Calculadora de IVA: añadir o quitar el IVA de un precio · NirKanA",
+    description="Calcula gratis el IVA de un precio: añade el 21 %, el 10 % o el 4 % a la base, o quítalo de un precio con IVA incluido sin el error de restar el porcentaje.",
+    h1="Calculadora de IVA: añadir o quitar el IVA",
+    lead="Pon un precio sin IVA y te damos el IVA y el total. O al revés: pon un precio con el IVA incluido y te damos la base y el IVA que lleva dentro, con el 21 %, el 10 % o el 4 %.",
+    summary="Añade el IVA a un precio sin IVA o quítalo de un precio con IVA incluido, con el 21 %, el 10 % o el 4 %.",
+    icon="i-receipt",
+    demo="servicios",
+    widget="iva",
+    sectors=["autonomos", "tiendas"],
+    related=["que-debe-llevar-una-factura", "calcular-el-margen-de-un-producto"],
+    subject="Consulta desde la calculadora de IVA",
+    app_name="Calculadora de IVA",
+    sections=[
+        ("formulas", "Las fórmulas, por si quieres hacerlo a mano", """
+<ul>
+<li><strong>Añadir el IVA: total = base × (1 + tipo).</strong> Con una base de 100 € y un 21 %: 100 × 1,21 = 121 €.</li>
+<li><strong>IVA de una base: IVA = base × tipo.</strong> 100 × 0,21 = 21 €.</li>
+<li><strong>Quitar el IVA: base = total ÷ (1 + tipo).</strong> Con 121 € y un 21 %: 121 ÷ 1,21 = 100 €.</li>
+<li><strong>IVA que lleva dentro un precio: IVA = total − base.</strong> 121 − 100 = 21 €.</li>
+</ul>
+<p>Con el 10 %, el número es 1,10; con el 4 %, 1,04. Los importes se redondean al céntimo.</p>
+"""),
+        ("error", "El error más común: restar el porcentaje", """
+<p>Para quitar el IVA no se resta el 21 % del precio: se divide entre 1,21. Si a 121 € le restas el 21 % te salen 95,59 €, y la base real es 100 €. La diferencia parece pequeña, pero en una factura o en el resumen de un trimestre se nota. La calculadora te avisa cuando las dos cuentas no coinciden.</p>
+<div class="tablewrap compact" role="region" aria-label="Restar el porcentaje frente a dividir" tabindex="0">
+<table>
+<caption>Quitar el IVA del 21 % de un precio con IVA incluido</caption>
+<thead><tr><th scope="col">Precio con IVA</th><th scope="col">Restando el 21 % (mal)</th><th scope="col">Dividiendo entre 1,21 (bien)</th></tr></thead>
+<tbody>
+<tr><td>12,10 €</td><td>9,56 €</td><td>10,00 €</td></tr>
+<tr><td>121,00 €</td><td>95,59 €</td><td>100,00 €</td></tr>
+<tr><td>1.210,00 €</td><td>955,90 €</td><td>1.000,00 €</td></tr>
+</tbody>
+</table>
+</div>
+"""),
+        ("tipos", "Qué tipo de IVA usar", """
+<p>En la Península y Baleares los tipos más habituales son el <strong>21 % general,</strong> el <strong>10 % reducido</strong> y el <strong>4 % superreducido</strong>. Cuál corresponde depende de lo que vendas o del servicio que prestes, y hay operaciones exentas o que no llevan IVA. Si dudas, tu gestoría te confirma el tipo de tu actividad. En Canarias, Ceuta y Melilla no se aplica el IVA, sino otros impuestos (IGIC e IPSI).</p>
+"""),
+        ("factura", "En una factura, cada cosa en su sitio", """
+<p>En una factura completa la base, el tipo y la cuota de IVA van por separado, y si hay varios tipos, desglosados por tipo. Calcula el IVA sobre la base de cada línea o de cada tipo, no sobre el total. Tienes la lista completa de lo que debe llevar en la <a href="/guias/que-debe-llevar-una-factura/">guía de qué debe llevar una factura</a>, y si lo que quieres es fijar el precio de un producto a partir de su coste, usa la <a href="/herramientas/calculadora-de-margen/">calculadora de margen</a>.</p>
+"""),
+    ],
+    nirkana="""
+<ul>
+<li><strong>Facturas con tus datos y los del cliente:</strong> con tu NIF y el del cliente, IVA por tipo y numeración propia por serie y año.</li>
+<li><strong>Para tu gestoría:</strong> ventas, facturas, gastos y compras en Excel por periodo, el resumen de IVA del trimestre y un ZIP del trimestre con todo junto.</li>
+</ul>
+<p>Así no tienes que hacer estas cuentas a mano en cada venta.</p>
+""",
+    shot=("factura-c", "Factura de ejemplo de NirKanA con la base, el IVA por tipo y el total", "Una factura de ejemplo con la base, el IVA y el total"),
+    faq=[
+        ("¿Cómo se quita el IVA de un precio?",
+         "Dividiendo el precio entre 1 más el tipo de IVA. Con un 21 %, divide entre 1,21: 121 euros son 100 euros de base y 21 euros de IVA. Con un 10 %, divide entre 1,10, y con un 4 %, entre 1,04."),
+        ("¿Cómo se calcula el IVA del 21 %?",
+         "Multiplica la base, el precio sin IVA, por 0,21 para saber el IVA, o por 1,21 para saber el total. Con una base de 100 euros, el IVA es de 21 euros y el total, de 121 euros."),
+        ("¿Por qué no vale restar el 21 % para quitar el IVA?",
+         "Porque el 21 % se calculó sobre la base, no sobre el total. Si a 121 euros le restas el 21 %, te salen 95,59 euros, pero la base es 100 euros. Para quitar el IVA hay que dividir entre 1,21."),
+        ("¿Qué tipos de IVA hay en España?",
+         "Los más habituales son el 21 % general, el 10 % reducido y el 4 % superreducido, y algunas operaciones están exentas. El tipo depende de lo que vendas; tu gestoría te confirma el de tu actividad. En Canarias, Ceuta y Melilla se aplican otros impuestos."),
+        ("¿El IVA se calcula sobre el total o sobre la base?",
+         "Sobre la base: el precio sin IVA, después de los descuentos. En una factura con varios tipos, el IVA se calcula y se muestra por separado para cada tipo."),
+        ("¿Se guarda lo que escribo?",
+         "No. Los cálculos se hacen en tu navegador: no se envía ni se guarda nada."),
     ],
 )
 

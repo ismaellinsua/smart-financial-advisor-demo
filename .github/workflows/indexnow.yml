@@ -1,0 +1,48 @@
+# Cuando se publica la web (push a main que toca docs/), avisa a los buscadores que usan IndexNow (Bing, y con él DuckDuckGo,
+# Yahoo, Ecosia; también Yandex, Seznam y Naver) de las páginas nuevas o cambiadas, para que las visiten en horas y no en semanas.
+# Google no usa IndexNow: para Google, el mapa del sitio y «Solicitar indexación» en Search Console (ops/SEO.md).
+# La clave no es secreta: es el archivo docs/<clave>.txt, publicado a propósito para demostrar que la web es nuestra.
+name: IndexNow
+
+on:
+  push:
+    branches: [main]
+    paths: ["docs/**"]
+  workflow_dispatch:
+    inputs:
+      todas:
+        description: "Enviar todas las páginas del mapa del sitio (no solo las cambiadas)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: indexnow
+  cancel-in-progress: false
+
+jobs:
+  avisar:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 2
+
+      - name: Esperar a que GitHub Pages publique este cambio
+        run: |
+          # El mapa del sitio publicado tiene que ser ya el de este commit: si no, avisaríamos de páginas que aún no existen.
+          for i in $(seq 1 30); do
+            if curl -fsS --max-time 20 https://nirkana.es/sitemap.xml -o /tmp/publicado.xml && cmp -s /tmp/publicado.xml docs/sitemap.xml; then
+              echo "Publicado."; exit 0
+            fi
+            sleep 20
+          done
+          echo "::warning::GitHub Pages no ha publicado aún este cambio en 10 minutos; aviso igualmente."
+
+      - name: Avisar a IndexNow
+        env:
+          TODAS: ${{ inputs.todas || 'false' }}
+        run: python3 .github/indexnow.py

@@ -14,7 +14,7 @@ const slugs = readdirSync(resolve(docs, 'guias'), { withFileTypes: true }).filte
 const hub = read('guias/index.html');
 const guides = slugs.map((slug) => [slug, read(`guias/${slug}/index.html`)]);
 const tools = readdirSync(resolve(docs, 'herramientas'), { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name).sort();
-const SECTORS = ['tpv-restaurantes', 'programa-peluquerias-estetica', 'tpv-tiendas', 'programa-facturacion-autonomos', 'tpv-tienda-online', 'programa-gestion-pequenas-empresas'];
+const SECTORS = ['tpv-restaurantes', 'programa-peluquerias-estetica', 'tpv-tiendas', 'programa-facturacion-autonomos', 'tpv-tienda-online', 'programa-gestion-pequenas-empresas', 'programa-entrenadores-personales'];
 const text = (html) => html.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<style[\s\S]*?<\/style>/g, ' ').replace(/<svg[\s\S]*?<\/svg>/g, ' ')
   .replace(/<[^>]+>/g, ' ').replace(/&[a-z]+;/g, ' ').replace(/\s+/g, ' ').trim();
 const blocks = (html) => [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map((m) => JSON.parse(m[1]));

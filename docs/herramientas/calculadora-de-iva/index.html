@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="es" class="js has-trial">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; img-src 'self' data: https://*.goatcounter.com https://nirkana-prueba.onrender.com; frame-src https://nirkana-prueba.onrender.com; style-src 'self'; script-src 'self'; connect-src 'self' https://formspree.io; form-action https://formspree.io; base-uri 'none'; object-src 'none'; upgrade-insecure-requests">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <title>Calculadora de IVA: añadir o quitar el IVA de un precio · NirKanA</title>
+  <meta name="description" content="Calcula gratis el IVA de un precio: añade el 21 %, el 10 % o el 4 % a la base, o quítalo de un precio con IVA incluido sin el error de restar el porcentaje.">
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
+  <meta property="og:title" content="Calculadora de IVA: añadir o quitar el IVA de un precio · NirKanA">
+  <meta property="og:description" content="Calcula gratis el IVA de un precio: añade el 21 %, el 10 % o el 4 % a la base, o quítalo de un precio con IVA incluido sin el error de restar el porcentaje.">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://nirkana.es/assets/img/og.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Factura de ejemplo de NirKanA con la base, el IVA por tipo y el total">
+  <meta property="og:locale" content="es_ES">
+  <meta property="og:site_name" content="NirKanA">
+  <meta property="og:url" content="https://nirkana.es/herramientas/calculadora-de-iva/">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Calculadora de IVA: añadir o quitar el IVA de un precio · NirKanA">
+  <meta name="twitter:description" content="Calcula gratis el IVA de un precio: añade el 21 %, el 10 % o el 4 % a la base, o quítalo de un precio con IVA incluido sin el error de restar el porcentaje.">
+  <meta name="twitter:image" content="https://nirkana.es/assets/img/og.jpg">
+  <meta name="twitter:image:alt" content="Factura de ejemplo de NirKanA con la base, el IVA por tipo y el total">
+  <meta name="theme-color" content="#0B1B33">
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+  <link rel="preload" href="/assets/fonts/sora-latin-800.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/assets/site.css">
+  <noscript><link rel="stylesheet" href="/assets/sin-js.css"></noscript>
+  <script src="/assets/site.js" defer></script>
+  <script src="/assets/herramientas.js" defer></script>
+  <link rel="canonical" href="https://nirkana.es/herramientas/calculadora-de-iva/">
+  <script type="application/ld+json">
+  {"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "NirKanA", "item": "https://nirkana.es/"}, {"@type": "ListItem", "position": 2, "name": "Herramientas", "item": "https://nirkana.es/herramientas/"}, {"@type": "ListItem", "position": 3, "name": "Calculadora de IVA", "item": "https://nirkana.es/herramientas/calculadora-de-iva/"}]}
+  </script>
+  <script type="application/ld+json">
+  {"@context": "https://schema.org", "@type": "WebApplication", "name": "Calculadora de IVA", "url": "https://nirkana.es/herramientas/calculadora-de-iva/", "description": "Calcula gratis el IVA de un precio: añade el 21 %, el 10 % o el 4 % a la base, o quítalo de un precio con IVA incluido sin el error de restar el porcentaje.", "applicationCategory": "BusinessApplication", "operatingSystem": "Cualquiera, en el navegador", "inLanguage": "es", "isAccessibleForFree": true, "offers": {"@type": "Offer", "price": "0", "priceCurrency": "EUR"}, "publisher": {"@type": "Organization", "name": "NirKanA", "url": "https://nirkana.es/"}}
+  </script>
+  <script type="application/ld+json">
+  {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "¿Cómo se quita el IVA de un precio?", "acceptedAnswer": {"@type": "Answer", "text": "Dividiendo el precio entre 1 más el tipo de IVA. Con un 21 %, divide entre 1,21: 121 euros son 100 euros de base y 21 euros de IVA. Con un 10 %, divide entre 1,10, y con un 4 %, entre 1,04."}}, {"@type": "Question", "name": "¿Cómo se calcula el IVA del 21 %?", "acceptedAnswer": {"@type": "Answer", "text": "Multiplica la base, el precio sin IVA, por 0,21 para saber el IVA, o por 1,21 para saber el total. Con una base de 100 euros, el IVA es de 21 euros y el total, de 121 euros."}}, {"@type": "Question", "name": "¿Por qué no vale restar el 21 % para quitar el IVA?", "acceptedAnswer": {"@type": "Answer", "text": "Porque el 21 % se calculó sobre la base, no sobre el total. Si a 121 euros le restas el 21 %, te salen 95,59 euros, pero la base es 100 euros. Para quitar el IVA hay que dividir entre 1,21."}}, {"@type": "Question", "name": "¿Qué tipos de IVA hay en España?", "acceptedAnswer": {"@type": "Answer", "text": "Los más habituales son el 21 % general, el 10 % reducido y el 4 % superreducido, y algunas operaciones están exentas. El tipo depende de lo que vendas; tu gestoría te confirma el de tu actividad. En Canarias, Ceuta y Melilla se aplican otros impuestos."}}, {"@type": "Question", "name": "¿El IVA se calcula sobre el total o sobre la base?", "acceptedAnswer": {"@type": "Answer", "text": "Sobre la base: el precio sin IVA, después de los descuentos. En una factura con varios tipos, el IVA se calcula y se muestra por separado para cada tipo."}}, {"@type": "Question", "name": "¿Se guarda lo que escribo?", "acceptedAnswer": {"@type": "Answer", "text": "No. Los cálculos se hacen en tu navegador: no se envía ni se guarda nada."}}]}
+  </script>
+</head>
+<body class="subpage">
+  <svg class="sprite" aria-hidden="true" focusable="false">
+    <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M7 7l10 10M17 7L7 17"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+    <symbol id="i-zoom" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-5-5M11 8v6M8 11h6"/></symbol>
+    <symbol id="i-device" viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="2.5"/><path d="M11 18h2"/></symbol>
+    <symbol id="i-receipt" viewBox="0 0 24 24"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2zM9 7h6M9 11h6M9 15h4"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 2.5l8 3v6c0 5-3.4 8.7-8 10.5-4.6-1.8-8-5.5-8-10.5v-6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></symbol>
+    <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M7 19a5 5 0 1 1 .9-9.9A6.5 6.5 0 0 1 20 11a4 4 0 0 1-1 8z"/></symbol>
+    <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="7" r="4"/><path d="M2 21v-1.5A4.5 4.5 0 0 1 6.5 15h5a4.5 4.5 0 0 1 4.5 4.5V21M16 3.2a4 4 0 0 1 0 7.6M22 21v-1.5a4.5 4.5 0 0 0-3-4.2"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4.5" y="10.5" width="15" height="11" rx="2"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></symbol>
+    <symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6h12M9 12h12M9 18h12M4 6h.01M4 12h.01M4 18h.01"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M4 21h16"/></symbol>
+    <symbol id="i-chart" viewBox="0 0 24 24"><path d="M3 3v18h18M7 15l4-4 3 3 6-6"/></symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4zM10 21h4"/></symbol>
+    <symbol id="i-utensils" viewBox="0 0 24 24"><path d="M5 2v7a3 3 0 0 0 6 0V2M8 2v20M18 2c-2 2-3 5-3 9h3v11"/></symbol>
+    <symbol id="i-bag" viewBox="0 0 24 24"><path d="M5 7.5h14l-1 13.5H6zM9 7.5a3 3 0 0 1 6 0"/></symbol>
+    <symbol id="i-briefcase" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8.5 7V4.5h7V7M3 13h18"/></symbol>
+    <symbol id="i-box" viewBox="0 0 24 24"><path d="M21 8l-9-5-9 5 9 5zM3 8v8.5l9 5 9-5V8M12 13v8.5"/></symbol>
+    <symbol id="i-chat" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+    <symbol id="i-scissors" viewBox="0 0 24 24"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M8.1 7.9L20 20M8.1 16.1L20 4"/></symbol>
+    <symbol id="i-building" viewBox="0 0 24 24"><path d="M4 21V4a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v17M15 9h4a1 1 0 0 1 1 1v11M2 21h20M8 7h3M8 11h3M8 15h3"/></symbol>
+    <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3l2.2 6.3L21 12l-6.8 2.7L12 21l-2.2-6.3L3 12l6.8-2.7z"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5l11 7-11 7z"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><path d="M9 5.5v13M15 5.5v13"/></symbol>
+    <symbol id="i-sound" viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9.2a4 4 0 0 1 0 5.6M18.2 6.5a7.6 7.6 0 0 1 0 11"/></symbol>
+    <symbol id="i-mute" viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/></symbol>
+    <symbol id="i-wifi-off" viewBox="0 0 24 24"><path d="M3 3l18 18M8.5 16.5a5 5 0 0 1 7 0M5 13a10 10 0 0 1 4-2.6M19 13a10 10 0 0 0-2.4-1.8M2 9.5a15 15 0 0 1 4.6-2.8M22 9.5A15 15 0 0 0 11 5.1M12 20h.01"/></symbol>
+    <symbol id="i-instagram" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><path d="M17.5 6.5h.01"/></symbol>
+    <symbol id="i-tiktok" viewBox="0 0 24 24"><path d="M14 3v11.5a3.5 3.5 0 1 1-3.5-3.5"/><path d="M14 3c.4 2.6 2.1 4.3 5 4.5"/></symbol>
+  </svg>
+
+  <a class="skip" href="#contenido">Saltar al contenido</a>
+
+  <header class="top">
+    <div class="wrap bar">
+      <a class="brand" href="/" aria-label="NirKanA, inicio">
+        <img class="logo" src="/assets/simbolo.svg" alt="" width="34" height="34"><span class="name">NirKanA</span>
+      </a>
+      <nav aria-label="Principal" id="menu">
+        <a href="/#soluciones">Soluciones</a>
+        <a href="/#funciones">Funciones</a>
+        <a href="/#recorrido">La app</a>
+        <a class="only-demo" data-demo="servicios" href="/demo/">Demo</a>
+        <a href="/#calculadora">Calculadora</a>
+        <a href="/guias/">Guías</a>
+        <a href="/#preguntas">Preguntas</a>
+        <a class="login" id="app-link" href="#" hidden>Entrar</a>
+      </nav>
+      <div class="bar-end">
+        <a class="btn small ghost magnet only-demo demo-head" data-demo="servicios" href="/demo/">Ver la demo</a>
+        <a class="btn small magnet only-trial" data-trial href="/#contacto">Probar gratis</a>
+        <a class="btn small magnet no-trial" href="/#contacto">Quiero NirKanA</a>
+        <button class="menu-btn" type="button" aria-controls="menu" aria-expanded="false" aria-label="Abrir el menú">
+          <svg class="ic"><use href="#i-menu"/></svg></button>
+      </div>
+    </div>
+  </header>
+
+  <main id="contenido">
+    <article class="guide tool-page">
+      <header class="guide-head">
+        <div class="wrap narrow">
+          <nav class="crumbs" aria-label="Estás en"><a href="/">NirKanA</a> <span aria-hidden="true">›</span> <a href="/herramientas/">Herramientas</a> <span aria-hidden="true">›</span> Calculadora de IVA</nav>
+          <p class="eyebrow">Herramienta gratis</p>
+          <h1>Calculadora de IVA: añadir o quitar el IVA</h1>
+          <p class="lead">Pon un precio sin IVA y te damos el IVA y el total. O al revés: pon un precio con el IVA incluido y te damos la base y el IVA que lleva dentro, con el 21 %, el 10 % o el 4 %.</p>
+          <p class="guide-meta">Gratis · Sin registro · No se envía ni se guarda nada</p>
+        </div>
+      </header>
+      <div class="wrap tool-wrap">
+      <section class="tool" aria-label="Calculadora de IVA">
+        <noscript><p class="callout"><strong>Esta calculadora necesita JavaScript.</strong> Si no puedes activarlo, haz las cuentas a mano con las fórmulas de más abajo: para añadir el IVA, multiplica por 1,21 (o 1,10 o 1,04); para quitarlo, divide entre lo mismo.</p></noscript>
+        <form class="tc" data-calc="iva" data-modo="anadir" autocomplete="off" novalidate>
+          <div class="tc-grid">
+            <fieldset class="tc-block">
+              <legend>1. Tu importe</legend>
+              <div class="seg" role="radiogroup" aria-label="Qué quieres hacer">
+                <input type="radio" id="modo-anadir" name="modo-iva" value="anadir" checked><label for="modo-anadir">Añadir el IVA</label>
+                <input type="radio" id="modo-quitar" name="modo-iva" value="quitar"><label for="modo-quitar">Quitar el IVA</label>
+              </div>
+              <p class="tc-hint" data-solo="anadir">Escribe el precio <strong>sin IVA</strong> (la base) y te damos el IVA y el total.</p>
+              <p class="tc-hint" data-solo="quitar" hidden>Escribe el precio <strong>con el IVA incluido</strong> y te damos la base y el IVA que lleva dentro.</p>
+              <div class="tc-field"><label for="i-importe">Importe <span class="unit">(€)</span></label><input id="i-importe" type="text" inputmode="decimal" autocomplete="off" placeholder="100,00" data-in="importe"></div>
+              <div class="tc-field"><label for="i-iva">Tipo de IVA</label>
+                <select id="i-iva" data-in="iva"><option value="21" selected>21 % (general)</option><option value="10">10 % (reducido)</option><option value="4">4 % (superreducido)</option></select></div>
+              <div class="tc-actions"><button type="reset" class="btn ghost small">Poner a cero</button></div>
+            </fieldset>
+            <div class="tc-block tc-results">
+              <p class="sr-only" role="status" data-out="resumen"></p>
+              <p class="tc-hint" data-out="aviso">Escribe un importe y aquí verás la base, el IVA y el total.</p>
+              <div data-out="resultados" hidden>
+                <dl class="result-cards">
+                  <div class="rc main" data-solo="anadir"><dt>Total con IVA</dt><dd data-out="total"></dd></div>
+                  <div class="rc main" data-solo="quitar" hidden><dt>Base sin IVA</dt><dd data-out="base"></dd></div>
+                  <div class="rc"><dt>IVA (<span data-out="tipo"></span>)</dt><dd data-out="cuota"></dd></div>
+                </dl>
+                <p class="tc-aviso" data-out="ojo" hidden></p>
+                <div class="tablewrap compact" role="region" aria-label="El mismo importe con cada tipo de IVA" tabindex="0">
+                  <table>
+                    <caption>El mismo importe con cada tipo</caption>
+                    <thead><tr><th scope="col">Tipo</th><th scope="col">Base</th><th scope="col">IVA</th><th scope="col">Total</th></tr></thead>
+                    <tbody><tr data-otro="21"><th scope="row">21 %</th><td data-o="base"></td><td data-o="cuota"></td><td data-o="total"></td></tr><tr data-otro="10"><th scope="row">10 %</th><td data-o="base"></td><td data-o="cuota"></td><td data-o="total"></td></tr><tr data-otro="4"><th scope="row">4 %</th><td data-o="base"></td><td data-o="cuota"></td><td data-o="total"></td></tr></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </form>
+      </section>
+      </div>
+      <div class="wrap narrow guide-body">
+        <section class="guide-sec" id="formulas">
+          <h2>Las fórmulas, por si quieres hacerlo a mano</h2>
+<ul>
+<li><strong>Añadir el IVA: total = base × (1 + tipo).</strong> Con una base de 100 € y un 21 %: 100 × 1,21 = 121 €.</li>
+<li><strong>IVA de una base: IVA = base × tipo.</strong> 100 × 0,21 = 21 €.</li>
+<li><strong>Quitar el IVA: base = total ÷ (1 + tipo).</strong> Con 121 € y un 21 %: 121 ÷ 1,21 = 100 €.</li>
+<li><strong>IVA que lleva dentro un precio: IVA = total − base.</strong> 121 − 100 = 21 €.</li>
+</ul>
+<p>Con el 10 %, el número es 1,10; con el 4 %, 1,04. Los importes se redondean al céntimo.</p>
+        </section>
+
+        <section class="guide-sec" id="error">
+          <h2>El error más común: restar el porcentaje</h2>
+<p>Para quitar el IVA no se resta el 21 % del precio: se divide entre 1,21. Si a 121 € le restas el 21 % te salen 95,59 €, y la base real es 100 €. La diferencia parece pequeña, pero en una factura o en el resumen de un trimestre se nota. La calculadora te avisa cuando las dos cuentas no coinciden.</p>
+<div class="tablewrap compact" role="region" aria-label="Restar el porcentaje frente a dividir" tabindex="0">
+<table>
+<caption>Quitar el IVA del 21 % de un precio con IVA incluido</caption>
+<thead><tr><th scope="col">Precio con IVA</th><th scope="col">Restando el 21 % (mal)</th><th scope="col">Dividiendo entre 1,21 (bien)</th></tr></thead>
+<tbody>
+<tr><td>12,10 €</td><td>9,56 €</td><td>10,00 €</td></tr>
+<tr><td>121,00 €</td><td>95,59 €</td><td>100,00 €</td></tr>
+<tr><td>1.210,00 €</td><td>955,90 €</td><td>1.000,00 €</td></tr>
+</tbody>
+</table>
+</div>
+        </section>
+
+        <section class="guide-sec" id="tipos">
+          <h2>Qué tipo de IVA usar</h2>
+<p>En la Península y Baleares los tipos más habituales son el <strong>21 % general,</strong> el <strong>10 % reducido</strong> y el <strong>4 % superreducido</strong>. Cuál corresponde depende de lo que vendas o del servicio que prestes, y hay operaciones exentas o que no llevan IVA. Si dudas, tu gestoría te confirma el tipo de tu actividad. En Canarias, Ceuta y Melilla no se aplica el IVA, sino otros impuestos (IGIC e IPSI).</p>
+        </section>
+
+        <section class="guide-sec" id="factura">
+          <h2>En una factura, cada cosa en su sitio</h2>
+<p>En una factura completa la base, el tipo y la cuota de IVA van por separado, y si hay varios tipos, desglosados por tipo. Calcula el IVA sobre la base de cada línea o de cada tipo, no sobre el total. Tienes la lista completa de lo que debe llevar en la <a href="/guias/que-debe-llevar-una-factura/">guía de qué debe llevar una factura</a>, y si lo que quieres es fijar el precio de un producto a partir de su coste, usa la <a href="/herramientas/calculadora-de-margen/">calculadora de margen</a>.</p>
+        </section>
+
+        <aside class="guide-cta" aria-label="Probar NirKanA">
+          <p class="cta-title">Que estas cuentas las haga el programa</p>
+          <p class="only-trial">Abre NirKanA 24 horas gratis, sin tarjeta, con un negocio de ejemplo y compruébalo tú. Si te encaja, te lo dejamos listo con tus productos o tus servicios.</p>
+          <p class="no-trial">Cuéntanos tu negocio y te lo dejamos listo con tus productos o tus servicios. Sin compromiso.</p>
+          <div class="cta-row">
+            <a class="btn magnet only-trial" data-trial href="/#contacto">Probar NirKanA gratis <svg class="ic"><use href="#i-arrow"/></svg></a>
+            <a class="btn ghost only-trial" href="/#contacto">Quiero NirKanA</a>
+            <a class="btn magnet no-trial" href="/#contacto">Quiero NirKanA <svg class="ic"><use href="#i-arrow"/></svg></a>
+            <a class="btn ghost no-trial only-demo" data-demo="servicios" href="/demo/">Ver la demo</a>
+          </div>
+          <p class="mail-line" data-email-wrap hidden><span>O escríbenos a <a data-email data-subject="Consulta desde la calculadora de IVA"></a></span></p>
+        </aside>
+
+        <section class="guide-sec nk" id="nirkana">
+          <h2>Cómo lo hace NirKanA</h2>
+          <div class="nk-box">
+<ul>
+<li><strong>Facturas con tus datos y los del cliente:</strong> con tu NIF y el del cliente, IVA por tipo y numeración propia por serie y año.</li>
+<li><strong>Para tu gestoría:</strong> ventas, facturas, gastos y compras en Excel por periodo, el resumen de IVA del trimestre y un ZIP del trimestre con todo junto.</li>
+</ul>
+<p>Así no tienes que hacer estas cuentas a mano en cada venta.</p>
+            <figure class="shot guide-shot">
+              <img src="/assets/img/shots/factura-c.webp" width="1200" height="750" alt="Factura de ejemplo de NirKanA con la base, el IVA por tipo y el total" loading="lazy">
+              <figcaption>Una factura de ejemplo con la base, el IVA y el total</figcaption>
+            </figure>
+            <p class="nk-more">Más sobre esto: <a href="/programa-facturacion-autonomos/">Programa de facturación para autónomos</a> · <a href="/tpv-tiendas/">TPV para tiendas y comercios</a>.</p>
+          </div>
+        </section>
+
+        <section class="guide-sec" id="preguntas">
+          <h2>Preguntas frecuentes</h2>
+        <div class="faq-list">
+          <details>
+            <summary>¿Cómo se quita el IVA de un precio?</summary>
+            <p>Dividiendo el precio entre 1 más el tipo de IVA. Con un 21 %, divide entre 1,21: 121 euros son 100 euros de base y 21 euros de IVA. Con un 10 %, divide entre 1,10, y con un 4 %, entre 1,04.</p>
+          </details>
+          <details>
+            <summary>¿Cómo se calcula el IVA del 21 %?</summary>
+            <p>Multiplica la base, el precio sin IVA, por 0,21 para saber el IVA, o por 1,21 para saber el total. Con una base de 100 euros, el IVA es de 21 euros y el total, de 121 euros.</p>
+          </details>
+          <details>
+            <summary>¿Por qué no vale restar el 21 % para quitar el IVA?</summary>
+            <p>Porque el 21 % se calculó sobre la base, no sobre el total. Si a 121 euros le restas el 21 %, te salen 95,59 euros, pero la base es 100 euros. Para quitar el IVA hay que dividir entre 1,21.</p>
+          </details>
+          <details>
+            <summary>¿Qué tipos de IVA hay en España?</summary>
+            <p>Los más habituales son el 21 % general, el 10 % reducido y el 4 % superreducido, y algunas operaciones están exentas. El tipo depende de lo que vendas; tu gestoría te confirma el de tu actividad. En Canarias, Ceuta y Melilla se aplican otros impuestos.</p>
+          </details>
+          <details>
+            <summary>¿El IVA se calcula sobre el total o sobre la base?</summary>
+            <p>Sobre la base: el precio sin IVA, después de los descuentos. En una factura con varios tipos, el IVA se calcula y se muestra por separado para cada tipo.</p>
+          </details>
+          <details>
+            <summary>¿Se guarda lo que escribo?</summary>
+            <p>No. Los cálculos se hacen en tu navegador: no se envía ni se guarda nada.</p>
+          </details>
+        </div>
+        </section>
+
+        <section class="guide-sec" id="relacionadas">
+          <h2>Sigue leyendo</h2>
+          <ul class="related"><li><a href="/guias/que-debe-llevar-una-factura/">Qué debe llevar una factura: lista de comprobación</a> — Los datos de una factura completa, cuándo basta un ticket y los errores que más se repiten.</li><li><a href="/guias/calcular-el-margen-de-un-producto/">Cómo calcular el margen de un producto y fijar el precio</a> — Margen frente a recargo, la fórmula del precio de venta y lo que cuesta un descuento.</li><li><a href="/herramientas/calculadora-de-arqueo-de-caja/">Calculadora de arqueo de caja</a> — Cuenta billetes y monedas en euros, compáralo con lo esperado y ve el descuadre al momento. Con plantilla de Excel.</li><li><a href="/herramientas/calculadora-de-margen/">Calculadora de margen y precio de venta</a> — Del coste y el margen al precio con IVA, o del precio al margen, con el recargo y lo que cuesta un descuento.</li></ul>
+        </section>
+      </div>
+    </article>
+
+    <section class="band">
+      <div class="wrap center-cta">
+        <h2>¿Lo vemos con tu negocio?</h2>
+        <p class="sub only-trial">Pruébala gratis 24 horas con un negocio de ejemplo, sin tarjeta. Si te encaja, te la
+          dejamos lista con tus productos o tus servicios.</p>
+        <p class="sub no-trial">Cuéntanos tu negocio y te la dejamos lista con tus productos, tus servicios y tu forma de trabajar.
+          Sin compromiso.</p>
+        <div class="cta-row">
+            <a class="btn magnet only-trial" data-trial href="/#contacto">Probar NirKanA gratis <svg class="ic"><use href="#i-arrow"/></svg></a>
+            <a class="btn ghost only-trial" href="/#contacto">Quiero NirKanA</a>
+            <a class="btn magnet no-trial" href="/#contacto">Quiero NirKanA <svg class="ic"><use href="#i-arrow"/></svg></a>
+            <a class="btn ghost no-trial only-demo" data-demo="servicios" href="/demo/">Ver la demo</a>
+          </div>
+        <p class="mail-line" data-email-wrap hidden><span>O escríbenos a <a data-email data-subject="Consulta desde la calculadora de IVA"></a></span></p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <div class="wrap foot-grid">
+      <div class="foot-brand">
+        <a class="brand" href="/" aria-label="NirKanA, inicio">
+          <img class="logo" src="/assets/simbolo.svg" alt="" width="34" height="34"><span class="name">NirKanA</span>
+        </a>
+        <p>El gestor de ventas para restaurantes, peluquerías, tiendas, autónomos y tiendas online. Cobra, gestiona y decide con
+          datos.</p>
+        <p class="social">
+          <a href="https://www.instagram.com/nirkana.oficial/" target="_blank" rel="me noopener noreferrer" data-evento="red-instagram"
+            data-evento-titulo="Abre el Instagram de NirKanA"><svg class="ic" aria-hidden="true"><use href="#i-instagram"/></svg><span
+            class="sr-only">Instagram: </span>@nirkana.oficial</a>
+          <a href="https://www.tiktok.com/@nirkkana" target="_blank" rel="me noopener noreferrer" data-evento="red-tiktok"
+            data-evento-titulo="Abre el TikTok de NirKanA"><svg class="ic" aria-hidden="true"><use href="#i-tiktok"/></svg><span
+            class="sr-only">TikTok: </span>@nirkkana</a>
+        </p>
+      </div>
+      <nav aria-label="Producto">
+        <b>Producto</b>
+        <a href="/#funciones">Funciones</a>
+        <a href="/#recorrido">La app por dentro</a>
+        <a href="/#calculadora">Calculadora</a>
+        <a href="/#seguridad">Seguridad</a>
+        <a href="/guias/">Guías</a>
+        <a href="/herramientas/">Herramientas</a>
+      </nav>
+      <nav aria-label="Sectores">
+        <b>Sectores</b>
+        <a href="/tpv-restaurantes/">Restaurantes</a>
+        <a href="/programa-peluquerias-estetica/">Peluquerías y barberías</a>
+        <a href="/programa-entrenadores-personales/">Entrenadores personales</a>
+        <a href="/tpv-tiendas/">Tiendas</a>
+        <a href="/programa-facturacion-autonomos/">Autónomos</a>
+        <a href="/tpv-tienda-online/">Tiendas online</a>
+        <a href="/programa-gestion-pequenas-empresas/">Pequeñas empresas</a>
+      </nav>
+      <nav aria-label="Contacto y legal">
+        <b>Contacto</b>
+        <a class="only-trial" data-trial href="/#contacto">Probar gratis</a>
+        <a class="only-demo" data-demo="servicios" href="/demo/">Ver la demo</a>
+        <a href="/#contacto">Contactar</a>
+        <a href="/#preguntas">Preguntas frecuentes</a>
+        <a href="/privacidad.html">Aviso de privacidad</a>
+      </nav>
+    </div>
+    <div class="wrap foot-bottom">
+      <span>© 2026 NirKanA</span>
+      <span>Sin cookies ni publicidad.</span>
+    </div>
+  </footer>
+</body>
+</html>

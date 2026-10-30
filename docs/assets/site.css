@@ -886,6 +886,10 @@ html:not(.has-trial) .demo-grid, html:not(.has-demo) .demo-grid { grid-template-
 .seg input:checked + label { background: var(--brand); color: var(--brand-ink); }
 .seg input:focus-visible + label { outline: 3px solid color-mix(in srgb, var(--brand) 45%, transparent); outline-offset: -3px; }
 .tc-results { display: grid; gap: 1rem; align-content: start; }
+.tc-grid > *, .tc-results > * { min-width: 0; }                      /* a wide table scrolls inside its box instead of widening the page */
+.tc-results th, .tc-results td { white-space: nowrap; }
+[data-calc="iva"] .result-cards .rc { grid-column: 1 / -1; }
+@media (max-width: 520px) { .tc-results .tablewrap table { font-size: .8rem; } .tc-results .tablewrap th, .tc-results .tablewrap td { padding: .55rem .4rem; } .tc-results .tablewrap thead th { letter-spacing: .03em; } .tc-results .tablewrap caption { padding: .7rem .5rem .2rem; } }
 .tc-results .tc-hint { margin: 0; }
 .result-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 0; }
 .result-cards .rc { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; min-width: 0; }
