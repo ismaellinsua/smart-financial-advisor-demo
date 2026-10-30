@@ -392,10 +392,11 @@ guide(
 # ---------------------------------------------------------------------------------------------------------------- 4
 guide(
     slug="agenda-de-citas-para-peluquerias",
-    title="Agenda de citas para peluquerías: sin solapes ni plantones · NirKanA",
-    description="Cómo organizar las citas de una peluquería o centro de estética: duración real de cada servicio, sin solapes, con confirmaciones y un mensaje de WhatsApp modelo.",
+    updated="2026-10-30",
+    title="Agenda de citas para peluquerías: organización y reservas · NirKanA",
+    description="Organiza las citas de tu peluquería: tiempos por servicio, reservas online y confirmaciones por WhatsApp. Con un mensaje modelo y consejos para reducir ausencias.",
     h1="Cómo organizar las citas de una peluquería: sin solapes y con menos plantones",
-    lead="Citas repartidas entre WhatsApp, llamadas y una libreta acaban en solapes y huecos vacíos. Con una sola agenda y unas reglas sencillas, el día se ordena y los clientes vuelven.",
+    lead="Reúne las citas de WhatsApp, teléfono y reservas online en una agenda. Aprende a asignar tiempos por servicio, comprobar huecos y confirmar citas para reducir solapes y ausencias.",
     group="Citas y clientes",
     summary="Cinco principios para una agenda sin solapes y un mensaje de WhatsApp para confirmar citas.",
     icon="i-calendar",
@@ -446,10 +447,13 @@ guide(
 <li><strong>Cobro desde la agenda:</strong> al terminar, «Cobrar» lleva el servicio y el cliente al ticket.</li>
 <li><strong>Clientes que vuelven:</strong> la ficha guarda lo que gasta, lo que más compra, sus próximas citas y sus puntos, y un filtro te enseña quién lleva un mes sin venir.</li>
 </ul>
-<p>Una limitación a tener en cuenta: tus clientes todavía no reservan solos; la agenda es para ti y tu equipo.</p>
+<p><strong>Reserva online:</strong> tus clientes pueden elegir servicio, profesional y hora disponible desde tu enlace. Puedes confirmar cada solicitud o permitir la confirmación automática. Consulta cómo funciona en el <a href="/programa-peluquerias-estetica/#reserva-online">programa para peluquerías y barberías con reserva online</a>.</p>
+<p>La prueba gratuita de 24 horas permite ver la agenda, la caja y las facturas. La reserva online se enseña en una demostración. No se cobra señal al reservar y los mensajes de WhatsApp los envías tú.</p>
 """,
     shot=("agenda-persona-c", "Agenda por persona de NirKanA con una columna por profesional y las citas del día de una peluquería", "Agenda por persona: una columna por profesional"),
     faq=[
+        ("¿Mis clientes pueden reservar online con NirKanA?",
+         "Sí. Pueden elegir servicio, profesional y una hora disponible desde tu enlace de reservas. Tú decides si confirmas cada solicitud o si se confirma automáticamente. La reserva online se enseña en una demostración; la prueba de 24 horas muestra la agenda, la caja y las facturas."),
         ("¿Cuánto margen dejo entre citas?",
          "Depende del servicio, pero conviene dejar unos minutos para recoger, cobrar y absorber retrasos. Empieza con un margen pequeño, mide durante una semana cuánto se retrasan las citas y ajusta."),
         ("¿Cómo evito que me dejen plantada?",
@@ -601,7 +605,7 @@ guide(
 guide(
     slug="calcular-el-margen-de-un-producto",
     title="Cómo calcular el margen de un producto y fijar el precio · NirKanA",
-    description="Diferencia entre margen y recargo, fórmula para calcular el margen sin IVA y cómo fijar el precio de venta, con ejemplos y el efecto de un descuento.",
+    description="Calcula el margen de un producto con fórmulas y ejemplos. Distingue margen y recargo, incluye envío y comisiones por SKU y prueba la calculadora gratuita.",
     h1="Cómo calcular el margen de un producto y fijar el precio de venta",
     lead="Vender mucho no sirve si cada venta deja poco. Con dos fórmulas sabes cuánto ganas por producto y qué precio necesitas para llegar al margen que buscas.",
     group="Stock, precios y tienda online",
@@ -611,7 +615,7 @@ guide(
     sectors=["online", "tiendas"],
     related=["control-de-stock-en-una-tienda", "que-debe-llevar-una-factura"],
     tools=["calculadora-de-margen"],
-    updated="2026-10-22",
+    updated="2026-10-30",
     subject="Consulta desde la guía de cálculo del margen",
     sections=[
         ("conceptos", "Margen y recargo no son lo mismo", """
@@ -645,6 +649,27 @@ guide(
 <li>El tiempo que dedicas a preparar y gestionar cada pedido.</li>
 </ul>
 <p>Súmalos al coste del producto: si no, el margen que calculas es mayor que el que realmente te queda.</p>
+"""),
+        ("margen-ecommerce-sku", "Cómo calcular el margen por SKU en una tienda online", """
+<p>Un SKU es la referencia que identifica un producto o variante. Para comparar referencias, calcula cuánto deja cada venta después de los costes variables que le corresponden. Ese resultado es el <strong>margen de contribución</strong>: todavía debe cubrir gastos fijos como alquileres, sueldos o suscripciones.</p>
+<div class="tablewrap compact" role="region" aria-label="Ejemplo de margen por SKU" tabindex="0">
+<table>
+<caption>Ejemplo inventado: una unidad vendida por 100 € sin IVA</caption>
+<thead><tr><th scope="col">Concepto</th><th scope="col">Importe por unidad</th></tr></thead>
+<tbody>
+<tr><th scope="row">Venta neta, después de descuentos</th><td>100,00 €</td></tr>
+<tr><th scope="row">Compra del producto</th><td>50,00 €</td></tr>
+<tr><th scope="row">Embalaje</th><td>2,00 €</td></tr>
+<tr><th scope="row">Envío asumido por la tienda</th><td>5,00 €</td></tr>
+<tr><th scope="row">Comisiones atribuibles a esa venta</th><td>3,00 €</td></tr>
+<tr><th scope="row">Coste variable total</th><td>60,00 €</td></tr>
+<tr><th scope="row">Contribución antes de gastos fijos</th><td>40,00 € (40 %)</td></tr>
+</tbody>
+</table>
+</div>
+<p>Si solo restas la compra, obtienes un 50 %; al incluir embalaje, envío y comisiones, queda un 40 %. No lo llames beneficio neto: aún faltan los gastos fijos y los impuestos que correspondan.</p>
+<p>Si un pedido contiene varias unidades, reparte los costes del pedido con un criterio consistente y no cargues todo el envío a cada producto. Usa los importes reales de tus liquidaciones para las comisiones. Revisa también el coste de las devoluciones.</p>
+<p>Para comprobar el ejemplo, introduce 60 € de coste total y 100 € de precio sin IVA en la <a href="/herramientas/calculadora-de-margen/">calculadora gratuita de margen</a>. La herramienta calcula con los datos que introduces; no obtiene automáticamente los costes de una tienda online.</p>
 """),
         ("descuentos", "Lo que cuesta un descuento", """
 <p>Un descuento parece pequeño, pero se come el margen. Un producto cuesta 60 € y se vende a 100 € sin IVA: ganas 40 € por unidad. Si lo rebajas un 20 %, se vende a 80 € y ganas 20 €: <strong>la mitad.</strong> Para ganar lo mismo que antes tendrías que vender el doble.</p>
