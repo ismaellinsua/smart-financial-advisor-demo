@@ -102,7 +102,7 @@ def head(*, title: str, description: str, path: str, blocks: list[dict], article
     url = f"{SITE}/{path}"
     image = f"{SITE}/assets/img/og.jpg"
     lines = [
-        '<!doctype html>', '<html lang="es" class="js has-demo has-trial">', '<head>',
+        '<!doctype html>', '<html lang="es" class="js has-trial">', '<head>',
         '  <meta charset="utf-8">',
         '  <meta name="viewport" content="width=device-width, initial-scale=1">',
         '  <meta http-equiv="Content-Security-Policy"', f'        content="{CSP}">',

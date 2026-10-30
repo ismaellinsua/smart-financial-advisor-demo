@@ -10,9 +10,14 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const site = readFileSync(resolve(root, 'docs/assets/site.js'), 'utf8');
 const home = readFileSync(resolve(root, 'docs/index.html'), 'utf8');
 
-test('la demo ficticia está disponible sin conectar con producción', () => {
-  assert.match(site, /const DEMO_URL = "\/demo\/";/);
-  assert.match(home, /data-demo/);
+// 30/10/2026: la demo sin registro se retira; quien quiere ver NirKanA va a la prueba gratis de 24 horas (deja su contacto).
+test('la demo sin registro está retirada y /demo/ lleva a la prueba de 24 horas', () => {
+  assert.match(site, /const DEMO_URL = "";/);
+  const old = readFileSync(resolve(root, 'docs/demo/index.html'), 'utf8');
+  assert.ok(old.length < 20000, 'docs/demo/ ya no lleva la app de demostración empaquetada');
+  assert.match(old, /<meta name="robots" content="noindex, follow">/);
+  assert.match(old, /data-trial href="\/#contacto">Probar gratis 24 horas/);
+  assert.doesNotMatch(home, /sin registro/);
 });
 
 // The trial was validated from outside on 14/10/2026 (nirkana-app → Actions → comprobar-despliegue, modo prueba): only that
@@ -117,17 +122,18 @@ test('despertar la prueba pide una imagen y una página ocultas del propio servi
 // e-mail address itself is visible (not only behind a mailto: button) and can be copied.
 test('el precio tiene sección propia, enlazada desde el menú y el pie, y todas las cifras de la home coinciden', () => {
   assert.match(home, /<section id="precio"[^>]*>/);
-  const price = home.match(/<h2>Desde (\d+) € al mes \+ IVA<\/h2>/)?.[1];
+  // the price may carry cents written the Spanish way (17,50); the structured data writes them with a point (17.50)
+  const price = home.match(/<h2>Desde (\d+(?:,\d{2})?)(?: |&nbsp;)€ al mes \+ IVA<\/h2>/)?.[1];
   assert.ok(price, 'la sección de precio no dice «Desde N € al mes + IVA»');
   assert.equal((home.match(/href="#precio"/g) || []).length, 2, 'enlace en el menú y en el pie');
-  assert.match(home, new RegExp(`Después, desde ${price} € al mes \\+ IVA\\.`));
-  // seis frases y los dos precios de los datos estructurados: todos dicen lo mismo (ops/precio.py los cambia a la vez)
-  assert.deepEqual([...new Set([...home.matchAll(/desde (\d+) € al mes/gi)].map((m) => m[1]))], [price]);
-  assert.equal([...home.matchAll(/desde (\d+) € al mes/gi)].length, 6);
+  assert.match(home, new RegExp(`Después, desde ${price}(?: |&nbsp;)€ al mes \\+ IVA\\.`));
+  // seis frases y los dos precios de los datos estructurados: todos dicen lo mismo (se cambian a la vez)
+  assert.deepEqual([...new Set([...home.matchAll(/desde (\d+(?:,\d{2})?)(?: |&nbsp;)€ al mes/gi)].map((m) => m[1]))], [price]);
+  assert.equal([...home.matchAll(/desde (\d+(?:,\d{2})?)(?: |&nbsp;)€ al mes/gi)].length, 6);
   // el precio es sin IVA: las seis frases lo dicen y los datos estructurados lo declaran
-  assert.equal([...home.matchAll(/desde \d+ € al mes \+ IVA/gi)].length, 6, 'cada cifra debe decir «+ IVA»');
+  assert.equal([...home.matchAll(/desde \d+(?:,\d{2})?(?: |&nbsp;)€ al mes \+ IVA/gi)].length, 6, 'cada cifra debe decir «+ IVA»');
   assert.match(home, /"valueAddedTaxIncluded": false/);
-  assert.deepEqual([...new Set([...home.matchAll(/"price": "(\d+)"/g)].map((m) => m[1]))], [price]);
+  assert.deepEqual([...new Set([...home.matchAll(/"price": "(\d+(?:\.\d{2})?)"/g)].map((m) => m[1]))], [price.replace(',', '.')]);
 });
 
 test('la dirección de email se ve y se puede copiar, y se rellena desde la configuración (no está escrita en el HTML)', () => {

@@ -210,8 +210,8 @@ test('la portada se organiza por temas: cada visitante abre lo que quiere saber 
   // without JavaScript every topic shows
   assert.match(readFileSync(resolve(root, 'docs/assets/sin-js.css'), 'utf8'), /\.topic-panel\[hidden\] \{ display: block !important; \}/);
   // the price tile says the same price as the price section
-  const price = home.match(/<h2>Desde (\d+) € al mes \+ IVA<\/h2>/)[1];
-  assert.match(topics, new RegExp(`<span class="tt-big"><small>desde</small> ${price} €</span>`));
+  const price = home.match(/<h2>Desde (\d+(?:,\d{2})?)(?: |&nbsp;)€ al mes \+ IVA<\/h2>/)[1];
+  assert.match(topics, new RegExp(`<span class="tt-big"><small>desde</small> <span class="nw">${price}&nbsp;€</span></span>`));
   // the app's screenshots appear once; the old anchors still lead somewhere (/#recorrido, /#como, /#calculadora)
   assert.equal((home.match(/class="bento"/g) || []).length, 1, 'un solo bloque de capturas');
   assert.match(home, /<div class="bento" id="recorrido">/);
