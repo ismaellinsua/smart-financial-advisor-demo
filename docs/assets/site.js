@@ -21,7 +21,7 @@ const TRIAL_URL = "https://nirkana-prueba.onrender.com";
 
 // Address of the offline demo, a page of this same site (the built NirKanA-demo.html lives at /demo/index.html). It is a
 // business with example data that anyone can open without signing up. Empty: no «Ver la demo» link is shown.
-const DEMO_URL = "/demo/";
+const DEMO_URL = ""; // retirada el 30/10/2026: quien quiere verla va a la prueba gratis de 24 horas (deja su contacto)
 
 // Visit counter (GoatCounter): your site code, e.g. "nirkana" for nirkana.goatcounter.com. Empty: nothing is counted.
 // No cookies, nothing stored on the visitor's device, no third-party script; visitors who ask not to be tracked
