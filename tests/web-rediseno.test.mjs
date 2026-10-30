@@ -43,7 +43,10 @@ test('cada solución cuenta el problema, la solución y el beneficio, y tiene su
 
 test('los sectores del selector, de los botones y del script son exactamente las opciones del formulario', () => {
   const types = formOptions('tipo').map((o) => o.value).filter(Boolean);
-  assert.deepEqual(types, ['Hostelería', 'Belleza y estética', 'Comercio', 'Autónomo', 'Pyme', 'Otro']);
+  // «Entrenador personal» no tiene pestaña en la portada: llega desde su página (?sector=entrenador, FORM_ONLY en site.js)
+  assert.deepEqual(types, ['Hostelería', 'Belleza y estética', 'Comercio', 'Autónomo', 'Pyme', 'Entrenador personal', 'Otro']);
+  const formOnly = site.match(/const FORM_ONLY = \{([^}]*)\}/)[1];
+  for (const [, value] of formOnly.matchAll(/"([^"]+)"/g)) assert.ok(types.includes(value), `FORM_ONLY «${value}» no es una opción`);
   for (const [, value] of home.matchAll(/data-sector="([^"]+)"/g)) assert.ok(types.includes(value), `data-sector «${value}» no es una opción`);
   const map = site.match(/const TAB_TYPES = \{([\s\S]*?)\};/)[1];
   const pairs = [...map.matchAll(/"tab-([a-z]+)": "([^"]+)"/g)];

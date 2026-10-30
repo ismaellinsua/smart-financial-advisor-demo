@@ -110,3 +110,30 @@ actualizar el aviso de privacidad.
   `ops/guias.py` al día en que publicas). El mapa del sitio y los datos estructurados usan esas mismas fechas.
 - Si una función de la app cambia (por ejemplo, llegan los recordatorios automáticos), actualiza **a la vez** la guía, el sector y
   la pregunta frecuente que lo menciona: las pruebas no saben si una frase dejó de ser cierta.
+
+## 7. Ronda 3 (30/10/2026): más búsquedas que atraer y aviso inmediato a los buscadores
+
+| Qué | Por qué |
+|---|---|
+| **Calculadora de IVA** (`/herramientas/calculadora-de-iva/`): añadir o quitar el 21 %, 10 % o 4 %, con la tabla de los tres tipos y el aviso del error típico (restar el porcentaje) | «Calculadora de IVA» y «quitar el IVA» son de las búsquedas más repetidas de autónomos y pequeños negocios en España. La enlazan la portada, el índice de herramientas y la guía de facturas |
+| **Página para entrenadores personales** (`/programa-entrenadores-personales/`), con capturas reales de la app (datos de ejemplo) | Un sector nuevo con búsquedas propias («app para entrenadores personales», «programa para entrenadores») y poca competencia en español. Lleva lo que hace y lo que no (no cobra con tarjeta, el cliente aún no reserva solo, no hace dietas) |
+| **Guía para entrenadores** (`/guias/organizar-clientes-entrenador-personal/`) | Búsquedas largas de entrenadores que empiezan («cómo organizar a mis clientes», «bono de sesiones»); enlaza a su sector |
+| Formulario: tipo «Entrenador personal» y `?sector=entrenador` | Quien llega desde esa página ya lo trae elegido; en GoatCounter sale como `contacto-entrenador-personal` |
+| **IndexNow** (`.github/workflows/indexnow.yml`, clave pública en `docs/<clave>.txt`) | Cada vez que se publica la web, avisa solo a Bing (y con él a DuckDuckGo, Yahoo y Ecosia), Yandex, Seznam y Naver de las páginas cambiadas: las visitan en horas. **Google no usa IndexNow** |
+
+El mapa del sitio pasa a 25 páginas (portada, 7 sectores, índice de guías y 12 guías, índice de herramientas y 3 calculadoras).
+axe-core: 0 fallos en las páginas nuevas, en móvil y escritorio, claro y oscuro.
+
+### Para que se note cuanto antes (solo tú, 15 minutos)
+
+1. **Search Console › Inspección de URLs › Solicitar indexación** de estas cuatro: `https://nirkana.es/herramientas/calculadora-de-iva/`,
+   `https://nirkana.es/programa-entrenadores-personales/`, `https://nirkana.es/guias/organizar-clientes-entrenador-personal/` y la
+   portada. Es lo más rápido para Google.
+2. **Bing Webmaster Tools** (si no lo has hecho): *Importar desde Google Search Console*. Con IndexNow, Bing ya recibe los avisos solo.
+3. **Comparte la calculadora de IVA** donde haya autónomos (grupos de WhatsApp, LinkedIn, foros): es útil por sí misma y es la que
+   más se comparte y se enlaza.
+4. **A entrenadores que conozcas** (y a Dani): la página `/programa-entrenadores-personales/`. Un enlace desde su web o su
+   Instagram vale más que muchos anuncios.
+5. **Fichas gratis en directorios de software** (Capterra/GetApp, AlternativeTo): una vez, y quedan para siempre.
+
+Lo honesto: el SEO tarda semanas en notarse. Lo que trae visitas **esta semana** son los puntos 3 y 4 y los vídeos.

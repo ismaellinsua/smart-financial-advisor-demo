@@ -5,7 +5,7 @@
 // falla si algo de eso acaba en docs/ (por ejemplo, una nota .md que se guarda en la carpeta equivocada).
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readdirSync, existsSync } from 'node:fs';
+import { readdirSync, existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { resolve, dirname, extname, relative, sep } from 'node:path';
 
@@ -32,8 +32,12 @@ test('las notas internas no están en docs/ (viven en notas/)', () => {
   assert.ok(existsSync(resolve(root, 'notas')), 'las notas internas deben vivir en notas/');
 });
 
-test('solo hay un .txt (robots.txt) y un .xml (sitemap.xml), y ningún archivo oculto salvo .nojekyll', () => {
-  assert.deepEqual(all.filter((f) => f.endsWith('.txt')), ['robots.txt']);
+test('solo hay robots.txt y la clave pública de IndexNow como .txt, un .xml (sitemap.xml), y ningún archivo oculto salvo .nojekyll', () => {
+  const txt = all.filter((f) => f.endsWith('.txt'));
+  const keys = txt.filter((f) => /^[0-9a-f]{32}\.txt$/.test(f));
+  assert.deepEqual(txt.filter((f) => !keys.includes(f)), ['robots.txt']);
+  assert.equal(keys.length, 1, 'una sola clave de IndexNow (docs/<32 hex>.txt)');
+  assert.equal(readFileSync(resolve(docs, keys[0]), 'utf8'), keys[0].replace('.txt', ''), 'el archivo de IndexNow solo contiene su clave');
   assert.deepEqual(all.filter((f) => f.endsWith('.xml')), ['sitemap.xml']);
   const hidden = all.filter((f) => f.split('/').some((part) => part.startsWith('.') && part !== '.nojekyll'));
   assert.deepEqual(hidden, [], `archivos ocultos en docs/: ${hidden.join(', ')}`);

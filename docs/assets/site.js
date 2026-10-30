@@ -518,7 +518,9 @@ const ANALYTICS = { goatcounter: "nirkana" };
   if (form && params.get("promo") === "20" && promoBox) promoBox.checked = true;
   if (form && params.get("solicitud") === "presupuesto") setOption(formRequest, "Pedir presupuesto");
   const wanted = params.get("sector");
-  if (form && wanted && TAB_TYPES[`tab-${wanted}`]) { setOption(formType, TAB_TYPES[`tab-${wanted}`]); typeChosen = true; }
+  const FORM_ONLY = { entrenador: "Entrenador personal" }; // sectors with their own page but no tab on the home page
+  const wantedType = TAB_TYPES[`tab-${wanted}`] || FORM_ONLY[wanted];
+  if (form && wanted && wantedType) { setOption(formType, wantedType); typeChosen = true; }
   // Links that carry the visitor's sector on to the home page (the end-of-trial page)
   if (/^[a-z]{3,12}$/.test(wanted || "")) {
     document.querySelectorAll("a[data-forward]").forEach((link) => {
