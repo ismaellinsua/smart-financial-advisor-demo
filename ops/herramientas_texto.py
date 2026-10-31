@@ -104,10 +104,11 @@ tool(
 # ---------------------------------------------------------------------------------------------------------------- 1
 tool(
     slug="calculadora-de-arqueo-de-caja",
-    title="Calculadora de arqueo de caja: cuenta billetes y monedas · NirKanA",
-    description="Calculadora gratis de arqueo de caja en euros: cuenta billetes y monedas, compara con lo que debería haber y ve al momento si cuadra. Con plantilla de Excel.",
-    h1="Calculadora de arqueo de caja",
-    lead="Cuenta los billetes y las monedas del cajón, apunta lo que debería haber y comprueba al instante si la caja cuadra. Gratis, sin registro y sin que nada salga de tu navegador.",
+    updated="2026-10-30",
+    title="Contar caja online gratis: billetes y monedas · NirKanA",
+    description="Cuenta tu caja online gratis y sin registro. Suma billetes y monedas en euros, comprueba el descuadre y guarda el resultado en PDF. Incluye plantilla de Excel.",
+    h1="Contar caja online: calculadora de arqueo gratis",
+    lead="Para contar tu caja online, introduce cuántos billetes y monedas tienes de cada tipo. La calculadora suma el efectivo y lo compara con el fondo, las ventas y las salidas que indiques. Gratis y sin registro.",
     summary="Cuenta billetes y monedas en euros, compáralo con lo esperado y ve el descuadre al momento. Con plantilla de Excel.",
     icon="i-receipt",
     demo="hosteleria",
@@ -117,7 +118,7 @@ tool(
     subject="Consulta desde la calculadora de arqueo de caja",
     app_name="Calculadora de arqueo de caja",
     sections=[
-        ("como-se-usa", "Cómo se usa", """
+        ("como-se-usa", "Cómo contar la caja online paso a paso", """
 <ol>
 <li><strong>Cuenta el efectivo antes de mirar cuánto debería haber.</strong> Escribe cuántos billetes y monedas hay de cada tipo; lo que dejes en blanco cuenta como cero.</li>
 <li><strong>Apunta lo que debería haber:</strong> el fondo con el que empezaste, las ventas cobradas en efectivo, otras entradas (por ejemplo, un cambio que te traen) y las salidas (pagos a proveedores, retiradas, devoluciones en efectivo).</li>
@@ -125,6 +126,11 @@ tool(
 <li><strong>Si quieres, indica el fondo que dejas para mañana</strong> y te dice cuánto tienes que retirar del cajón.</li>
 </ol>
 <p>La cuenta es sencilla: <em>efectivo esperado = fondo inicial + ventas en efectivo + otras entradas − salidas</em>, y <em>diferencia = contado − esperado</em>.</p>
+"""),
+        ("ejemplo-recuento", "Ejemplo de recuento de billetes y monedas", """
+<p>Ejemplo inventado: cuentas 4 billetes de 20 €, 2 de 10 €, 3 de 5 €, 6 monedas de 2 € y 8 de 1 €. El efectivo contado suma <strong>135 €</strong>.</p>
+<p>Si empezaste con 50 €, cobraste 100 € en efectivo y retiraste 10 €, deberían quedar <strong>140 €</strong>. La diferencia es 135 − 140 = <strong>−5 €</strong>: faltan 5 €. El ejemplo sirve para comprobar las cuentas; no identifica la causa del descuadre.</p>
+<p>Introduce las cantidades en la calculadora de arriba para reproducirlo. Para conservar el resultado, usa «Imprimir o guardar en PDF» y elige guardar como PDF en el diálogo del navegador.</p>
 """),
         ("no-cuadra", "Qué hacer si no cuadra", """
 <ul>
