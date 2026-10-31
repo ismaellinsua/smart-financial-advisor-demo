@@ -322,10 +322,11 @@ guide(
 # ---------------------------------------------------------------------------------------------------------------- 3
 guide(
     slug="control-de-stock-en-una-tienda",
+    updated="2026-10-31",
     title="Control de stock en una tienda: método sencillo en 5 pasos · NirKanA",
-    description="Cómo controlar el stock de una tienda pequeña: ordenar el catálogo, fijar el stock mínimo, registrar movimientos, contar y reponer, con un ejemplo de cálculo.",
-    h1="Control de stock en una tienda: método sencillo en cinco pasos",
-    lead="Quedarte sin lo que más vendes cuesta ventas; comprar de más deja dinero parado en la estantería. Este método sirve para una tienda pequeña, con una hoja de cálculo o con un programa.",
+    description="Controla el stock de tu tienda con cinco pasos, un ejemplo de entradas y salidas y el cálculo de reposición. Distingue existencias físicas y unidades disponibles.",
+    h1="Cómo controlar el stock de una tienda en cinco pasos",
+    lead="Para controlar el stock de una tienda, identifica cada producto, anota sus entradas y salidas y compara las unidades registradas con un recuento físico. Aquí tienes un método con ejemplos para hacerlo con una hoja de cálculo o con un programa.",
     group="Stock, precios y tienda online",
     summary="Cinco pasos para no quedarte sin lo que más vendes, con el cálculo del stock mínimo.",
     icon="i-box",
@@ -337,11 +338,34 @@ guide(
         ("pasos", "Cinco pasos para llevar el stock", """
 <ol>
 <li><strong>Ordena el catálogo.</strong> Un código por producto (una referencia propia o el código de barras), un nombre claro y ningún duplicado. Si el mismo producto está dos veces con nombres distintos, el stock nunca cuadra.</li>
-<li><strong>Fija un stock mínimo por producto:</strong> la cantidad a la que toca pedir. Para calcularlo: <em>ventas diarias × días que tarda en llegar el pedido + un margen de seguridad</em>.</li>
+<li><strong>Fija cuándo toca reponer cada producto:</strong> como referencia, calcula <em>ventas diarias × días que tarda en llegar el pedido + un margen de seguridad</em>. Es el punto de pedido; no es lo mismo que el stock de seguridad que reservas para imprevistos.</li>
 <li><strong>Registra cada movimiento:</strong> ventas, compras, devoluciones de clientes, devoluciones al proveedor y mermas (roturas, caducados, pérdidas). Lo que no se anota hace que el stock «mienta».</li>
 <li><strong>Cuenta de vez en cuando.</strong> En lugar de cerrar un día para contarlo todo, cuenta una categoría cada semana, compara con lo que dice el sistema y ajusta anotando el motivo.</li>
 <li><strong>Repón con datos.</strong> Mira lo vendido en el último mes y pide según el ritmo real de ventas, no por intuición. Vigila más los productos que más rotan y no repongas los que no se mueven.</li>
 </ol>
+"""),
+        ("entradas-salidas", "Cómo calcular el stock final: ejemplo de entradas y salidas", """
+<p>Para cada referencia, parte de un recuento inicial y registra los movimientos del mismo periodo: <strong>stock final teórico = stock inicial + entradas − salidas</strong>. Lleva por separado cada talla, color o variante.</p>
+<div class="tablewrap compact" role="region" aria-label="Ejemplo de movimientos de stock" tabindex="0">
+<table>
+<caption>Ejemplo inventado: una misma referencia durante un día</caption>
+<thead><tr><th scope="col">Movimiento</th><th scope="col">Cambio en unidades</th><th scope="col">Existencias registradas</th></tr></thead>
+<tbody>
+<tr><th scope="row">Recuento al empezar</th><td>—</td><td>20</td></tr>
+<tr><th scope="row">Mercancía recibida del proveedor</th><td>+12</td><td>32</td></tr>
+<tr><th scope="row">Unidades vendidas y entregadas</th><td>−9</td><td>23</td></tr>
+<tr><th scope="row">Devolución de un cliente, apta para vender</th><td>+1</td><td>24</td></tr>
+<tr><th scope="row">Unidades rotas retiradas del inventario</th><td>−2</td><td>22</td></tr>
+<tr><th scope="row">Devolución enviada al proveedor</th><td>−3</td><td>19</td></tr>
+</tbody>
+</table>
+</div>
+<p>La cuenta es 20 + 12 − 9 + 1 − 2 − 3 = <strong>19 unidades</strong>. Si el recuento físico da 18, hay una diferencia de −1. Revisa los movimientos y deja constancia del motivo antes de ajustar; cambiar la cifra sin investigar oculta el problema.</p>
+<p>En tu registro incluye fecha, referencia, tipo de movimiento, cantidad y documento o motivo. Un pedido al proveedor aún no recibido no aumenta las existencias físicas. Una devolución dañada tampoco vuelve al stock vendible: consulta el <a href="/guias/devoluciones-y-cambios-en-una-tienda/">proceso de devoluciones y cambios</a>.</p>
+"""),
+        ("disponible", "Stock físico y disponible: evita vender dos veces la misma unidad", """
+<p>Las existencias físicas son las unidades que tienes. Las disponibles para vender excluyen las reservadas y las que estén bloqueadas o dañadas. Si tienes 19 unidades, todas aptas para vender, y 4 están reservadas para pedidos pendientes de entrega, quedan <strong>15 disponibles</strong>.</p>
+<p>Cuando entregues esas 4, retira la reserva y registra la salida física sin descontarlas dos veces del disponible. Si vendes en el local y por internet, acuerda cuándo se reserva, se entrega y se libera cada pedido. La <a href="/guias/stock-de-tienda-online-y-tienda-fisica/">guía de stock para tienda online y física</a> explica esa coordinación.</p>
 """),
         ("ejemplo", "Ejemplo: cuánto stock mínimo necesito", """
 <p>Un producto del que vendes 60 unidades al mes se vende a un ritmo de 2 al día. Tu proveedor tarda 5 días en entregar y quieres un margen de seguridad de 4 unidades para semanas buenas o retrasos:</p>
@@ -355,7 +379,7 @@ guide(
 </tbody>
 </table>
 </div>
-<p>Cuando el stock de A baja de 14 unidades, toca pedir. El producto B se vende poco, pero tarda más en llegar, así que su mínimo también es alto en proporción.</p>
+<p>En este ejemplo, sin pedidos de reposición pendientes, al llegar a 14 unidades de A toca pedir: 10 cubren la demanda prevista durante la entrega y 4 son el stock de seguridad. El punto de pedido indica <strong>cuándo revisar la reposición, no cuántas unidades comprar</strong>. Antes de hacer otro pedido, comprueba las unidades ya encargadas y los compromisos con clientes. Ajusta la previsión si cambian las ventas o los plazos del proveedor.</p>
 """),
         ("errores", "Errores típicos", """
 <ul>
@@ -381,6 +405,10 @@ guide(
 """,
     shot=("productos-c", "Lista de productos de NirKanA con categoría, precio, coste y existencias de cada uno", "Productos con su precio, su coste y las unidades que quedan"),
     faq=[
+        ("¿Cómo se calcula el stock final de una tienda?",
+         "Suma las entradas al stock inicial y resta las salidas de la misma referencia y periodo. Por ejemplo: 20 unidades iniciales más 12 recibidas, menos 9 vendidas, más 1 devolución apta para vender, menos 2 rotas y menos 3 devueltas al proveedor dan 19. Comprueba el resultado con un recuento físico."),
+        ("¿Stock físico y stock disponible son lo mismo?",
+         "No. El físico cuenta lo que tienes; el disponible excluye lo reservado y las unidades no aptas para vender. Con 19 unidades aptas y 4 reservadas, quedan 15 disponibles. Al entregar una reserva, registra la salida y elimina la reserva sin descontar dos veces."),
         ("¿Cómo calculo el stock mínimo de un producto?",
          "Multiplica lo que vendes al día por los días que tarda en llegar el pedido y suma un margen de seguridad. Si vendes 2 al día, el proveedor tarda 5 días y quieres 4 de margen, el mínimo es 2 × 5 + 4 = 14 unidades."),
         ("¿Cada cuánto hay que hacer inventario?",

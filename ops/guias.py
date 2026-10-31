@@ -28,7 +28,8 @@ import herramientas_texto as TT  # noqa: E402
 ROOT = HERE.parent
 DOCS = ROOT / "docs"
 SITE = "https://nirkana.es"
-DATE = "2026-10-30"       # fecha de la última modificación de las páginas que genera o que toca este cambio
+DATE = "2026-10-31"       # fecha límite de las actualizaciones de contenido de esta versión
+BASE_PAGE_UPDATED = "2026-10-30"  # portada, sectores, índices y herramientas: última actualización común
 PUBLISHED = "2026-10-21"  # cuándo salieron las primeras guías; cada guía puede traer su propio `published` y `updated`
 MONTHS = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
 REFERENCE = "tpv-tiendas/index.html"
@@ -695,8 +696,8 @@ def render_tiktok() -> str:
 
 # ------------------------------------------------------------------------------------------------ files
 def sitemap() -> str:
-    paths = [(p, DATE) for p in CORE + ["guias/", "herramientas/"]] + [(f"guias/{slug}/", dates(g)[1]) for slug, g in T.GUIDES.items()] \
-        + [(f"herramientas/{slug}/", DATE) for slug in TT.TOOLS]
+    paths = [(p, BASE_PAGE_UPDATED) for p in CORE + ["guias/", "herramientas/"]] + [(f"guias/{slug}/", dates(g)[1]) for slug, g in T.GUIDES.items()] \
+        + [(f"herramientas/{slug}/", t.get("updated", BASE_PAGE_UPDATED)) for slug, t in TT.TOOLS.items()]
     urls = "".join(f"  <url>\n    <loc>{SITE}/{p}</loc>\n    <lastmod>{day}</lastmod>\n  </url>\n" for p, day in paths)
     return f'<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n{urls}</urlset>\n'
 
