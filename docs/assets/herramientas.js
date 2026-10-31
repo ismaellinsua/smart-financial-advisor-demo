@@ -1,4 +1,4 @@
-/* NirKanA · calculadoras gratuitas de la web (arqueo de caja y margen).
+/* NirKanA · calculadoras gratuitas de la web (IVA, arqueo de caja y margen).
    Todo se calcula en el navegador: no se envía ni se guarda nada. Las funciones de cálculo (arqueo, margen, leerNumero…) son
    puras y se prueban en Node (tests/web-herramientas.test.mjs); lo demás solo las engancha con los campos de la página.
    Los importes se calculan en céntimos enteros para que 0,10 + 0,20 sea exactamente 0,30. */
@@ -91,6 +91,26 @@
       };
     }
     return resultado;
+  }
+
+  /* ---------------------------------------------------------------- IVA: añadir o quitar */
+  /**
+   * modo «anadir»: el importe es la base (sin IVA); modo «quitar»: el importe ya lleva el IVA.
+   * Importe en céntimos enteros; ivaPct, el tipo (21, 10, 4…). Devuelve base, cuota y total en céntimos.
+   * Quitar el IVA es dividir entre (1 + tipo), no restar el tipo: 121 € con un 21 % son 100 € de base, no 95,59 €.
+   */
+  function iva({ modo, importe, ivaPct = 21 }) {
+    if (!(Number.isInteger(importe) && importe >= 0)) return { error: "importe" };
+    if (!(Number.isFinite(ivaPct) && ivaPct >= 0 && ivaPct <= 100)) return { error: "tipo" };
+    let base, cuota;
+    if (modo === "anadir") {
+      base = importe;
+      cuota = Math.round((importe * ivaPct) / 100);
+    } else {
+      base = Math.round((importe * 100) / (100 + ivaPct));
+      cuota = importe - base;
+    }
+    return { base, cuota, total: base + cuota, restarMal: modo === "quitar" ? importe - Math.round((importe * ivaPct) / 100) : null };
   }
 
   /* ---------------------------------------------------------------- página: arqueo de caja */
@@ -194,12 +214,57 @@
     recalcular();
   }
 
+  /* ---------------------------------------------------------------- página: IVA */
+  function iniciarIva(form) {
+    const campo = (nombre) => form.querySelector(`[data-in="${nombre}"]`);
+    const salida = (nombre) => form.querySelector(`[data-out="${nombre}"]`);
+    const modo = () => form.querySelector('input[name="modo-iva"]:checked').value;
+    let usada = false;
+    const recalcular = () => {
+      const m = modo();
+      form.dataset.modo = m;
+      for (const el of form.querySelectorAll("[data-solo]")) el.hidden = el.dataset.solo !== m;
+      const el = campo("importe"), n = leerNumero(el.value);
+      const mal = n !== null && !(Number.isFinite(n) && n >= 0 && n < 1e9);
+      marcar(el, mal);
+      const resultados = salida("resultados"), aviso = salida("aviso");
+      const falta = n === null || mal;
+      resultados.hidden = falta;
+      aviso.hidden = !falta;
+      salida("resumen").textContent = "";
+      if (falta) return;
+      const importe = Math.round(n * 100), tipo = Number(campo("iva").value);
+      const r = iva({ modo: m, importe, ivaPct: tipo });
+      if (r.error) { resultados.hidden = true; aviso.hidden = false; return; }
+      salida("base").textContent = euros(r.base);
+      salida("cuota").textContent = euros(r.cuota);
+      salida("total").textContent = euros(r.total);
+      salida("tipo").textContent = `${tipo} %`;
+      salida("resumen").textContent = `Base sin IVA, ${euros(r.base)}. IVA del ${tipo} %, ${euros(r.cuota)}. Total con IVA, ${euros(r.total)}.`;
+      const ojo = salida("ojo");
+      ojo.hidden = !(m === "quitar" && tipo > 0 && r.restarMal !== r.base);
+      if (!ojo.hidden) ojo.textContent = `Ojo: restar el ${tipo} % a ${euros(importe)} daría ${euros(r.restarMal)}, que no es la base. La base es ${euros(r.base)}.`;
+      for (const fila of form.querySelectorAll("[data-otro]")) {
+        const o = iva({ modo: m, importe, ivaPct: Number(fila.dataset.otro) });
+        fila.querySelector('[data-o="base"]').textContent = euros(o.base);
+        fila.querySelector('[data-o="cuota"]').textContent = euros(o.cuota);
+        fila.querySelector('[data-o="total"]').textContent = euros(o.total);
+      }
+    };
+    form.addEventListener("input", () => { if (!usada) { usada = true; avisar("herramienta-iva", "Usa la calculadora de IVA"); } recalcular(); });
+    form.addEventListener("change", recalcular);
+    form.addEventListener("reset", () => setTimeout(recalcular, 0));
+    recalcular();
+  }
+
   function init(doc) {
     const arqueoForm = doc.querySelector('[data-calc="arqueo"]');
     if (arqueoForm) iniciarArqueo(arqueoForm);
     const margenForm = doc.querySelector('[data-calc="margen"]');
     if (margenForm) iniciarMargen(margenForm);
+    const ivaForm = doc.querySelector('[data-calc="iva"]');
+    if (ivaForm) iniciarIva(ivaForm);
   }
 
-  return { leerNumero, leerEntero, leerCentimos, arqueo, margen, euros, eurosDeImporte, porcentaje, init };
+  return { leerNumero, leerEntero, leerCentimos, arqueo, margen, iva, euros, eurosDeImporte, porcentaje, init };
 });

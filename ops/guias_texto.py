@@ -23,6 +23,7 @@ SECTOR = {
     "autonomos": ("/programa-facturacion-autonomos/", "Programa de facturación para autónomos"),
     "online": ("/tpv-tienda-online/", "Gestión de tiendas online"),
     "pymes": ("/programa-gestion-pequenas-empresas/", "Programa de gestión para pequeñas empresas"),
+    "entrenadores": ("/programa-entrenadores-personales/", "App para entrenadores personales"),
 }
 
 # ---------------------------------------------------------------------------------------------------------------- 1
@@ -476,6 +477,7 @@ guide(
     demo="servicios",
     sectors=["autonomos", "tiendas"],
     related=["documentos-del-trimestre-para-la-gestoria", "calcular-el-margen-de-un-producto"],
+    tools=["calculadora-de-iva"],
     subject="Consulta desde la guía de qué debe llevar una factura",
     disclaimer="Esta guía es informativa y no sustituye el consejo de un profesional. Las normas y los casos particulares (exenciones, operaciones con el extranjero, facturas electrónicas…) te los confirma tu gestoría.",
     sections=[
@@ -1029,6 +1031,98 @@ TIKTOK = dict(
 )
 
 # ---------------------------------------------------------------------------------------------------------------- índice
+# ---------------------------------------------------------------------------------------------------------------- 12
+guide(
+    slug="organizar-clientes-entrenador-personal",
+    title="Cómo organizar a tus clientes como entrenador personal · NirKanA",
+    description="Cómo llevar a tus clientes como entrenador personal: la ficha de cada uno, planes que puedas reutilizar, el seguimiento, las cuotas y los bonos, y una rutina semanal.",
+    h1="Cómo organizar a tus clientes como entrenador personal: ficha, planes, seguimiento y cobros",
+    lead="Con cinco clientes basta con una libreta y el WhatsApp. Con veinte, se te olvida quién tiene el bono a punto de acabar, qué carga movía cada uno o a quién le toca revisar el plan. Esta guía te propone una forma de organizarlo que se sostiene semana a semana.",
+    group="Citas y clientes",
+    summary="La ficha de cada cliente, planes reutilizables, el seguimiento, cuotas y bonos, y una rutina semanal para no perder el hilo.",
+    icon="i-users",
+    demo="servicios",
+    sectors=["entrenadores", "autonomos"],
+    related=["agenda-de-citas-para-peluquerias", "documentos-del-trimestre-para-la-gestoria"],
+    published="2026-10-30",
+    subject="Consulta desde la guía para entrenadores personales",
+    disclaimer="Esta guía es informativa. Lo que afecta a datos de salud, contratos o impuestos te lo confirma tu asesor o tu gestoría, y las dietas personalizadas son cosa de un dietista-nutricionista.",
+    sections=[
+        ("ficha", "1. Una ficha por cliente, con lo que de verdad usas", """
+<p>Antes del primer entrenamiento, apunta en un solo sitio lo que vas a necesitar después. No hace falta más:</p>
+<ul>
+<li><strong>Contacto:</strong> nombre, teléfono y correo.</li>
+<li><strong>Objetivo,</strong> en sus palabras: «correr 10 km en primavera», «quitarme el dolor de espalda», «ganar fuerza».</li>
+<li><strong>Nivel</strong> (principiante, intermedio, avanzado) y desde cuándo entrena contigo.</li>
+<li><strong>Lesiones y limitaciones:</strong> lo que no debe hacer o lo que hay que vigilar.</li>
+<li><strong>Cómo te paga:</strong> cuota mensual, bono o sesión suelta.</li>
+</ul>
+<p>El peso, las medidas, las fotos de progreso o lo que come son <strong>datos de salud</strong>. Pide permiso a tu cliente antes de guardarlos, explícale para qué los usas y apúntate que te lo ha dado. Si un día lo retira, bórralos.</p>
+"""),
+        ("planes", "2. Planes que puedas reutilizar", """
+<p>Escribir cada plan desde cero te come las tardes. Mejor ten unas pocas <strong>plantillas</strong> y ajústalas a cada cliente:</p>
+<ul>
+<li>Una por objetivo y nivel: por ejemplo, «Fuerza, principiante, 3 días» o «Cuerpo completo, 2 días».</li>
+<li>Cada día con sus ejercicios y, en cada uno, <strong>series, repeticiones, carga y descanso,</strong> y una nota corta si hace falta («rodillas hacia fuera», «sin dolor»).</li>
+<li>Una biblioteca de ejercicios con <strong>cómo se hace</strong> cada uno, y un vídeo si lo tienes: la explicación la escribes una vez y sirve para todos.</li>
+</ul>
+<p>Al copiar una plantilla a un cliente, cambia lo que no le va: un ejercicio por su lesión, otra carga, un día menos. Guarda los planes anteriores en lugar de borrarlos: te sirven para ver cómo ha avanzado.</p>
+"""),
+        ("seguimiento", "3. Seguimiento sin agobiar", """
+<p>Medir sirve para ajustar el plan y para que tu cliente vea que avanza, pero si le pides demasiado lo deja. Unas reglas sencillas:</p>
+<ul>
+<li><strong>Peso:</strong> siempre en las mismas condiciones, por ejemplo al levantarse y antes de desayunar, y mira la tendencia de varias semanas, no el número de un día.</li>
+<li><strong>Medidas</strong> (cintura, cadera, brazo…): cada pocas semanas, con la misma cinta y en el mismo punto.</li>
+<li><strong>Fotos de progreso:</strong> misma luz, misma postura y mismo sitio.</li>
+<li><strong>Cada sesión:</strong> qué hizo, con qué carga, cuántas repeticiones y cómo de dura le pareció, del 1 al 10. Con eso sabes cuándo subir la carga y cuándo no.</li>
+</ul>
+<p>Si tu cliente entrena también por su cuenta, que lo apunte él: así no dependes de que te lo cuente.</p>
+"""),
+        ("cobros", "4. Cuotas, bonos y sesiones sueltas, cada cosa clara", """
+<div class="tablewrap compact" role="region" aria-label="Formas de cobrar a un cliente de entrenamiento" tabindex="0">
+<table>
+<thead><tr><th scope="col">Forma</th><th scope="col">Cómo funciona</th><th scope="col">Qué vigilar</th></tr></thead>
+<tbody>
+<tr><th scope="row">Cuota mensual</th><td>Un importe fijo cada mes, con un día de cobro.</td><td>Quién no ha pagado pasado ese día.</td></tr>
+<tr><th scope="row">Bono de sesiones</th><td>Paga por adelantado, por ejemplo 10 sesiones.</td><td>Cuántas le quedan y avisar antes de que se acabe.</td></tr>
+<tr><th scope="row">Sesión suelta</th><td>Paga cada sesión.</td><td>Que no se quede ninguna sin cobrar.</td></tr>
+</tbody>
+</table>
+</div>
+<p>Apunta cada cobro el mismo día, con la forma de pago (efectivo, Bizum, transferencia…). Para recordar un pago pendiente, un mensaje corto y amable funciona mejor que una conversación: «Hola, Ana: te recuerdo la cuota de octubre, 90 €. Cuando te venga bien. ¡Gracias!».</p>
+"""),
+        ("rutina", "5. Una rutina semanal que se sostiene", """
+<ul>
+<li><strong>Cada día:</strong> mira las sesiones de hoy y, al terminar, marca quién vino y apunta lo que hizo.</li>
+<li><strong>Una vez por semana:</strong> repasa los cobros pendientes, los bonos que se acaban y quién no ha entrenado; manda los recordatorios en un solo rato.</li>
+<li><strong>Cada pocas semanas,</strong> por cliente: revisa sus medidas y su plan, y cámbialo si se ha estancado o ha cambiado su objetivo.</li>
+<li><strong>Cada trimestre:</strong> junta tus cobros y tus gastos (material, sala, formación, seguro) para tu gestoría; en la <a href="/guias/documentos-del-trimestre-para-la-gestoria/">guía de documentos del trimestre</a> tienes la lista.</li>
+</ul>
+<p>Lo importante no es la herramienta, sino que todo esté en el mismo sitio y que lo mires siempre en el mismo momento.</p>
+"""),
+    ],
+    nirkana="""
+<ul>
+<li><strong>Ficha de cada cliente</strong> con su plan, su seguimiento (peso con gráfica, medidas y fotos), su alimentación y sus cobros.</li>
+<li><strong>Planes por días</strong> a partir de tus plantillas, con una biblioteca de ejercicios que puedes empezar con 40 básicos y 3 plantillas.</li>
+<li><strong>Cuotas, bonos y sesiones sueltas:</strong> lo pendiente sale solo, con el recordatorio por WhatsApp ya escrito.</li>
+<li><strong>La app de tu cliente:</strong> ve su plan en el móvil y apunta cada sesión, su peso y sus medidas.</li>
+</ul>
+<p>Los datos de salud solo se guardan con el permiso del cliente, y la app no hace dietas. Tienes todo lo que incluye en la <a href="/programa-entrenadores-personales/">página para entrenadores personales</a>.</p>
+""",
+    shot=("entreno-plan-c", "Plan de entrenamiento por días en NirKanA: cada ejercicio con series, repeticiones y descanso", "El plan de un cliente, día a día (datos de ejemplo)"),
+    faq=[
+        ("¿Cada cuánto conviene medir a un cliente?",
+         "El peso, si quiere, cada semana y siempre en las mismas condiciones. Las medidas y las fotos, cada pocas semanas. Lo que cuenta es la tendencia, no el dato de un día."),
+        ("¿Qué es mejor, cuota mensual o bono de sesiones?",
+         "Depende de tus clientes. La cuota da ingresos estables y encaja con quien entrena todas las semanas; el bono encaja con quien viene de forma irregular. Muchos entrenadores ofrecen las dos y la sesión suelta."),
+        ("¿Puedo pasarle una dieta a mi cliente?",
+         "Las dietas personalizadas son cosa de un dietista-nutricionista. Como entrenador, lo prudente es dar pautas generales o trabajar con uno y pasarle a tu cliente el plan que haga ese profesional."),
+        ("¿Necesito permiso para guardar el peso y las fotos de mis clientes?",
+         "Son datos de salud: pide el permiso de tu cliente antes de guardarlos, explícale para qué los usas y bórralos si lo retira. Tu asesor te confirma el texto que conviene usar."),
+    ],
+)
+
 HUB = dict(
     title="Guías para llevar tu negocio: caja, stock, citas y facturas · NirKanA",
     description="Guías prácticas para autónomos y pequeños negocios: TPV, caja, comandas, stock, devoluciones, impresoras de tickets, citas, facturas y el trimestre con tu gestoría.",

@@ -9,14 +9,14 @@ import { resolve, dirname } from 'node:path';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const docs = resolve(root, 'docs');
-const SECTORS = ['tpv-restaurantes/', 'programa-peluquerias-estetica/', 'tpv-tiendas/', 'programa-facturacion-autonomos/', 'tpv-tienda-online/', 'programa-gestion-pequenas-empresas/'];
+const SECTORS = ['tpv-restaurantes/', 'programa-peluquerias-estetica/', 'tpv-tiendas/', 'programa-facturacion-autonomos/', 'tpv-tienda-online/', 'programa-gestion-pequenas-empresas/', 'programa-entrenadores-personales/'];
 // Las guías (ops/guias.py) pasan por las mismas comprobaciones que la portada y los sectores.
-const GUIDES = ['guias/', 'guias/que-es-un-tpv/', 'guias/arqueo-y-cierre-de-caja/', 'guias/control-de-stock-en-una-tienda/', 'guias/agenda-de-citas-para-peluquerias/',
+const GUIDES = ['guias/', 'guias/que-es-un-tpv/', 'guias/arqueo-y-cierre-de-caja/', 'guias/control-de-stock-en-una-tienda/', 'guias/agenda-de-citas-para-peluquerias/', 'guias/organizar-clientes-entrenador-personal/',
                 'guias/que-debe-llevar-una-factura/', 'guias/documentos-del-trimestre-para-la-gestoria/', 'guias/calcular-el-margen-de-un-producto/',
                 'guias/comandas-y-pantalla-de-cocina-en-un-bar/', 'guias/stock-de-tienda-online-y-tienda-fisica/', 'guias/devoluciones-y-cambios-en-una-tienda/',
                 'guias/como-elegir-una-impresora-de-tickets/'];
 // Las herramientas gratuitas (calculadoras, también generadas por ops/guias.py) pasan por las mismas comprobaciones.
-const TOOLS = ['herramientas/', 'herramientas/calculadora-de-arqueo-de-caja/', 'herramientas/calculadora-de-margen/'];
+const TOOLS = ['herramientas/', 'herramientas/calculadora-de-iva/', 'herramientas/calculadora-de-arqueo-de-caja/', 'herramientas/calculadora-de-margen/'];
 const PAGES = ['', ...SECTORS, ...GUIDES, ...TOOLS];
 // La entrada del enlace de TikTok (ops/guias.py) no se indexa ni está en el mapa del sitio, pero dice lo mismo que el resto de la web:
 // pasa las mismas comprobaciones de texto, de enlaces y de imágenes.

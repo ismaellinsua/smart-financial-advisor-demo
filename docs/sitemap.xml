@@ -2,11 +2,11 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://nirkana.es/</loc>
-    <lastmod>2026-10-27</lastmod>
+    <lastmod>2026-10-30</lastmod>
   </url>
   <url>
     <loc>https://nirkana.es/tpv-restaurantes/</loc>
-    <lastmod>2026-10-27</lastmod>
+    <lastmod>2026-10-30</lastmod>
   </url>
   <url>
     <loc>https://nirkana.es/programa-peluquerias-estetica/</loc>
@@ -14,19 +14,23 @@
   </url>
   <url>
     <loc>https://nirkana.es/tpv-tiendas/</loc>
-    <lastmod>2026-10-27</lastmod>
+    <lastmod>2026-10-30</lastmod>
   </url>
   <url>
     <loc>https://nirkana.es/programa-facturacion-autonomos/</loc>
-    <lastmod>2026-10-27</lastmod>
+    <lastmod>2026-10-30</lastmod>
   </url>
   <url>
     <loc>https://nirkana.es/tpv-tienda-online/</loc>
-    <lastmod>2026-10-27</lastmod>
+    <lastmod>2026-10-30</lastmod>
   </url>
   <url>
     <loc>https://nirkana.es/programa-gestion-pequenas-empresas/</loc>
-    <lastmod>2026-10-27</lastmod>
+    <lastmod>2026-10-30</lastmod>
+  </url>
+  <url>
+    <loc>https://nirkana.es/programa-entrenadores-personales/</loc>
+    <lastmod>2026-10-30</lastmod>
   </url>
   <url>
     <loc>https://nirkana.es/guias/</loc>
@@ -34,7 +38,7 @@
   </url>
   <url>
     <loc>https://nirkana.es/herramientas/</loc>
-    <lastmod>2026-10-27</lastmod>
+    <lastmod>2026-10-30</lastmod>
   </url>
   <url>
     <loc>https://nirkana.es/guias/que-es-un-tpv/</loc>
@@ -81,11 +85,19 @@
     <lastmod>2026-10-22</lastmod>
   </url>
   <url>
+    <loc>https://nirkana.es/guias/organizar-clientes-entrenador-personal/</loc>
+    <lastmod>2026-10-30</lastmod>
+  </url>
+  <url>
+    <loc>https://nirkana.es/herramientas/calculadora-de-iva/</loc>
+    <lastmod>2026-10-30</lastmod>
+  </url>
+  <url>
     <loc>https://nirkana.es/herramientas/calculadora-de-arqueo-de-caja/</loc>
     <lastmod>2026-10-30</lastmod>
   </url>
   <url>
     <loc>https://nirkana.es/herramientas/calculadora-de-margen/</loc>
-    <lastmod>2026-10-27</lastmod>
+    <lastmod>2026-10-30</lastmod>
   </url>
 </urlset>
