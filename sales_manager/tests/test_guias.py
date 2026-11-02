@@ -33,9 +33,13 @@ def test_every_guide_answers_with_plain_text_and_names_a_sector_and_two_more_gui
 
 def test_the_sitemap_lists_the_core_pages_both_hubs_every_guide_and_every_tool():
     xml = guias.sitemap()
-    assert xml.count("<loc>") == len(guias.CORE) + 2 + len(guias_texto.GUIDES) + len(herramientas_texto.TOOLS)
-    for page in ("guias/", "herramientas/", "tpv-tiendas/", "programa-gestion-pequenas-empresas/"):
+    assert xml.count("<loc>") == len(guias.CORE) + len(guias.LATER) + 2 + len(guias_texto.GUIDES) + len(herramientas_texto.TOOLS)
+    for page in ("guias/", "herramientas/", "tpv-tiendas/", "programa-gestion-pequenas-empresas/", *guias.LATER):
         assert f"https://nirkana.es/{page}" in xml
+    # A page written by hand later carries its own date, and the page exists.
+    for page, day in guias.LATER.items():
+        assert f"<loc>https://nirkana.es/{page}</loc>\n    <lastmod>{day}</lastmod>" in xml
+        assert (ROOT / "docs" / page / "index.html").exists()
 
 
 def test_the_tiktok_landing_is_not_indexed_and_not_in_the_sitemap():
