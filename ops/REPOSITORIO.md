@@ -28,6 +28,9 @@ desde tu ordenador: `git config --global user.email "esa-dirección"`. Para los 
 
 ## 3. Separar la web en su propio repositorio (10 minutos)
 
+> **Estado a 2/11/2026:** este paso se quedó a medias (copia del 22/10 en `nirkana-web`, dominio y cambios aquí). Antes
+> de seguir, lee `ops/WEB-UNA-FUENTE.md`: hoy la propuesta es dejar este repositorio como única fuente.
+
 La web (`docs/`) se publica con GitHub Pages, que en un repositorio privado necesita un plan de pago. Por eso va a un
 repositorio público propio, `nirkana-web`, antes de hacer privado este.
 

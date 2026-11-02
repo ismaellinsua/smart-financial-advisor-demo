@@ -9,7 +9,7 @@ import { resolve, dirname } from 'node:path';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const docs = resolve(root, 'docs');
-const SECTORS = ['tpv-restaurantes/', 'programa-peluquerias-estetica/', 'tpv-tiendas/', 'programa-facturacion-autonomos/', 'tpv-tienda-online/', 'programa-gestion-pequenas-empresas/', 'programa-entrenadores-personales/'];
+const SECTORS = ['tpv-restaurantes/', 'programa-peluquerias-estetica/', 'tpv-tiendas/', 'programa-facturacion-autonomos/', 'tpv-tienda-online/', 'programa-gestion-pequenas-empresas/', 'programa-entrenadores-personales/', 'programa-compraventa-reventa/'];
 // Las guías (ops/guias.py) pasan por las mismas comprobaciones que la portada y los sectores.
 const GUIDES = ['guias/', 'guias/que-es-un-tpv/', 'guias/arqueo-y-cierre-de-caja/', 'guias/control-de-stock-en-una-tienda/', 'guias/agenda-de-citas-para-peluquerias/', 'guias/organizar-clientes-entrenador-personal/',
                 'guias/que-debe-llevar-una-factura/', 'guias/documentos-del-trimestre-para-la-gestoria/', 'guias/calcular-el-margen-de-un-producto/',
