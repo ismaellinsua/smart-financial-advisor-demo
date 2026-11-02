@@ -33,6 +33,8 @@ BASE_PAGE_UPDATED = "2026-10-30"  # portada, sectores, índices y herramientas: 
 PUBLISHED = "2026-10-21"  # cuándo salieron las primeras guías; cada guía puede traer su propio `published` y `updated`
 MONTHS = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
 REFERENCE = "tpv-tiendas/index.html"
+# Sector pages written by hand after the shared date above, with the day each one was last changed.
+LATER = {"programa-compraventa-reventa/": "2026-11-02"}
 CORE = ["", "tpv-restaurantes/", "programa-peluquerias-estetica/", "tpv-tiendas/", "programa-facturacion-autonomos/", "tpv-tienda-online/",
         "programa-gestion-pequenas-empresas/", "programa-entrenadores-personales/"]
 CSP = ("default-src 'self'; img-src 'self' data: https://*.goatcounter.com https://nirkana-prueba.onrender.com; "
@@ -696,7 +698,8 @@ def render_tiktok() -> str:
 
 # ------------------------------------------------------------------------------------------------ files
 def sitemap() -> str:
-    paths = [(p, BASE_PAGE_UPDATED) for p in CORE + ["guias/", "herramientas/"]] + [(f"guias/{slug}/", dates(g)[1]) for slug, g in T.GUIDES.items()] \
+    paths = [(p, BASE_PAGE_UPDATED) for p in CORE] + list(LATER.items()) + [(p, BASE_PAGE_UPDATED) for p in ["guias/", "herramientas/"]] \
+        + [(f"guias/{slug}/", dates(g)[1]) for slug, g in T.GUIDES.items()] \
         + [(f"herramientas/{slug}/", t.get("updated", BASE_PAGE_UPDATED)) for slug, t in TT.TOOLS.items()]
     urls = "".join(f"  <url>\n    <loc>{SITE}/{p}</loc>\n    <lastmod>{day}</lastmod>\n  </url>\n" for p, day in paths)
     return f'<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n{urls}</urlset>\n'
