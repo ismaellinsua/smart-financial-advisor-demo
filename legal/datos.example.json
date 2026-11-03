@@ -1,7 +1,7 @@
 {
   "titular": "PENDIENTE (nombre y apellidos)",
   "nif": "PENDIENTE",
-  "domicilio": "PENDIENTE (calle, número, código postal, ciudad)",
+  "domicilio": "PENDIENTE (dirección donde recibas correo: no tiene que ser tu casa; un local o la de un negocio familiar con permiso. Un apartado de correos no sirve)",
   "email": "nirkana.oficial@gmail.com",
   "web": "https://nirkana.es",
   "url_condiciones": "https://app.nirkana.es/legal/condiciones.html",
@@ -9,9 +9,25 @@
   "meses_tras_baja": "12",
   "horario_soporte": "de lunes a viernes, de 9:00 a 18:00 (hora peninsular), salvo festivos",
   "subencargados": [
-    {"nombre": "Render Services, Inc.", "finalidad": "Servidor donde funciona la app", "ubicacion": "Unión Europea (Fráncfort, Alemania)"},
-    {"nombre": "Neon (Databricks, Inc.)", "finalidad": "Base de datos PostgreSQL", "ubicacion": "Unión Europea (Fráncfort, Alemania)"},
-    {"nombre": "GitHub, Inc. (Microsoft)", "finalidad": "Copias de seguridad diarias, cifradas antes de salir del servidor", "ubicacion": "Estados Unidos (Marco de Privacidad de Datos UE-EE. UU.)"},
-    {"nombre": "PENDIENTE: proveedor de email", "finalidad": "Envío de recordatorios de reservas, avisos y recuperación de contraseña", "ubicacion": "PENDIENTE"}
+    {
+      "nombre": "Render Services, Inc.",
+      "finalidad": "Servidor donde funciona la app",
+      "ubicacion": "Unión Europea (Fráncfort, Alemania)"
+    },
+    {
+      "nombre": "Neon (Databricks, Inc.)",
+      "finalidad": "Base de datos PostgreSQL",
+      "ubicacion": "Unión Europea (Fráncfort, Alemania)"
+    },
+    {
+      "nombre": "GitHub, Inc. (Microsoft)",
+      "finalidad": "Copias de seguridad diarias, cifradas antes de salir del servidor",
+      "ubicacion": "Estados Unidos (Marco de Privacidad de Datos UE-EE. UU.)"
+    },
+    {
+      "nombre": "PENDIENTE: proveedor de email",
+      "finalidad": "Envío de recordatorios de reservas, avisos y recuperación de contraseña",
+      "ubicacion": "PENDIENTE"
+    }
   ]
 }
