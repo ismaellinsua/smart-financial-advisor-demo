@@ -84,10 +84,10 @@ def test_by_default_only_the_aviso_legal_is_published_and_it_needs_only_its_own_
     assert {p.name for p in written} >= {"aviso-legal.html", "index.html", "privacidad.html"}
     assert legal.publish(data, docs) == [docs / "aviso-legal.html"]  # again: only the page itself is rewritten
 
-    # the privacy notice names the same person, with the NIF and address, and the date of the change
+    # the privacy notice names the same person and links to the aviso legal; the NIF and the address are only there
     privacy = (docs / "privacidad.html").read_text()
     assert "Ana Prueba &lt;b&gt; , titular".replace(" ,", ",") in privacy or "Ana Prueba &lt;b&gt;, titular" in privacy
-    assert "NIF 12345678Z; domicilio: Calle Mayor 1, 28001 Madrid" in privacy
+    assert "12345678Z" not in privacy and "Calle Mayor" not in privacy and 'href="aviso-legal.html"' in privacy
     assert "Última actualización: 7 de octubre de 2026." in privacy and "Ismael Linsua" not in privacy
     assert "<b>" not in privacy
 

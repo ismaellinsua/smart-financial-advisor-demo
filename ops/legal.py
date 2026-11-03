@@ -8,7 +8,8 @@
 The texts live in legal/ with gaps ({{nif}}, {{domicilio}}…); the owner's data goes in legal/datos.json (start from
 legal/datos.example.json). Nothing is written while a gap or a «PENDIENTE» remains: a legal page with a placeholder
 is worse than none. The page gets links in the website's footers, and the owner's identity (name, NIF, address) is
-also written into the «Responsable» paragraph of privacidad.html, so that both pages say the same.
+also written into the «Responsable» paragraph of privacidad.html (name and email only: the NIF and the address stay
+on the aviso legal, where the law asks for them).
 
 By default only the aviso legal (the website's own obligation, LSSI art. 10) is published. The conditions and the data
 processing contract that a business accepts are the ones of the NirKanA app (nirkana-app, app/static/legal/, served at
@@ -102,7 +103,11 @@ def link_footers(docs: Path, pages: tuple = DEFAULT_PAGES) -> list[Path]:
 
 
 def fill_holder(docs: Path, data: dict) -> list[Path]:
-    """The «Responsable» paragraph of the privacy notice gets the same identity as the aviso legal."""
+    """The «Responsable» paragraph of the privacy notice names the same person as the aviso legal.
+
+    Only the name and the email: the NIF and the address are published where the law asks for them (the aviso legal,
+    LSSI art. 10), and the privacy notice links there instead of repeating them.
+    """
     path = docs / "privacidad.html"
     if not path.exists():
         return []
@@ -110,8 +115,9 @@ def fill_holder(docs: Path, data: dict) -> list[Path]:
     found = HOLDER.search(text)
     if not found:
         return []
-    esc = {k: html.escape(str(data[k]), quote=True) for k in ("titular", "nif", "domicilio", "email", "fecha")}
-    paragraph = (f"      <p>{esc['titular']}, titular de NirKanA (NIF {esc['nif']}; domicilio: {esc['domicilio']}). "
+    esc = {k: html.escape(str(data[k]), quote=True) for k in ("titular", "email", "fecha")}
+    paragraph = (f"      <p>{esc['titular']}, titular de NirKanA (datos completos en el "
+                 f'<a href="aviso-legal.html">aviso legal</a>). '
                  f'Contacto: <a href="mailto:{esc["email"]}">{esc["email"]}</a>.</p>')
     filled = text[:found.start()] + found.group(1) + paragraph + found.group(2) + text[found.end():]
     filled = UPDATED.sub(f"<p>Última actualización: {esc['fecha']}.</p>", filled, count=1)

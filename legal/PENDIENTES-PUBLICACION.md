@@ -3,6 +3,9 @@
 **No generar ni publicar datos fiscales inventados.** La web sigue sin aviso legal definitivo hasta completar la identidad del titular por un canal privado.
 
 - Completar de forma privada `legal/datos.json` a partir de `legal/datos.example.json`: titular legal, NIF, domicilio válido y fecha.
+- **El titular no publica su domicilio particular** (decisión del 3/11/2026): el domicilio del aviso legal será otra
+  dirección donde reciba correo (un local, la de un negocio familiar con permiso…; un apartado de correos no sirve).
+  El NIF y esa dirección solo aparecen en el aviso legal; la privacidad nombra al titular y enlaza allí.
 - Ejecutar `python ops/legal.py --check` y después `python ops/legal.py` solamente con datos verificados y autorización del titular.
 - Revisar `docs/aviso-legal.html`, el pie de las páginas y `docs/privacidad.html` antes de publicar; solicitar revisión profesional.
 - Verificar en producción cookies, localStorage, sessionStorage, IndexedDB y peticiones de terceros de web y demo; si aparecen tecnologías no esenciales, implantar consentimiento previo real.
