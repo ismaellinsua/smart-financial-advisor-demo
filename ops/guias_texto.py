@@ -207,7 +207,7 @@ guide(
 guide(
     slug="comandas-y-pantalla-de-cocina-en-un-bar",
     title="Comandas y pantalla de cocina en un bar o restaurante · NirKanA",
-    description="Qué debe llevar una comanda, cuándo conviene pasar del papel a una pantalla de cocina y cómo coordinar sala y cocina en un bar o restaurante, con los errores más comunes.",
+    description="Qué debe llevar una comanda, cuándo pasar del papel a una pantalla de cocina y cómo coordinar sala y cocina en un bar, con los errores más comunes.",
     h1="Comandas y pantalla de cocina en un bar o restaurante",
     lead="La comanda es el mensaje que va de la sala a la cocina. Si llega tarde, incompleta o ilegible, se nota en el plato y en la mesa. Aquí tienes cómo ordenarla, con papel o con pantalla.",
     group="Bares y restaurantes",
@@ -567,7 +567,7 @@ guide(
 guide(
     slug="documentos-del-trimestre-para-la-gestoria",
     title="Documentos del trimestre para tu gestoría: lista y rutina · NirKanA",
-    description="Qué documentos preparar cada trimestre para tu gestoría (ventas, facturas, gastos y cierres de caja) y una rutina de quince minutos a la semana para no llegar con prisas.",
+    description="Qué documentos preparar cada trimestre para tu gestoría (ventas, facturas, gastos y cierres de caja) y una rutina de 15 minutos a la semana.",
     h1="Qué documentos preparar cada trimestre para tu gestoría",
     lead="Llegar al final del trimestre con las ventas, las facturas y los gastos ordenados ahorra prisas y errores. Esta lista y una rutina de quince minutos a la semana lo dejan casi hecho.",
     group="Facturas y gestoría",
@@ -840,7 +840,7 @@ guide(
 guide(
     slug="devoluciones-y-cambios-en-una-tienda",
     title="Devoluciones y cambios en una tienda: cómo organizarlos · NirKanA",
-    description="Cómo organizar las devoluciones y los cambios en una tienda: política escrita, pasos para registrarlos y qué cambia en la caja, el stock y la factura, con los errores más comunes.",
+    description="Cómo organizar devoluciones y cambios en una tienda: política escrita, cómo registrarlos y qué cambia en la caja, el stock y la factura.",
     h1="Devoluciones y cambios en una tienda: cómo organizarlos",
     lead="Una devolución bien gestionada deja tranquilo al cliente y las cuentas en orden; una mal gestionada descuadra la caja, el stock y a veces la factura. Este es un método sencillo para organizarlas.",
     group="Cobrar y cuadrar la caja",
@@ -1063,7 +1063,7 @@ TIKTOK = dict(
 guide(
     slug="organizar-clientes-entrenador-personal",
     title="Cómo organizar a tus clientes como entrenador personal · NirKanA",
-    description="Cómo llevar a tus clientes como entrenador personal: la ficha de cada uno, planes que puedas reutilizar, el seguimiento, las cuotas y los bonos, y una rutina semanal.",
+    description="Cómo llevar a tus clientes como entrenador personal: ficha de cada uno, planes reutilizables, seguimiento, cuotas y bonos, y una rutina semanal.",
     h1="Cómo organizar a tus clientes como entrenador personal: ficha, planes, seguimiento y cobros",
     lead="Con cinco clientes basta con una libreta y el WhatsApp. Con veinte, se te olvida quién tiene el bono a punto de acabar, qué carga movía cada uno o a quién le toca revisar el plan. Esta guía te propone una forma de organizarlo que se sostiene semana a semana.",
     group="Citas y clientes",
