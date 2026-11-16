@@ -3,7 +3,7 @@
 # Images pinned by digest so every build uses the same bytes; Dependabot proposes updates.
 FROM caddy:2@sha256:685ae3d7c34d9b5f8caeddc5d14051db7bbd88ff1f5a2fa0c16bd8ca328fb7af AS caddy
 
-FROM python:3.14-slim@sha256:a2b82f3c48559aa0a8446d9af49826b6e2b2016f4cd2afabfe6013ec53729170
+FROM python:3.15-slim@sha256:65a65fc7b30b06cb6df4930fd4650697cb23f4c2698ab81fc87e4b031bc36928
 # REQUIRE_DATABASE: the container's disk is wiped on every deploy, so the app refuses to keep data on it.
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 PORT=8080 REQUIRE_DATABASE=1
 COPY --from=caddy /usr/bin/caddy /usr/local/bin/caddy
